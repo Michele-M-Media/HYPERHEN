@@ -8,12 +8,6 @@
 </p>
 
 <p align="center">
-  <a href="README_ZH.md">简体中文</a>
-  ·
-  <b>English</b>
-</p>
-
-<p align="center">
   <b><a href="#features">Features</a></b>
   ·
   <b><a href="#run">Run</a></b>
@@ -41,11 +35,6 @@
   HyperHEN is a modular payload stack for the PS5. One entry ELF prepares
   the system, injects a ShellUI Toolbox,<br/>and then runs overlays, cheats,
   payloads, and background services.
-</p>
-
-<p align="center">
-  <img src="assets/previews/hyperhen-debug-menu-preview.png"
-       alt="HyperHEN Toolbox visual preview" width="960"/>
 </p>
 
 The v0.5 visual system uses native Settings XML, a unified 64 px icon family,
