@@ -480,8 +480,6 @@ per-component `HYPERHEN_VENDOR_LOCK.md` files under `third_party/`.
 
 ### Testers
 
-即食面, 雨之声, 大饼电玩, 安定区, 随风, 麒麟, 尼克库尔曼, 云, 啊烦, 小小蔡, B站谢锡榆, 荆枫, 苏打先森, 噢, 天天向上
-
 Thanks as well to everyone else who tested, researched, or sent usable feedback.
 
 <br>
