@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "pl",
+    "bcp47": "pl-PL",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "Instalator sieciowy został włączony",
+    "notify.pkgnet.disabled": "Instalator sieciowy został wyłączony",
+    "notify.pkgnet.toggle_failed": "Nie można zmienić stanu instalatora sieciowego",
+    "notify.pkgnet.next_boot_on": "Instalator sieciowy uruchomi się przy starcie HyperHEN",
+    "notify.pkgnet.next_boot_off": "Instalator sieciowy nie uruchomi się przy starcie HyperHEN",
+    "notify.pkgnet.receiving": "Odbieranie pakietu",
+    "notify.pkgnet.received": "Pakiet odebrany: %s",
+    "notify.pkgnet.reusing": "Pakiet jest już na PS5: %s",
+    "notify.pkgnet.install_failed": "Instalacja nie powiodła się (%s)",
+    "notify.pkgnet.reinstall_accepted": "Ponowna instalacja zaakceptowana.",
+    "notify.pkgnet.still_installing": "Instalacja wciąż trwa.",
+    "notify.pkgnet.takeover_backoff": "Trwa inna instalacja; ponawiam próbę.",
+    "notify.pkgnet.socket_failed": "Nie udało się otworzyć gniazda sieciowego.",
+    "notify.pkgnet.bind_failed": "Nie udało się związać portu %u: %s",
+    "notify.pkgnet.listening": "Instalator sieciowy nasłuchuje na porcie %u.",
+    "notify.pkgnet.webui_listening": "Interfejs webowy nasłuchuje na porcie %u.",
+    "notify.pkgnet.escalation_failed": "Podniesienie uprawnień nie powiodło się.",
+    "notify.pkg.installing": "Instalowanie pakietu z:\n%s",
+    "notify.pkg.finished": "Instalacja zakończona.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "Otwórz http://<IP-PS5>:<port-WebUI> w przeglądarce",
+    "ui.server": "Serwer",
+    "ui.enabled": "Włączony",
+    "ui.api_port": "Port API HyperDPI",
+    "ui.webui_port": "Port WebUI",
+    "ui.restart": "Uruchom serwer ponownie",
+    "ui.doc_description": "Skonfiguruj instalator pakietów przez przeglądarkę"
+  }
+}

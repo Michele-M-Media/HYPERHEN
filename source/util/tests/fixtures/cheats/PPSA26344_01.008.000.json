@@ -1,0 +1,59 @@
+{
+    "name": "Ghost of Y\u014dtei",
+    "id": "PPSA26344",
+    "version": "01.008.000",
+    "process": "eboot.bin",
+    "mods": [
+        {
+            "name": "Infi Health",
+            "type": "checkbox",
+            "memory": [
+                {
+                    "offset": "16CE800",
+                    "on": "813F28A8F701751183BF28010000007508C5FA10870C180000C5FA118704180000E9FCFDCBFF",
+                    "off": "0000000000000000000000000000000000000000000000000000000000000000000000000000"
+                },
+                {
+                    "offset": "138E61A",
+                    "on": "E9E1013400909090",
+                    "off": "C5FA118704180000"
+                }
+            ]
+        },
+        {
+            "name": "1 Hit Kill",
+            "type": "checkbox",
+            "memory": [
+                {
+                    "offset": "16CE850",
+                    "on": "664181FED8B575030F57C0C5FA108F04180000E9B2FDCBFF",
+                    "off": "000000000000000000000000000000000000000000000000"
+                },
+                {
+                    "offset": "138E612",
+                    "on": "E939023400909090",
+                    "off": "C5FA108F04180000"
+                }
+            ]
+        },
+        {
+            "name": "Max Money (Buy or Sell)",
+            "type": "checkbox",
+            "memory": [
+                {
+                    "offset": "16CF800",
+                    "on": "EB029000BA7F969800438954AC20E9C6E55BFF",
+                    "off": "00000000000000000000000000000000000000"
+                },
+                {
+                    "offset": "C8DDD4",
+                    "on": "E9271AA400",
+                    "off": "438954AC20"
+                }
+            ]
+        }
+    ],
+    "credits": [
+        "Yharnam"
+    ]
+}

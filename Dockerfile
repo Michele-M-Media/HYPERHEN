@@ -1,0 +1,87 @@
+FROM ubuntu:24.04
+
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PATH="/usr/local/bin:/usr/lib/llvm-18/bin:/opt/ps5-payload-sdk/bin:${PATH}" \
+    PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk \
+    KEYSTONE_PREFIX=/usr/local \
+    LLVM_CONFIG=/usr/lib/llvm-18/bin/llvm-config
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      bash \
+      build-essential \
+      ca-certificates \
+      clang-18 \
+      cmake \
+      curl \
+      file \
+      lld-18 \
+      llvm-18 \
+      make \
+      nodejs \
+      npm \
+      meson \
+      nasm \
+      ninja-build \
+      passwd \
+      pkg-config \
+      python3 \
+      python3-pip \
+      python3-pyelftools \
+      socat \
+      unzip \
+      wget \
+      xz-utils \
+      xxd \
+      yasm \
+      libssl-dev \
+      librsvg2-bin \
+      git \
+    && ln -sf /usr/lib/llvm-18/bin/llvm-config /usr/local/bin/llvm-config && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY . /workspace
+
+RUN find /workspace -type f \( -name "*.sh" -o -name "*.bash" \) -print0 | xargs -0 -r sed -i 's/\r$//' && \
+    /workspace/scripts/sync_dependencies.sh && \
+    git clone --depth 1 https://github.com/ps5-payload-dev/sdk.git /tmp/ps5-payload-sdk-src && \
+    export LLVM_CONFIG=/usr/lib/llvm-18/bin/llvm-config && \
+    export PATH=/usr/lib/llvm-18/bin:${PATH} && \
+    make -C /tmp/ps5-payload-sdk-src DESTDIR=/opt/ps5-payload-sdk install && \
+    cd /tmp/ps5-payload-sdk-src && \
+    export LLVM_CONFIG=/usr/lib/llvm-18/bin/llvm-config && \
+    ./libcxx.sh && \
+    cd /workspace && \
+    rm -rf /tmp/ps5-payload-sdk-src
+
+# Keystone engine for host unit tests. The wheel ships libkeystone.so inside
+# the python package; expose it under /usr/local/lib where the tests Makefile
+# (KEYSTONE_PREFIX=/usr/local) and the runtime loader both find it. Headers
+# come from third_party/keystone/include, already vendored in the repo.
+RUN pip3 install --break-system-packages --no-cache-dir keystone-engine && \
+    KSO=$(python3 -c 'import keystone, os; print(os.path.join(os.path.dirname(keystone.__file__), "libkeystone.so"))') && \
+    ln -sf "$KSO" /usr/local/lib/libkeystone.so && \
+    ln -sf "$KSO" /usr/local/lib/libkeystone.so.0 && \
+    ldconfig
+
+RUN if getent group "${HOST_GID}" >/dev/null; then \
+            builder_group="$(getent group "${HOST_GID}" | cut -d: -f1)"; \
+        else \
+            groupadd --gid "${HOST_GID}" builder; \
+            builder_group=builder; \
+        fi && \
+        existing_user="$(getent passwd "${HOST_UID}" | cut -d: -f1 || true)" && \
+        if [ -n "${existing_user}" ] && [ "${existing_user}" != builder ]; then \
+            usermod --login builder "${existing_user}" && \
+            usermod --home /home/builder --move-home builder; \
+        elif ! id builder >/dev/null 2>&1; then \
+            useradd --uid "${HOST_UID}" --gid "${HOST_GID}" --create-home --shell /bin/bash builder; \
+        fi && \
+        usermod --gid "${HOST_GID}" --shell /bin/bash builder && \
+        chown -R builder:"${builder_group}" /workspace
+
+USER builder
+CMD ["/bin/bash", "-lc", "set -euo pipefail; rm -rf /tmp/hyperhen-build; cp -a /workspace/. /tmp/hyperhen-build; python3 -c \"from pathlib import Path; files=list(Path('/tmp/hyperhen-build').rglob('*.sh'))+list(Path('/tmp/hyperhen-build').rglob('*.bash')); [p.write_bytes(p.read_bytes().replace(bytes([13]), bytes())) for p in files]\"; cd /tmp/hyperhen-build; ./scripts/sync_dependencies.sh; export PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk; export PATH=/usr/lib/llvm-18/bin:${PS5_PAYLOAD_SDK}/bin:${PATH}; export LLVM_CONFIG=/usr/lib/llvm-18/bin/llvm-config; ./scripts/build.sh --jobs 8; rm -rf /workspace/build; cp -a /tmp/hyperhen-build/build /workspace/build"]

@@ -1,0 +1,44 @@
+########################################################################
+#  Copyright(c) 2024 Intel Corporation All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#    * Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in
+#      the documentation and/or other materials provided with the
+#      distribution.
+#    * Neither the name of Intel Corporation nor the names of its
+#      contributors may be used to endorse or promote products derived
+#      from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+#  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+#  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+#  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+#  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+#  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+########################################################################
+
+src_include     += -I $(srcdir)/fips
+extern_hdrs     += include/isa-l_crypto/isal_crypto_api.h include/isa-l_crypto/aes_xts.h include/isa-l_crypto/aes_keyexp.h include/isa-l_crypto/sha1_mb.h include/isa-l_crypto/sha256_mb.h
+
+lsrc_x86_64     += fips/self_tests.c fips/aes_self_tests.c
+lsrc_aarch64    += fips/self_tests_generic.c fips/aes_self_tests.c
+lsrc_riscv64    += fips/self_tests_generic.c
+lsrc            += fips/sha_self_tests.c
+
+lsrc_x86_64     += fips/asm_self_tests.asm
+
+lsrc_base_aliases += fips/self_tests_generic.c
+
+other_src   += include/internal/test.h include/isa-l_crypto/types.h include/reg_sizes.asm include/internal/aes_keyexp_internal.h include/internal/aes_cbc_internal.h
+
+check_tests += fips/self_tests_test

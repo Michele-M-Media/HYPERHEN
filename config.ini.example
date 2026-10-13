@@ -1,0 +1,146 @@
+# HyperHEN configuration
+#
+# This file uses semantic schema version 1.
+# Boolean fields accept true or false.
+# Keep key names lowercase and do not add inline comments after values.
+
+[meta]
+# schema_version identifies this config format.
+# Available values: 1
+schema_version=1
+
+[toolbox]
+# language controls the Toolbox UI and notification language.
+# Available values: system, zh-Hans, zh-Hant, en, ja, ko, fr, de, it, es,
+# pt-BR, pt-PT, pl, ru, ar, th, nl, fi, sv, da, no, tr, cs, hu, el, ro, vi, id, uk
+# system follows the PS5 system language when it can be detected.
+language=system
+
+[startup]
+# open_after_load chooses which page opens after HyperHEN finishes loading.
+# Available values: none, home_menu
+open_after_load=none
+# hype_voice plays the same embedded “HyperHEN START!” cue for every system
+# language after the selected firmware engine is ready.
+# Available values: true, false
+hype_voice=true
+# show_thanks shows the final HyperHEN READY toast when HyperHEN starts.
+# Available values: true, false
+show_thanks=true
+
+[logging]
+# level controls how much HyperHEN records to its log files.
+# Available values: off, error, warn, info, debug, trace
+# With this line absent the build's default applies: trace in a debug build
+# (so a payload built for log collection is verbose out of the box) and info
+# in a release build. An explicit value here always wins, so delete the line
+# if you want a debug build's default back.
+# Release builds compile out trace, so trace behaves as debug there.
+level=info
+# max_bytes caps a single log file before it rotates, in bytes.
+# A k or m suffix is accepted, e.g. 512k or 2m.
+# Three backups are kept next to the live file, so the retained history is
+# 4x this value (the default 786432 keeps 3 MiB).
+# Range: 65536 .. 67108864 (256 KiB .. 64 MiB per file).
+# Raise it before enabling debug or trace: at trace the default budget can
+# fill in seconds and evict the startup records.
+max_bytes=786432
+
+[home_screen]
+# show_title_ids displays app Title IDs on the PS5 home screen.
+# Available values: true, false
+show_title_ids=false
+
+[game_menu]
+# show_hyperhen_options adds HyperHEN entries to the game options menu.
+# Available values: true, false
+show_hyperhen_options=true
+
+[rest_mode]
+# resume_reinject_delay_seconds waits after trophy SPRX are ready,
+# then re-injects the Toolbox on Rest Mode resume.
+# Available values: 0 through 255 seconds.
+resume_reinject_delay_seconds=10
+
+[cheats]
+# mirror selects the git host for online cheat catalogs.
+# Available values: auto, github, cnb
+# auto uses cnb.cool when the UI/system language is zh-Hans, otherwise GitHub.
+mirror=auto
+
+[app_jailbreak]
+# enabled controls the App lifecycle and sandbox event listeners. When false,
+# HyperHEN does not register either listener.
+# Available values: true, false
+enabled=true
+# debug_notifications shows a notification when HyperHEN jailbreaks an app.
+# Available values: true, false
+debug_notifications=false
+# exact_title_ids is a comma-separated list of exact 9-character Title IDs.
+# Use none to disable all exact Title IDs; maximum 20 entries.
+exact_title_ids=ITEM00001,NPXS39041,PKGI13337,PKGI12345,TOOL00001
+# title_id_prefixes is a comma-separated list of uppercase prefixes.
+# Use none to disable prefix matching; bare wildcards are not accepted.
+title_id_prefixes=LAPY
+
+[cooling]
+# fan_control chooses between stock fan behavior and a manual threshold.
+# Available values: automatic, temperature_threshold
+fan_control=automatic
+# temperature_threshold_celsius is used when fan_control is temperature_threshold.
+# Available values: 0 through 100
+temperature_threshold_celsius=77
+
+[overlay]
+# enabled shows or hides the complete game monitor bar.
+# Available values: true, false
+enabled=true
+# background controls the translucent panel behind the monitor bar.
+# Available values: true, false
+background=true
+# edge chooses the screen edge used by the monitor bar.
+# Available values: top, bottom
+edge=top
+# align packs metrics to the left, center, or right of the bar.
+# Available values: left, center, right
+align=center
+# show_cpu displays CPU temperature and usage.
+# Available values: true, false
+show_cpu=true
+# cpu_usage_mode controls whether CPU usage is averaged or per core.
+# Available values: average, per_core
+cpu_usage_mode=average
+# show_gpu displays GPU temperature and usage.
+# Available values: true, false
+show_gpu=true
+# show_fps displays the skip-hook in-game frame rate.
+# Available values: true, false
+show_fps=true
+# show_memory displays memory usage.
+# Available values: true, false
+show_memory=true
+# show_ip_address displays the console LAN IP address.
+# Available values: true, false
+show_ip_address=false
+# show_fan_duty displays the current fan duty in percent.
+# Available values: true, false
+show_fan_duty=false
+# font_size sets the monitor bar text size.
+# Available values: small, medium, large
+font_size=medium
+# order is the left-to-right metric sequence on the bar.
+# Available values: comma-separated fps, cpu, gpu, memory, ip, fan
+order=fps,cpu,gpu,memory,ip,fan
+
+[shortcuts]
+# cheats_menu controls the shortcut that opens the cheats menu.
+# Available values: off, r3_l3, l2_triangle, long_options, long_share, share
+cheats_menu=off
+# toolbox controls the shortcut that opens the HyperHEN Toolbox.
+# Available values: off, l2_r3, long_share, share
+toolbox=off
+
+[kstuff]
+# autoload loads kstuff when HyperHEN starts.
+# Available values: true, false
+autoload=true

@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "zh-Hans",
+    "bcp47": "zh-CN",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "网络安装器已启用",
+    "notify.pkgnet.disabled": "网络安装器已停用",
+    "notify.pkgnet.toggle_failed": "无法更改网络安装程序状态",
+    "notify.pkgnet.next_boot_on": "下次启动 HyperHEN 时将启动网络安装器",
+    "notify.pkgnet.next_boot_off": "下次启动 HyperHEN 时不会启动网络安装器",
+    "notify.pkgnet.receiving": "正在接收软件包",
+    "notify.pkgnet.received": "已接收软件包：%s",
+    "notify.pkgnet.reusing": "软件包已在 PS5 上：%s",
+    "notify.pkgnet.install_failed": "安装失败（%s）",
+    "notify.pkgnet.reinstall_accepted": "已接受重新安装。",
+    "notify.pkgnet.still_installing": "安装仍在进行中。",
+    "notify.pkgnet.takeover_backoff": "有另一个安装正在运行，正在重试。",
+    "notify.pkgnet.socket_failed": "无法打开网络套接字。",
+    "notify.pkgnet.bind_failed": "无法绑定端口 %u：%s",
+    "notify.pkgnet.listening": "网络安装程序正在监听端口 %u。",
+    "notify.pkgnet.webui_listening": "Web UI 正在监听端口 %u。",
+    "notify.pkgnet.escalation_failed": "权限提升失败。",
+    "notify.pkg.installing": "正在从以下位置安装软件包：\n%s",
+    "notify.pkg.finished": "安装结束。",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "在浏览器中打开 http://<PS5 IP>:<WebUI 端口>",
+    "ui.server": "服务器",
+    "ui.enabled": "已启用",
+    "ui.api_port": "HyperDPI API 端口",
+    "ui.webui_port": "WebUI 端口",
+    "ui.restart": "重启服务器",
+    "ui.doc_description": "配置基于浏览器的软件包安装程序"
+  }
+}

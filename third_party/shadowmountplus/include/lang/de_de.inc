@@ -1,0 +1,81 @@
+static const char *const g_de_de[SM_L10N_COUNT] = {
+    /* English: Go to Debug Settings */
+    [SM_L10N_ACTION_DEBUG_SETTINGS] = "Zu den Debug-Einstellungen",
+    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA */
+    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
+    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u */
+    [SM_L10N_STARTUP_WEB] =
+        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+    /* English: HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2. */
+    [SM_L10N_RECURSIVE_SCAN_DEPRECATED] = "HyperHEN Automount: recursive_scan=1 ist veraltet, scan_depth=2 wird verwendet.",
+    /* English: HyperHEN Automount: scan depth %u enabled. */
+    [SM_L10N_SCAN_DEPTH_ENABLED] = "HyperHEN Automount: Scan-Tiefe %u ist aktiviert.",
+    /* English: Backport overlay failed: %s\n%s\n0x%08X */
+    [SM_L10N_BACKPORT_OVERLAY_FAILED] = "Backport-Overlay fehlgeschlagen: %s\n%s\n0x%08X",
+    /* English: Emulators applied to game: %s */
+    [SM_L10N_GAME_EMULATORS_APPLIED] = "Emulatoren auf Spiel angewendet: %s",
+    /* English: Backport applied to game: %s */
+    [SM_L10N_GAME_BACKPORTED] = "Spiel backportiert: %s",
+    /* English: Backport applied to game: %s\nEmulators updated */
+    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "Spiel backportiert: %s\nEmulatoren aktualisiert",
+    /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nSaved image_sector override: %u.\nTry mounting again. */
+    [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] = "Einbindung des Images abgelehnt:\n%s\nDie Clustergröße ist zu klein (%llu < %u).\nimage_sector-Überschreibung gespeichert: %u.\nVersuche es erneut.",
+    /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nUse a larger cluster size in the image or lower sector size in config. */
+    [SM_L10N_IMAGE_REJECTED_CLUSTER_CONFIG] = "Einbindung des Images abgelehnt:\n%s\nDie Clustergröße ist zu klein (%llu < %u).\nVerwende im Image eine größere Clustergröße oder in der Konfiguration eine kleinere Sektorgröße.",
+    /* English: Register failed: %s (%s)\nAppInstallTitleDir unavailable */
+    [SM_L10N_REGISTER_FAILED_UNAVAILABLE] = "Registrierung fehlgeschlagen: %s (%s)\nAppInstallTitleDir nicht verfügbar",
+    /* English: Register failed: %s (%s)\nTitleDir bridge unavailable */
+    [SM_L10N_REGISTER_BRIDGE_UNAVAILABLE] = "Registrierung fehlgeschlagen: %s (%s)\nTitleDir-Bridge nicht verfügbar",
+    /* English: Register failed: %s (%s)\ncode=0x%08X */
+    [SM_L10N_REGISTER_FAILED_CODE] = "Registrierung fehlgeschlagen: %s (%s)\nCode=0x%08X",
+    /* English: Installing: %s (%s)... */
+    [SM_L10N_INSTALLING] = "Installiere: %s (%s)...",
+    /* English: Installed: %s */
+    [SM_L10N_INSTALLED] = "Installiert: %s",
+    /* English: Unknown */
+    [SM_L10N_UNKNOWN] = "Unbekannt",
+    /* English: Image mount failed: 0x%08X (%s)\n%s */
+    [SM_L10N_IMAGE_MOUNT_FAILED] = "Einbindung des Images fehlgeschlagen: 0x%08X (%s)\n%s",
+    /* English: Filesystem cluster size (%llu) is smaller than device sector size (%u) for %s */
+    [SM_L10N_FS_CLUSTER_SMALL] = "Dateisystem-Clustergröße (%llu) ist kleiner als Gerätesektorgröße (%u) für %s",
+    /* English: Mounted image is unreadable or damaged */
+    [SM_L10N_IMAGE_UNREADABLE_DAMAGED] = "Gemountetes Image ist nicht lesbar oder beschädigt",
+    /* English: Image cache full (%u entries), cannot track mount %s */
+    [SM_L10N_IMAGE_CACHE_FULL_TRACK] = "Image-Cache voll (%u Einträge), Einbindung %s kann nicht verfolgt werden",
+    /* English: Install failed: %s (%s)\nTimed out after 5 minutes */
+    [SM_L10N_INSTALL_FAILED_TIMEOUT] = "Installation fehlgeschlagen: %s (%s)\nZeitüberschreitung nach 5 Minuten",
+    /* English: Batch install queued (%d): */
+    [SM_L10N_BATCH_INSTALL_QUEUED] = "Batch-Installation eingereiht (%d):",
+    /* English: \n... and %d more */
+    [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... und %d weitere",
+    /* English: Batch install failed for %d app(s).\ncode=0x%08X */
+    [SM_L10N_BATCH_INSTALL_FAILED] = "Batch-Installation für %d Apps fehlgeschlagen.\nCode=0x%08X",
+    /* English: Missing/invalid param.json:\n%s */
+    [SM_L10N_MISSING_PARAM] = "param.json fehlt oder ist ungültig:\n%s",
+    /* English: Found %d new games. Processing... */
+    [SM_L10N_FOUND_NEW_GAMES] = "%d neue Spiele gefunden. Verarbeitung läuft...",
+    /* English: Library synchronized.\nFound %d games. */
+    [SM_L10N_LIBRARY_SYNCED] = "Bibliothek synchronisiert.\n%d Spiele gefunden.",
+    /* English: HyperHEN Automount: config reloaded. */
+    [SM_L10N_CONFIG_RELOADED] = "HyperHEN Automount: Konfiguration neu geladen.",
+    /* English: Duplicate %s ignored:\n%s\nexisting: %s */
+    [SM_L10N_DUPLICATE_IGNORED] = "Duplikat %s ignoriert:\n%s\nvorhanden: %s",
+    /* English: AMPR emulator updated */
+    [SM_L10N_AMPR_EMULATOR_UPDATED] = "AMPR-Emulator aktualisiert",
+    /* English: HyperHEN Automount: failed to install ShellCore hooks */
+    [SM_L10N_SHELLCORE_HOOKS_FAILED] = "HyperHEN Automount: ShellCore-Hooks konnten nicht installiert werden",
+    /* English: Target temperature %u °C → %u °C */
+    [SM_L10N_TEMPERATURE_TRANSITION] = "Zieltemperatur %u °C → %u °C",
+    /* English: External drive %s connected\nFree %llu.%llu GB of %llu.%llu (Block size %llu KB)\nGames on drive: %d%s */
+    [SM_L10N_USB_CONNECTED_SCANNING] = "Externes Laufwerk %s verbunden.\nFrei: %llu.%llu von %llu.%llu GB (Blockgröße %llu KB)\nSpiele auf dem Laufwerk: %d%s",
+    /* English: \nFor maximum performance, use a cluster size of no more than 64 KB */
+    [SM_L10N_USB_CLUSTER_RECOMMENDATION] = "\nVerwenden Sie für maximale Leistung eine Clustergröße von höchstens 64 KB",
+    /* English: External drive %s disconnected */
+    [SM_L10N_USB_DISCONNECTED] = "Externes Laufwerk %s getrennt",
+    /* English: Game %s crashed. */
+    [SM_L10N_GAME_CRASHED] = "Das Spiel %s ist abgestürzt.",
+    /* English: Error in game %s:\n%s */
+    [SM_L10N_GAME_ERROR] = "Fehler im Spiel %s:\n%s",
+    /* English: External drive %s connected */
+    [SM_L10N_USB_CONNECTED] = "Externes Laufwerk %s verbunden.",
+};

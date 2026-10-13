@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "fr",
+    "bcp47": "fr-FR",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "Installateur réseau activé",
+    "notify.pkgnet.disabled": "Installateur réseau désactivé",
+    "notify.pkgnet.toggle_failed": "Impossible de modifier l'état de l'installateur réseau",
+    "notify.pkgnet.next_boot_on": "L’installateur réseau démarrera au lancement d’HyperHEN",
+    "notify.pkgnet.next_boot_off": "L’installateur réseau ne démarrera pas au lancement d’HyperHEN",
+    "notify.pkgnet.receiving": "Réception du paquet",
+    "notify.pkgnet.received": "Paquet reçu : %s",
+    "notify.pkgnet.reusing": "Paquet déjà présent sur la PS5 : %s",
+    "notify.pkgnet.install_failed": "Échec de l'installation (%s)",
+    "notify.pkgnet.reinstall_accepted": "Réinstallation acceptée.",
+    "notify.pkgnet.still_installing": "L'installation est toujours en cours.",
+    "notify.pkgnet.takeover_backoff": "Une autre installation est en cours ; nouvelle tentative.",
+    "notify.pkgnet.socket_failed": "Impossible d'ouvrir la socket réseau.",
+    "notify.pkgnet.bind_failed": "Impossible de lier le port %u : %s",
+    "notify.pkgnet.listening": "L'installateur réseau est à l'écoute sur le port %u.",
+    "notify.pkgnet.webui_listening": "L'interface web est à l'écoute sur le port %u.",
+    "notify.pkgnet.escalation_failed": "Échec de l'élévation de privilèges.",
+    "notify.pkg.installing": "Installation du paquet depuis :\n%s",
+    "notify.pkg.finished": "Installation terminée.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "Ouvrez http://<IP-PS5>:<port-WebUI> dans un navigateur",
+    "ui.server": "Serveur",
+    "ui.enabled": "Activé",
+    "ui.api_port": "Port API HyperDPI",
+    "ui.webui_port": "Port WebUI",
+    "ui.restart": "Redémarrer le serveur",
+    "ui.doc_description": "Configurer l'installeur de paquets via navigateur"
+  }
+}

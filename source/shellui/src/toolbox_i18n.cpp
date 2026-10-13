@@ -1,0 +1,426 @@
+/* Copyright (C) 2025 OnionHEN / LightningMods */
+
+#include "toolbox_i18n.hpp"
+#include <onion/log.h>
+#include <onion/notify_i18n.h>
+
+#ifdef ONION_HOST_TEST
+extern "C" int sceSystemServiceParamGetInt(int param_id, int *value);
+#else
+#include "external_symbols.hpp"
+#endif
+
+#include <cstdio>
+#include <cstring>
+
+namespace toolbox_i18n {
+namespace {
+
+#include "toolbox_i18n_catalog.inc"
+
+const Entry *find_entry(const char *key) {
+  if (!key)
+    return nullptr;
+  for (const Entry &e : kTable) {
+    if (std::strcmp(e.key, key) == 0)
+      return &e;
+  }
+  return nullptr;
+}
+
+Lang lang_from_notify(onion_notify_language_t language) {
+  switch (language) {
+  case ONION_NOTIFY_LANG_ZH_HANS:
+    return Lang::ZhHans;
+  case ONION_NOTIFY_LANG_AR:
+    return Lang::Ar;
+  case ONION_NOTIFY_LANG_ZH_HANT:
+    return Lang::ZhHant;
+  case ONION_NOTIFY_LANG_JA:
+    return Lang::Ja;
+  case ONION_NOTIFY_LANG_FR:
+    return Lang::Fr;
+  case ONION_NOTIFY_LANG_DE:
+    return Lang::De;
+  case ONION_NOTIFY_LANG_KO:
+    return Lang::Ko;
+  case ONION_NOTIFY_LANG_ES:
+    return Lang::Es;
+  case ONION_NOTIFY_LANG_PT_BR:
+    return Lang::PtBr;
+  case ONION_NOTIFY_LANG_IT:
+    return Lang::It;
+  case ONION_NOTIFY_LANG_RU:
+    return Lang::Ru;
+  case ONION_NOTIFY_LANG_PL:
+    return Lang::Pl;
+  case ONION_NOTIFY_LANG_TH:
+    return Lang::Th;
+  case ONION_NOTIFY_LANG_NL:
+    return Lang::Nl;
+  case ONION_NOTIFY_LANG_FI:
+    return Lang::Fi;
+  case ONION_NOTIFY_LANG_SV:
+    return Lang::Sv;
+  case ONION_NOTIFY_LANG_DA:
+    return Lang::Da;
+  case ONION_NOTIFY_LANG_NO:
+    return Lang::No;
+  case ONION_NOTIFY_LANG_TR:
+    return Lang::Tr;
+  case ONION_NOTIFY_LANG_CS:
+    return Lang::Cs;
+  case ONION_NOTIFY_LANG_HU:
+    return Lang::Hu;
+  case ONION_NOTIFY_LANG_EL:
+    return Lang::El;
+  case ONION_NOTIFY_LANG_RO:
+    return Lang::Ro;
+  case ONION_NOTIFY_LANG_VI:
+    return Lang::Vi;
+  case ONION_NOTIFY_LANG_ID:
+    return Lang::Id;
+  case ONION_NOTIFY_LANG_UK:
+    return Lang::Uk;
+  case ONION_NOTIFY_LANG_PT_PT:
+    return Lang::PtPt;
+  case ONION_NOTIFY_LANG_EN:
+  default:
+    return Lang::En;
+  }
+}
+
+onion_notify_language_t notify_from_lang(Lang lang) {
+  switch (lang) {
+  case Lang::ZhHans:
+    return ONION_NOTIFY_LANG_ZH_HANS;
+  case Lang::Ar:
+    return ONION_NOTIFY_LANG_AR;
+  case Lang::ZhHant:
+    return ONION_NOTIFY_LANG_ZH_HANT;
+  case Lang::Ja:
+    return ONION_NOTIFY_LANG_JA;
+  case Lang::Fr:
+    return ONION_NOTIFY_LANG_FR;
+  case Lang::De:
+    return ONION_NOTIFY_LANG_DE;
+  case Lang::Ko:
+    return ONION_NOTIFY_LANG_KO;
+  case Lang::Es:
+    return ONION_NOTIFY_LANG_ES;
+  case Lang::PtBr:
+    return ONION_NOTIFY_LANG_PT_BR;
+  case Lang::It:
+    return ONION_NOTIFY_LANG_IT;
+  case Lang::Ru:
+    return ONION_NOTIFY_LANG_RU;
+  case Lang::Pl:
+    return ONION_NOTIFY_LANG_PL;
+  case Lang::Th:
+    return ONION_NOTIFY_LANG_TH;
+  case Lang::Nl:
+    return ONION_NOTIFY_LANG_NL;
+  case Lang::Fi:
+    return ONION_NOTIFY_LANG_FI;
+  case Lang::Sv:
+    return ONION_NOTIFY_LANG_SV;
+  case Lang::Da:
+    return ONION_NOTIFY_LANG_DA;
+  case Lang::No:
+    return ONION_NOTIFY_LANG_NO;
+  case Lang::Tr:
+    return ONION_NOTIFY_LANG_TR;
+  case Lang::Cs:
+    return ONION_NOTIFY_LANG_CS;
+  case Lang::Hu:
+    return ONION_NOTIFY_LANG_HU;
+  case Lang::El:
+    return ONION_NOTIFY_LANG_EL;
+  case Lang::Ro:
+    return ONION_NOTIFY_LANG_RO;
+  case Lang::Vi:
+    return ONION_NOTIFY_LANG_VI;
+  case Lang::Id:
+    return ONION_NOTIFY_LANG_ID;
+  case Lang::Uk:
+    return ONION_NOTIFY_LANG_UK;
+  case Lang::PtPt:
+    return ONION_NOTIFY_LANG_PT_PT;
+  case Lang::En:
+  default:
+    return ONION_NOTIFY_LANG_EN;
+  }
+}
+
+Lang lang_from_ui_value(int ui_lang) {
+  switch (ui_lang) {
+  case 2:
+    return Lang::En;
+  case 3:
+    return Lang::Ar;
+  case 4:
+    return Lang::ZhHant;
+  case 5:
+    return Lang::Ja;
+  case 6:
+    return Lang::Fr;
+  case 7:
+    return Lang::De;
+  case 8:
+    return Lang::Ko;
+  case 9:
+    return Lang::Es;
+  case 10:
+    return Lang::PtBr;
+  case 11:
+    return Lang::It;
+  case 12:
+    return Lang::Ru;
+  case 13:
+    return Lang::Pl;
+  case 14:
+    return Lang::Th;
+  case 15:
+    return Lang::Nl;
+  case 16:
+    return Lang::Fi;
+  case 17:
+    return Lang::Sv;
+  case 18:
+    return Lang::Da;
+  case 19:
+    return Lang::No;
+  case 20:
+    return Lang::Tr;
+  case 21:
+    return Lang::Cs;
+  case 22:
+    return Lang::Hu;
+  case 23:
+    return Lang::El;
+  case 24:
+    return Lang::Ro;
+  case 25:
+    return Lang::Vi;
+  case 26:
+    return Lang::Id;
+  case 27:
+    return Lang::Uk;
+  case 28:
+    return Lang::PtPt;
+  case 1:
+  default:
+    return Lang::ZhHans;
+  }
+}
+
+const char *locale_id_for_lang(Lang lang) {
+  switch (lang) {
+  case Lang::ZhHans:
+    return "zh-Hans";
+  case Lang::Ar:
+    return "ar";
+  case Lang::ZhHant:
+    return "zh-Hant";
+  case Lang::Ja:
+    return "ja";
+  case Lang::Fr:
+    return "fr";
+  case Lang::De:
+    return "de";
+  case Lang::Ko:
+    return "ko";
+  case Lang::Es:
+    return "es";
+  case Lang::PtBr:
+    return "pt-BR";
+  case Lang::It:
+    return "it";
+  case Lang::Ru:
+    return "ru";
+  case Lang::Pl:
+    return "pl";
+  case Lang::Th:
+    return "th";
+  case Lang::Nl:
+    return "nl";
+  case Lang::Fi:
+    return "fi";
+  case Lang::Sv:
+    return "sv";
+  case Lang::Da:
+    return "da";
+  case Lang::No:
+    return "no";
+  case Lang::Tr:
+    return "tr";
+  case Lang::Cs:
+    return "cs";
+  case Lang::Hu:
+    return "hu";
+  case Lang::El:
+    return "el";
+  case Lang::Ro:
+    return "ro";
+  case Lang::Vi:
+    return "vi";
+  case Lang::Id:
+    return "id";
+  case Lang::Uk:
+    return "uk";
+  case Lang::PtPt:
+    return "pt-PT";
+  case Lang::En:
+  default:
+    return "en";
+  }
+}
+
+int locale_index_for_lang(Lang lang) {
+  const char *id = locale_id_for_lang(lang);
+  for (int i = 0; i < I18N_LOCALE_COUNT; ++i) {
+    if (std::strcmp(kI18nLocaleIds[i], id) == 0)
+      return i;
+  }
+  return kI18nLocaleFallback;
+}
+
+/* SCE_SYSTEM_SERVICE_PARAM_ID_LANG */
+constexpr int kSystemServiceParamIdLang = 1;
+
+bool read_system_language(int *out) {
+#ifndef ONION_HOST_TEST
+  if (!sceSystemServiceParamGetInt)
+    return false;
+#endif
+  int language = 0;
+  const int result =
+      sceSystemServiceParamGetInt(kSystemServiceParamIdLang, &language);
+  if (result < 0 || language < 0)
+    return false;
+  if (out)
+    *out = language;
+  return true;
+}
+
+} // namespace
+
+Lang active_lang() { return lang_from_notify(onion_notify_get_language()); }
+
+int active_ui_lang_value() {
+  switch (active_lang()) {
+  case Lang::En:
+    return 2;
+  case Lang::Ar:
+    return 3;
+  case Lang::ZhHant:
+    return 4;
+  case Lang::Ja:
+    return 5;
+  case Lang::Fr:
+    return 6;
+  case Lang::De:
+    return 7;
+  case Lang::Ko:
+    return 8;
+  case Lang::Es:
+    return 9;
+  case Lang::PtBr:
+    return 10;
+  case Lang::It:
+    return 11;
+  case Lang::Ru:
+    return 12;
+  case Lang::Pl:
+    return 13;
+  case Lang::Th:
+    return 14;
+  case Lang::Nl:
+    return 15;
+  case Lang::Fi:
+    return 16;
+  case Lang::Sv:
+    return 17;
+  case Lang::Da:
+    return 18;
+  case Lang::No:
+    return 19;
+  case Lang::Tr:
+    return 20;
+  case Lang::Cs:
+    return 21;
+  case Lang::Hu:
+    return 22;
+  case Lang::El:
+    return 23;
+  case Lang::Ro:
+    return 24;
+  case Lang::Vi:
+    return 25;
+  case Lang::Id:
+    return 26;
+  case Lang::Uk:
+    return 27;
+  case Lang::PtPt:
+    return 28;
+  case Lang::ZhHans:
+  default:
+    return 1;
+  }
+}
+
+void set_lang(Lang lang) {
+  if (static_cast<int>(lang) < static_cast<int>(Lang::ZhHans) ||
+      lang > Lang::PtPt)
+    lang = Lang::ZhHans;
+  onion_notify_set_language(notify_from_lang(lang));
+}
+
+void apply_ui_lang(int ui_lang) {
+  set_lang(lang_from_ui_value(ui_lang));
+}
+
+void apply_system_or_ui_lang(int ui_lang) {
+  if (ui_lang != 0) {
+    set_lang(lang_from_ui_value(ui_lang));
+    return;
+  }
+
+  int system_language = 0;
+  if (!read_system_language(&system_language)) {
+    LOG_WARN("system language query failed; keeping %d",
+             static_cast<int>(active_lang()));
+    return;
+  }
+  set_lang(lang_from_notify(onion_notify_resolve_language(0, system_language)));
+}
+
+const char *tr(const char *key) {
+  const Entry *e = find_entry(key);
+  if (!e)
+    return key ? key : "";
+  return e->text[locale_index_for_lang(active_lang())];
+}
+
+std::string formatv(const char *key, va_list ap) {
+  const char *fmt = tr(key);
+  va_list measure;
+  va_copy(measure, ap);
+  const int needed = std::vsnprintf(nullptr, 0, fmt, measure);
+  va_end(measure);
+  if (needed < 0)
+    return {};
+  std::string out(static_cast<size_t>(needed), '\0');
+  std::vsnprintf(out.data(), static_cast<size_t>(needed) + 1, fmt, ap);
+  return out;
+}
+
+std::string format(const char *key, ...) {
+  va_list ap;
+  va_start(ap, key);
+  std::string out = formatv(key, ap);
+  va_end(ap);
+  return out;
+}
+
+} // namespace toolbox_i18n

@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "th",
+    "bcp47": "th-TH",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "เปิดใช้งานตัวติดตั้งผ่านเครือข่ายแล้ว",
+    "notify.pkgnet.disabled": "ปิดใช้งานตัวติดตั้งผ่านเครือข่ายแล้ว",
+    "notify.pkgnet.toggle_failed": "ไม่สามารถเปลี่ยนสถานะโปรแกรมติดตั้งเครือข่ายได้",
+    "notify.pkgnet.next_boot_on": "ตัวติดตั้งผ่านเครือข่ายจะเริ่มเมื่อ HyperHEN เริ่มทำงาน",
+    "notify.pkgnet.next_boot_off": "ตัวติดตั้งผ่านเครือข่ายจะไม่เริ่มเมื่อ HyperHEN เริ่มทำงาน",
+    "notify.pkgnet.receiving": "กำลังรับแพ็กเกจ",
+    "notify.pkgnet.received": "รับแพ็กเกจแล้ว: %s",
+    "notify.pkgnet.reusing": "แพ็กเกจอยู่บน PS5 แล้ว: %s",
+    "notify.pkgnet.install_failed": "การติดตั้งล้มเหลว (%s)",
+    "notify.pkgnet.reinstall_accepted": "ยอมรับการติดตั้งซ้ำแล้ว",
+    "notify.pkgnet.still_installing": "การติดตั้งยังดำเนินอยู่",
+    "notify.pkgnet.takeover_backoff": "มีการติดตั้งอื่นดำเนินอยู่ จึงลองใหม่อีกครั้ง",
+    "notify.pkgnet.socket_failed": "ไม่สามารถเปิดซ็อกเก็ตเครือข่ายได้",
+    "notify.pkgnet.bind_failed": "ไม่สามารถผูกพอร์ต %u: %s",
+    "notify.pkgnet.listening": "โปรแกรมติดตั้งเครือข่ายกำลังฟังพอร์ต %u",
+    "notify.pkgnet.webui_listening": "เว็บอินเทอร์เฟซกำลังฟังพอร์ต %u",
+    "notify.pkgnet.escalation_failed": "การยกระดับสิทธิ์ล้มเหลว",
+    "notify.pkg.installing": "กำลังติดตั้งแพ็กเกจจาก:\n%s",
+    "notify.pkg.finished": "ติดตั้งเสร็จแล้ว",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "เปิด http://<IP-PS5>:<พอร์ต-WebUI> ในเบราวเซอร์",
+    "ui.server": "เซิร์ฟเวอร์",
+    "ui.enabled": "เปิดใช้งาน",
+    "ui.api_port": "พอร์ต HyperDPI API",
+    "ui.webui_port": "พอร์ต WebUI",
+    "ui.restart": "รีสตาร์ตเซิร์ฟเวอร์",
+    "ui.doc_description": "กำหนดค่าติดตั้งแพ็กเกจผ่านเบราวเซอร์"
+  }
+}

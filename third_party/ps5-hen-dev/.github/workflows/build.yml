@@ -1,0 +1,61 @@
+name: Build PS5 HEN
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang-18 lld-18 xxd yasm nasm
+
+      - name: Install PS5 Payload SDK
+        run: |
+          wget https://github.com/ps5-payload-dev/pacbrew-repo/releases/latest/download/ps5-payload-dev.tar.gz
+          sudo tar xf ps5-payload-dev.tar.gz -C /
+
+      - name: Build PS5 HEN
+        run: make PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5-hen
+          path: ps5-hen.elf
+
+      - name: Update dev-latest release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-latest
+          name: Development Build (Latest)
+          body: |
+            Automated development build from commit ${{ github.sha }}.
+
+            **Warning:** This is a development build. Use at your own risk.
+          prerelease: true
+          make_latest: false
+          files: ps5-hen.elf
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Force-update dev-latest tag to HEAD
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          git tag -f dev-latest
+          git push -f https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git dev-latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

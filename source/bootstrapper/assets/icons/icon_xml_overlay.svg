@@ -1,0 +1,37 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- hyperhen-icon-theme-v1 -->
+  <defs>
+    <linearGradient id="hh-frame" x1="9" y1="8" x2="55" y2="57" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#45F4FF"/>
+      <stop offset="0.48" stop-color="#5B8CFF"/>
+      <stop offset="1" stop-color="#E13CFF"/>
+    </linearGradient>
+    <radialGradient id="hh-core" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(25 20) rotate(51) scale(48)">
+      <stop stop-color="#183C68"/>
+      <stop offset="0.5" stop-color="#0A1730"/>
+      <stop offset="1" stop-color="#050A18"/>
+    </radialGradient>
+    <filter id="hh-glow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="1.45" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.12 0 0 0 0 0.82 0 0 0 0 1 0 0 0 .78 0"/>
+    </filter>
+  </defs>
+  <path d="M18 3.5H46L60.5 18V46L46 60.5H18L3.5 46V18L18 3.5Z" fill="#061022" fill-opacity="0.96" stroke="#122A4A"/>
+  <path d="M19 5H45L59 19V45L45 59H19L5 45V19L19 5Z" fill="url(#hh-core)" stroke="url(#hh-frame)" stroke-width="1.6"/>
+  <path d="M17 8H27M37 8H47M56 17V27M56 37V47M47 56H37M27 56H17M8 47V37M8 27V17" stroke="url(#hh-frame)" stroke-width="1.4" stroke-linecap="round" opacity="0.92"/>
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#37E9FF" stroke-width="1" opacity="0.13"/>
+  <g transform="translate(8.32 8.32) scale(0.74)" opacity="0.55" filter="url(#hh-glow)">
+<g transform="matrix(0.036841 0 0 0.036841 12.735964 12.735964)">
+  <path d="20433" fill="white"/>
+  <path d="M896 682.666667 128 682.666667 128 170.666667 896 170.666667M896 85.333333 128 85.333333C80.64 85.333333 42.666667 123.306667 42.666667 170.666667L42.666667 682.666667C42.666667 729.6 81.066667 768 128 768L426.666667 768 426.666667 853.333333 341.333333 853.333333 341.333333 938.666667 682.666667 938.666667 682.666667 853.333333 597.333333 853.333333 597.333333 768 896 768C942.933333 768 981.333333 729.6 981.333333 682.666667L981.333333 170.666667C981.333333 123.306667 942.933333 85.333333 896 85.333333Z" fill="white"/>
+  <path d="20434" fill="white"/>
+  </g>
+  </g>
+  <g transform="translate(8.32 8.32) scale(0.74)">
+<g transform="matrix(0.036841 0 0 0.036841 12.735964 12.735964)">
+  <path d="20433" fill="white"/>
+  <path d="M896 682.666667 128 682.666667 128 170.666667 896 170.666667M896 85.333333 128 85.333333C80.64 85.333333 42.666667 123.306667 42.666667 170.666667L42.666667 682.666667C42.666667 729.6 81.066667 768 128 768L426.666667 768 426.666667 853.333333 341.333333 853.333333 341.333333 938.666667 682.666667 938.666667 682.666667 853.333333 597.333333 853.333333 597.333333 768 896 768C942.933333 768 981.333333 729.6 981.333333 682.666667L981.333333 170.666667C981.333333 123.306667 942.933333 85.333333 896 85.333333Z" fill="white"/>
+  <path d="20434" fill="white"/>
+  </g>
+  </g>
+</svg>

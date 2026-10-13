@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Trainer
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Game="Silent Hill f" Moder="Yharnam" Cusa="PPSA21159" Version="01.001.000" Process="eboot.bin">
+  <Genres Name="Action"/>
+  <Items/>
+    <Cheat Text="Infi Health">
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>41F45C6</Offset>
+            <ValueOn>90-90-90-90-90</ValueOn>
+            <ValueOff>E8-25-E4-0F-00</ValueOff>
+        </Cheatline>  
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>41F413D</Offset>
+            <ValueOn>90-90-90-90-90</ValueOn>
+            <ValueOff>E8-0E-00-00-00</ValueOff>
+        </Cheatline>
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>425B76F</Offset>
+            <ValueOn>90-90-90-90-90</ValueOn>
+            <ValueOff>E8-DC-89-F9-FF</ValueOff>
+        </Cheatline>		
+    </Cheat>
+    <Cheat Text="1 Hit Kill">
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>61F2B00</Offset>
+            <ValueOn>C7-45-B4-80-96-98-4A-C5-FA-10-45-B4-E9-84-8A-FE-FD</ValueOn>
+            <ValueOff>00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00</ValueOff>
+        </Cheatline>
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>41DB590</Offset>
+            <ValueOn>E9-6B-75-01-02</ValueOn>
+            <ValueOff>C5-FA-10-45-B4</ValueOff>
+        </Cheatline>	
+    </Cheat>  
+    <Cheat Text="Infi Stamina (Attack and Dodge)">
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>41FA4E6</Offset>
+            <ValueOn>90-90-90-90-90</ValueOn>
+            <ValueOff>E8-05-85-0F-00</ValueOff>
+        </Cheatline>	
+    </Cheat>
+    <Cheat Text="Infi Items (99 When Used)">
+        <Cheatline>
+            <Section>0</Section>
+            <Offset>4311370</Offset>
+            <ValueOn>BA-63-00-00-00-41-89-D0</ValueOn>
+            <ValueOff>8B-54-C8-04-44-8D-42-FF</ValueOff>
+        </Cheatline>	
+    </Cheat>  
+    <Cheat Text="Instant Focus">
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>41FC792</Offset>
+            <ValueOn>C5-FA-5F-C1</ValueOn>
+            <ValueOff>C5-FA-5D-C1</ValueOff>
+        </Cheatline>	
+    </Cheat>  
+    <Cheat Text="Infi Sanity">
+        <Cheatline>
+            <Section>0</Section>
+            <Offset>41FB97E</Offset>
+            <ValueOn>90-90-90-90-90</ValueOn>
+            <ValueOff>E8-6D-70-0F-00</ValueOff>
+        </Cheatline>
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>41F3386</Offset>
+            <ValueOn>90-90-90-90-90</ValueOn>
+            <ValueOff>E8-65-F6-0F-00</ValueOff>
+        </Cheatline>	
+    </Cheat>
+    <Cheat Text="Infi Weapon Durability">
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>43AC1C7</Offset>
+            <ValueOn>B8-7F-96-98-00</ValueOn>
+            <ValueOff>E8-24-68-F4-FF</ValueOff>
+        </Cheatline>
+    </Cheat>
+    <Cheat Text="Instant Awakening Gauge">
+        <Cheatline>      
+            <Section>0</Section>
+            <Offset>41F2223</Offset>
+            <ValueOn>90-90-90-90-90</ValueOn>
+            <ValueOff>C5-FA-10-45-D4</ValueOff>
+        </Cheatline>
+    </Cheat>  
+    <Cheat Text="Max Faith (Money)">
+        <Cheatline>
+            <Section>0</Section>
+            <Offset>4315B37</Offset>
+            <ValueOn>B8-7F-96-98-00</ValueOn>
+            <ValueOff>C4-E2-70-F2-C0</ValueOff>
+        </Cheatline>
+    </Cheat> 
+</Trainer>

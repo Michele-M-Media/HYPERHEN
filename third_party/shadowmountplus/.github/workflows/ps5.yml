@@ -1,0 +1,168 @@
+name: PS5 Build and Release
+
+on:
+  push:
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    outputs:
+      archive_name: ${{ steps.package.outputs.archive_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Payload
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout pacbrew-repo
+        uses: actions/checkout@v4
+        with:
+          repository: ps5-payload-dev/pacbrew-repo
+          path: pacbrew-repo
+
+      - name: Checkout SDK stubs
+        uses: actions/checkout@v4
+        with:
+          repository: ps5-payload-dev/sdk
+          path: ps5-sdk
+
+      - name: Setup build environment
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            autoconf \
+            automake \
+            build-essential \
+            clang-18 \
+            cmake \
+            curl \
+            git \
+            libarchive-tools \
+            libtool \
+            lld-18 \
+            makepkg \
+            meson \
+            pacman-package-manager \
+            pkg-config \
+            python3 \
+            python3-yaml \
+            xxd \
+            zip
+
+      - name: Build PS5 payload SDK
+        working-directory: pacbrew-repo/sdk
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Build PS5 openlibm package
+        working-directory: pacbrew-repo/openlibm
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Build PS5 json-c package
+        working-directory: pacbrew-repo/json-c
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Build PS5 zlib package
+        working-directory: pacbrew-repo/zlib
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Build PS5 libpng package
+        working-directory: pacbrew-repo/libpng
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Build PS5 libmicrohttpd package
+        working-directory: pacbrew-repo/libmicrohttpd
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Build PS5 sqlite package
+        working-directory: pacbrew-repo/sqlite
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Check API tools and manifest
+        run: |
+          python3 -m py_compile tools/api_test.py
+          python3 -c 'import pathlib, yaml; yaml.safe_load(pathlib.Path("docs/openapi.yaml").read_text(encoding="utf-8"))'
+
+      - name: Build payload
+        run: |
+          make clean all PS5_SCE_STUBS_DIR="$GITHUB_WORKSPACE/ps5-sdk/sce_stubs"
+
+      - name: Create release archive
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_tag="$(git describe --abbrev=6 --dirty --always --tags 2>/dev/null || echo "${GITHUB_SHA::7}")"
+          archive_name="ShadowMountPlus_${version_tag}.zip"
+          manifest_file=".github/release-files.txt"
+
+          mapfile -t release_files < <(grep -Ev '^[[:space:]]*(#|$)' "${manifest_file}")
+
+          if [ "${#release_files[@]}" -eq 0 ]; then
+            echo "Release manifest is empty: ${manifest_file}" >&2
+            exit 1
+          fi
+
+          for release_file in "${release_files[@]}"; do
+            if [ ! -f "${release_file}" ]; then
+              echo "Missing release file: ${release_file}" >&2
+              exit 1
+            fi
+          done
+
+          zip -9 "${archive_name}" "${release_files[@]}"
+
+          echo "archive_name=${archive_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.archive_name }}
+          path: ${{ steps.package.outputs.archive_name }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    permissions:
+      contents: write
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.archive_name }}
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/${{ needs.build.outputs.archive_name }}

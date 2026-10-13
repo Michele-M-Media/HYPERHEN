@@ -1,0 +1,8 @@
+- **1.3 (04/15/26)**
+    - PR: replace std::print with printf macro
+    - PR: Simplify compilation on platforms other than x86_64 
+    - Feature: Added Testkit/Devkit support
+- **1.3 (04/14/26)**
+    - Initial version of HEN (allows ps4 fpkgs to be run <= 4.51)
+    - Hypervisor patches are minimal (only vmcb+0x90 = 0 / NPT disabled)
+    - Only 03.10 firmware untested

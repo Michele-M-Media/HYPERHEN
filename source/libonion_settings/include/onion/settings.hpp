@@ -1,0 +1,429 @@
+/* Copyright (C) 2025 OnionHEN / LightningMods
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; see the file COPYING. If not, see
+<http://www.gnu.org/licenses/>.  */
+
+#pragma once
+
+// ---------------------------------------------------------------------------
+// Single product config schema for daemon / util / shellui.
+//
+// Paths:
+//   primary  /data/HyperHEN/config.ini          (elevated daemons)
+//   shellui  /user/data/HyperHEN/config.ini     (SceShellUI sandbox view)
+// Load tries both; save writes all writable targets so the files stay twins.
+//
+// Process-local store: use SettingsStore for multi-threaded daemons (snapshot
+// under mutex). Multi-process copies of Settings are expected and OK.
+//
+// Force C++ linkage even when a parent includes us under extern "C"
+// (e.g. util common_utils.h inside extern "C" blocks).
+// ---------------------------------------------------------------------------
+
+#ifdef __cplusplus
+extern "C++" {
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <ctime>
+#include <mutex>
+#include <string>
+#include <utility>
+
+namespace onion {
+
+// Canonical filesystem paths.
+inline constexpr const char *kConfigPathPrimary = "/data/HyperHEN/config.ini";
+inline constexpr const char *kConfigPathShellui = "/user/data/HyperHEN/config.ini";
+
+// Semantic config schema. This schema starts at version 1.
+inline constexpr int kSettingsSchemaVersion = 1;
+inline constexpr int kUiLanguageSystem = 0;
+inline constexpr int kUiLanguageZhHans = 1;
+inline constexpr int kUiLanguageEn = 2;
+inline constexpr int kUiLanguageAr = 3;
+inline constexpr int kUiLanguageZhHant = 4;
+inline constexpr int kUiLanguageJa = 5;
+inline constexpr int kUiLanguageFr = 6;
+inline constexpr int kUiLanguageDe = 7;
+inline constexpr int kUiLanguageKo = 8;
+inline constexpr int kUiLanguageEs = 9;
+inline constexpr int kUiLanguagePtBr = 10;
+inline constexpr int kUiLanguageIt = 11;
+inline constexpr int kUiLanguageRu = 12;
+inline constexpr int kUiLanguagePl = 13;
+inline constexpr int kUiLanguageTh = 14;
+inline constexpr int kUiLanguageNl = 15;
+inline constexpr int kUiLanguageFi = 16;
+inline constexpr int kUiLanguageSv = 17;
+inline constexpr int kUiLanguageDa = 18;
+inline constexpr int kUiLanguageNo = 19;
+inline constexpr int kUiLanguageTr = 20;
+inline constexpr int kUiLanguageCs = 21;
+inline constexpr int kUiLanguageHu = 22;
+inline constexpr int kUiLanguageEl = 23;
+inline constexpr int kUiLanguageRo = 24;
+inline constexpr int kUiLanguageVi = 25;
+inline constexpr int kUiLanguageId = 26;
+inline constexpr int kUiLanguageUk = 27;
+inline constexpr int kUiLanguagePtPt = 28;
+inline constexpr int kUiLanguageMax = kUiLanguagePtPt;
+
+inline constexpr int kStartupOpenNone = 0;
+inline constexpr int kStartupOpenHomeMenu = 1;
+
+// Mirrors onion_log_level from <onion/log.h>. Duplicated rather than included
+// so libonion_settings stays independent of libonion_platform; the processes
+// that bridge the two (see onion_apply_log_settings) static_assert that the
+// values still line up.
+inline constexpr int kCheatsMirrorAuto = 0;
+inline constexpr int kCheatsMirrorGithub = 1;
+inline constexpr int kCheatsMirrorCnb = 2;
+
+inline constexpr int kLogLevelOff = 0;
+inline constexpr int kLogLevelError = 1;
+inline constexpr int kLogLevelWarn = 2;
+inline constexpr int kLogLevelInfo = 3;
+inline constexpr int kLogLevelDebug = 4;
+inline constexpr int kLogLevelTrace = 5;
+
+/*
+ * Default runtime verbosity. Mirrors ONION_LOG_DEFAULT_LEVEL: a debug build
+ * defaults to the noisiest level it compiles in, so a payload built for log
+ * collection is verbose without anyone editing config.ini first — the reporter
+ * is usually not the person who built it. Release stays at info so a normal
+ * payload is not chatty.
+ *
+ * The two are kept in step by a static_assert in log_settings.hpp; an explicit
+ * `level=` in config.ini still wins over this.
+ */
+#ifdef NDEBUG
+inline constexpr int kLogLevelDefault = kLogLevelInfo;
+#else
+inline constexpr int kLogLevelDefault = kLogLevelTrace;
+#endif
+
+/*
+ * Rotation threshold for the file sink, in bytes, per file. The logger keeps
+ * the live file plus three backups, so the retained history is 4x this value —
+ * that budget, not the per-file size, is what a user is really choosing.
+ *
+ * Mirrors ONION_LOG_DEFAULT_MAX_BYTES; log_settings.hpp static_asserts that the
+ * default still lines up with it.
+ */
+inline constexpr int kLogMaxBytesMin = 64 * 1024;         /* 256 KiB total */
+inline constexpr int kLogMaxBytesMax = 64 * 1024 * 1024;  /* 256 MiB total */
+inline constexpr int kLogMaxBytesDefault = 768 * 1024;    /* 3 MiB total */
+
+/** Clamp a requested per-file threshold. 0 or negative means "use default". */
+inline int clamp_log_max_bytes(long long bytes) {
+  if (bytes <= 0)
+    return kLogMaxBytesDefault;
+  if (bytes < kLogMaxBytesMin)
+    return kLogMaxBytesMin;
+  if (bytes > kLogMaxBytesMax)
+    return kLogMaxBytesMax;
+  return static_cast<int>(bytes);
+}
+
+inline constexpr int kOverlayAlignLeft = 0;
+inline constexpr int kOverlayAlignCenter = 1;
+inline constexpr int kOverlayAlignRight = 2;
+
+inline constexpr int kOverlayMetricCount = 6;
+inline constexpr int kOverlayMetricFps = 0;
+inline constexpr int kOverlayMetricCpu = 1;
+inline constexpr int kOverlayMetricGpu = 2;
+inline constexpr int kOverlayMetricMemory = 3;
+inline constexpr int kOverlayMetricIp = 4;
+inline constexpr int kOverlayMetricFan = 5;
+
+inline constexpr int kOverlayFontSmall = 0;
+inline constexpr int kOverlayFontMedium = 1;
+inline constexpr int kOverlayFontLarge = 2;
+
+inline constexpr int kOverlayFontPtSmall = 14;
+inline constexpr int kOverlayFontPtMedium = 18;
+inline constexpr int kOverlayFontPtLarge = 24;
+
+inline constexpr std::array<int, kOverlayMetricCount> kOverlayOrderDefault = {
+    kOverlayMetricFps, kOverlayMetricCpu, kOverlayMetricGpu,
+    kOverlayMetricMemory, kOverlayMetricIp, kOverlayMetricFan};
+
+inline int overlay_font_pt(int font_size) {
+  if (font_size == kOverlayFontSmall)
+    return kOverlayFontPtSmall;
+  if (font_size == kOverlayFontLarge)
+    return kOverlayFontPtLarge;
+  return kOverlayFontPtMedium;
+}
+
+inline const char *overlay_font_size_name(int font_size) {
+  if (font_size == kOverlayFontSmall)
+    return "small";
+  if (font_size == kOverlayFontLarge)
+    return "large";
+  return "medium";
+}
+
+inline const char *overlay_metric_name(int metric) {
+  switch (metric) {
+  case kOverlayMetricCpu:
+    return "cpu";
+  case kOverlayMetricGpu:
+    return "gpu";
+  case kOverlayMetricMemory:
+    return "memory";
+  case kOverlayMetricIp:
+    return "ip";
+  case kOverlayMetricFan:
+    return "fan";
+  case kOverlayMetricFps:
+  default:
+    return "fps";
+  }
+}
+
+inline void
+overlay_normalize_order(std::array<int, kOverlayMetricCount> &order) {
+  bool seen[kOverlayMetricCount] = {};
+  std::array<int, kOverlayMetricCount> out{};
+  int n = 0;
+  for (int metric : order) {
+    if (metric < 0 || metric >= kOverlayMetricCount || seen[metric])
+      continue;
+    seen[metric] = true;
+    out[n++] = metric;
+  }
+  for (int metric = 0; metric < kOverlayMetricCount; ++metric) {
+    if (seen[metric])
+      continue;
+    out[n++] = metric;
+  }
+  order = out;
+}
+
+inline int overlay_metric_position(
+    const std::array<int, kOverlayMetricCount> &order, int metric) {
+  for (int i = 0; i < kOverlayMetricCount; ++i) {
+    if (order[i] == metric)
+      return i + 1;
+  }
+  return metric + 1;
+}
+
+inline void overlay_move_metric(std::array<int, kOverlayMetricCount> &order,
+                                int metric, int position_1based) {
+  overlay_normalize_order(order);
+  if (metric < 0 || metric >= kOverlayMetricCount)
+    return;
+  int from = 0;
+  while (from < kOverlayMetricCount && order[from] != metric)
+    ++from;
+  int to = position_1based - 1;
+  if (to < 0)
+    to = 0;
+  if (to >= kOverlayMetricCount)
+    to = kOverlayMetricCount - 1;
+  if (from >= kOverlayMetricCount || from == to)
+    return;
+  const int id = order[from];
+  if (from < to) {
+    for (int i = from; i < to; ++i)
+      order[i] = order[i + 1];
+  } else {
+    for (int i = from; i > to; --i)
+      order[i] = order[i - 1];
+  }
+  order[to] = id;
+}
+
+inline constexpr int kFanThresholdMinCelsius = 0;
+inline constexpr int kFanThresholdMaxCelsius = 100;
+inline constexpr int kFanAutomaticThresholdCelsius = 77;
+inline constexpr int kRestModeDelayMinSeconds = 0;
+inline constexpr int kRestModeDelayMaxSeconds = 255;
+inline constexpr int kRestModeDelayDefaultSeconds = 10;
+inline constexpr int clamp_fan_threshold(int celsius) {
+  if (celsius < kFanThresholdMinCelsius)
+    return kFanThresholdMinCelsius;
+  if (celsius > kFanThresholdMaxCelsius)
+    return kFanThresholdMaxCelsius;
+  return celsius;
+}
+
+inline constexpr std::size_t kMaxAppJailbreakExactTitleIds = 20;
+inline constexpr std::size_t kMaxAppJailbreakTitleIdPrefixes = 20;
+
+struct AppJailbreakAllowlist {
+  std::array<std::string, kMaxAppJailbreakExactTitleIds> exact_title_ids = {
+      "ITEM00001", "NPXS39041", "PKGI13337", "PKGI12345", "TOOL00001"};
+  std::size_t exact_title_id_count = 5;
+
+  std::array<std::string, kMaxAppJailbreakTitleIdPrefixes>
+      title_id_prefixes = {"LAPY"};
+  std::size_t title_id_prefix_count = 1;
+};
+
+struct Settings {
+  // [startup]
+  // Page to open after HyperHEN finishes loading.
+  int startup_open_after_load = kStartupOpenNone;
+  // Show the final HyperHEN READY toast when HyperHEN starts.
+  bool show_boot_thanks = true;
+  // Play the embedded HyperHEN voice when the core is ready.
+  bool hype_voice = true;
+
+  // [rest_mode]
+  // Extra seconds after Rest Mode trophy SPRX are ready, before Toolbox inject.
+  uint64_t rest_mode_delay_seconds = kRestModeDelayDefaultSeconds;
+
+  // [cheats], [app_jailbreak]
+  int cheats_mirror = kCheatsMirrorAuto;
+  bool app_jailbreak_enabled = true;
+  bool debug_app_jb_msg = false;
+  AppJailbreakAllowlist app_jailbreak_allowlist{};
+
+  // [home_screen], [game_menu]
+  bool display_tids = false;
+  bool hyperhen_game_opts = true;
+
+  // [cooling]
+  bool enable_fan_speed = false;
+  int fan_threshold = kFanAutomaticThresholdCelsius;
+
+  // [overlay]
+  /** Master visibility switch for the complete ShellUI game monitor bar. */
+  bool overlay_enabled = true;
+  /** Show the translucent background panel behind the game monitor bar. */
+  bool overlay_background = true;
+  bool overlay_ram = true;
+  bool overlay_cpu = true;
+  bool overlay_gpu = true;
+  bool overlay_fps = true;
+  bool overlay_ip = false;
+  /** Show current fan duty (percent) on the overlay bar. */
+  bool overlay_fan = false;
+  /** Per-core CPU usage mode on the overlay (id_all_cpu_usage). */
+  bool all_cpu_usage = false;
+  int overlay_pos = 0; // 0/1 top edge, 2/3 bottom edge
+  /** 0 left, 1 center, 2 right. Independent of overlay.edge. */
+  int overlay_align = kOverlayAlignCenter;
+  /** 0 small, 1 medium, 2 large. Applies to the whole monitor bar. */
+  int overlay_font_size = kOverlayFontMedium;
+  /** Display order of the six metrics; values are kOverlayMetric*. */
+  std::array<int, kOverlayMetricCount> overlay_order = kOverlayOrderDefault;
+
+  // [shortcuts]
+  int cheats_shortcut_opt = 0;
+  int toolbox_shortcut_opt = 0;
+
+  // [kstuff]
+  // Load the embedded/override kstuff payload when HyperHEN starts.
+  bool kstuff_autoload = true;
+
+  // [toolbox]
+  // 0 = system (default), 1 = zh-Hans, 2 = en, 3 = ar, 4 = zh-Hant,
+  // 5 = ja, 6 = fr, 7 = de, 8 = ko, 9 = es, 10 = pt-BR, 11 = it,
+  // 12 = ru, 13 = pl
+  int ui_lang = kUiLanguageSystem;
+
+  // [logging]
+  // Runtime log threshold, matching onion_log_level (1=error .. 5=trace).
+  // Lets a user raise verbosity for a bug report without a debug payload;
+  // levels stripped at compile time cannot be re-enabled this way.
+  // Defaults to trace in debug builds and info in release — see
+  // kLogLevelDefault.
+  int log_level = kLogLevelDefault;
+  // Per-file rotation threshold in bytes. Raising it is what keeps a TRACE run
+  // from evicting its own startup records. Clamped by clamp_log_max_bytes().
+  int log_max_bytes = kLogMaxBytesDefault;
+
+  // Meta
+  int schema_version = kSettingsSchemaVersion;
+};
+
+// Thread-safe process-local settings (daemon / util IPC + worker threads).
+// ShellUI may keep a plain Settings if UI work is single-threaded; prefer this
+// store when readers and writers can race.
+class SettingsStore {
+public:
+  SettingsStore() = default;
+  explicit SettingsStore(const Settings &s) : s_(s) {}
+
+  Settings snapshot() const {
+    std::lock_guard<std::mutex> lock(mu_);
+    return s_;
+  }
+
+  void store(const Settings &s) {
+    std::lock_guard<std::mutex> lock(mu_);
+    s_ = s;
+  }
+
+  /** Mutate under lock; returns a copy of the new value. */
+  template <typename Fn>
+  Settings update(Fn &&fn) {
+    std::lock_guard<std::mutex> lock(mu_);
+    fn(s_);
+    return s_;
+  }
+
+private:
+  mutable std::mutex mu_;
+  Settings s_{};
+};
+
+// Fill `out` with defaults then overlay values from the first readable config path.
+// Returns true if a file was loaded; false means defaults only (file missing).
+bool settings_load(Settings *out);
+
+// Load/save a single explicit path (host tests and tooling).
+bool settings_load_file(const char *path, Settings *out);
+bool settings_save_file(const char *path, const Settings &in);
+
+// Canonical toolbox.language token for a stored ui_lang value.
+const char *language_name(int ui_lang);
+
+// Serialize full schema to annotated INI text (no I/O).
+std::string settings_serialize(const Settings &in);
+
+// Serialize full schema. Writes every path that can be opened for write.
+// Returns true if at least one write succeeded.
+bool settings_save(const Settings &in);
+
+// Create default full-schema INI if no config exists on any path.
+// Returns true if a file was created (or already existed after load attempt).
+bool settings_ensure_default();
+
+// Path that was last successfully loaded (empty if defaults only).
+const char *settings_last_loaded_path();
+
+/**
+ * Max st_mtime across both twin config paths (0 if neither exists).
+ * Use for daemon reload gating so either path's write invalidates the cache.
+ */
+time_t settings_config_newest_mtime();
+
+/**
+ * True if any twin path has mtime strictly greater than `since`.
+ * When no config file exists, returns false (nothing newer on disk).
+ */
+bool settings_config_is_newer_than(time_t since);
+
+} // namespace onion
+
+} // extern "C++"
+#endif /* __cplusplus */

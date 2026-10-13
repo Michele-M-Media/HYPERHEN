@@ -1,0 +1,65 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build trees / final artifacts (default: repo-root build/)
+/build/
+/.cache/
+/.docker/
+source/build/
+source/util/build/
+source/**/CMakeFiles/
+source/**/bin/
+source/CMakeCache.txt
+source/build.ninja
+source/cmake_install.cmake
+source/compile_commands.json
+source/.ninja_deps
+source/.ninja_log
+source/.cache/
+
+# Build outputs / artifacts
+*.o
+*.elf
+*.a.tmp
+*.tmp*
+hen.bin
+source/libhijacker/libhijacker.a
+tools/stubber/main.exe
+tools/stubber/out/
+source/homebrew/
+source/BREW00000
+source/aerolib.csv
+third_party/kstuff-a53/ps5-kstuff/isa-l_crypto/bin/
+
+# IDA / reverse tooling
+*.i64
+*.idb
+*.til
+*.lnk
+
+/scripts/__pycache__
+
+# Machine-local helpers (firmware dump verifiers, etc.)
+/.local/
+/.workbuddy-ai/
+
+# Local design notes (not for version control)
+/PLUGIN_ROADMAP.md
+
+# Web UI (built by scripts/build.sh into a single-file bundle)
+source/webui/node_modules/
+source/webui/dist/
+source/webui/.vite/
+source/webui/.eslintcache
+source/webui/npm-debug.log*
+source/webui/yarn-debug.log*
+source/webui/yarn-error.log*
+docs/legacy-settings-refresh.md
+docs/release*.md
+docs/release*.css
+docs/release*.md
+docs/发行说明*.pdf

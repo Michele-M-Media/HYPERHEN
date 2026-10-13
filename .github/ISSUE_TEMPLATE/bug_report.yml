@@ -1,0 +1,90 @@
+name: Bug report
+description: Crash, hang, missing UI, or a feature that does not work
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Firmware, loader, and other running payloads matter more than a long write-up.
+
+  - type: input
+    id: version
+    attributes:
+      label: HyperHEN version
+      placeholder: "v0.1.0-dev"
+    validations:
+      required: true
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware
+      placeholder: "7.61"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: loader
+    attributes:
+      label: How was it loaded
+      options:
+        - PS5 Payload Manager (PLDMGR)
+        - elfldr on 9021
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Does not boot
+        - Toolbox missing
+        - Cheats
+        - Monitor bar
+        - Fan control
+        - Payloads
+        - Rest Mode
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: What happened
+      description: Steps from loading HyperHEN, plus Title ID if a game is involved.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: other_payloads
+    attributes:
+      label: Other homebrew also running
+      description: Loading another HEN or hotkey injector first can hang or power off the console.
+      options:
+        - label: None
+        - label: etaHEN
+        - label: CheatRunner
+        - label: PHU Tools
+        - label: YonCore
+        - label: Kylin Core
+        - label: Other
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Attach `/data/HyperHEN/HyperHEN_crash.log` for a daemon crash, plus relevant lines from `HyperHEN.log` and `HyperHEN_util_daemon.log`.
+      render: text
+    validations:
+      required: true

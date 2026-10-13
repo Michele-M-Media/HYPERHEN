@@ -1,0 +1,1069 @@
+/* Copyright (C) 2025 HyperHEN / LightningMods
+ *
+ * Extracted from mono_utils.cpp for module locality.
+ * Dynamic settings pages are built via ps5ui::Page (fluent XML builder).
+ */
+
+#include "hooked_funcs.hpp"
+#include "account_activator.h"
+#include "defs.h"
+#include "external_symbols.hpp"
+#include "ipc.hpp"
+#include "plugins_registry.hpp"
+#include "ps5_settings_ui.hpp"
+#include "settings_page_refresh.hpp"
+#include "toolbox_i18n.hpp"
+#include "toolbox_values.hpp"
+#include "dynamic_ui_runtime.hpp"
+#include "external_plugin_ui.hpp"
+#include "external_sprx_ui.hpp"
+#include "onion_cjson.hpp"
+
+#include <dirent.h>
+#include <algorithm>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+
+#include "shellui_state.hpp"
+#include "shellui_payload_state.hpp"
+#include "toolbox_helpers.hpp"
+#include "overlay_metrics.hpp"
+#include "toolbox_route.hpp"
+
+#include <onion/payload_identity.h>
+
+void escapeXML(std::string& input);
+bool Get_Running_App_TID(std::string& title_id, int& BigAppid);
+
+void escapeXML(std::string& input) {
+  input = ps5ui::escape(input);
+}
+
+namespace {
+
+constexpr const char* kIconPlugins =
+    "/user/data/HyperHEN/assets/icon_xml_plugins.png";
+
+/* Defined with the other dynamic control helpers below. */
+std::string toolbox_val(const char* id, const char* fallback);
+
+/** Payload .elf only (HyperHEN no longer supports .plugin packages). */
+std::string payload_list_status(const PayloadEntry& entry) {
+  const bool running = shellui_payload_is_running(entry.tid.c_str());
+  const bool auto_start = if_exists((entry.shellui_path + ".auto_start").c_str());
+  if (running && auto_start)
+    return toolbox_i18n::tr("payload.status.running_autostart");
+  if (running)
+    return toolbox_i18n::tr("payload.status.running");
+  if (auto_start)
+    return toolbox_i18n::tr("payload.status.stopped_autostart");
+  return toolbox_i18n::tr("payload.status.stopped");
+}
+
+void append_payload_entry(const std::string& directory,
+                          const char* filename) {
+  if (!toolbox::is_payload_elf_name(filename))
+    return;
+  if (toolbox::display_path_for_ui(directory) == "/data/HyperHEN/payloads" &&
+      toolbox::is_legacy_payload_staging_name(filename))
+    return;
+
+  const std::string path = directory + "/" + filename;
+  char identity[ONION_PAYLOAD_IDENTITY_SIZE] = {};
+  if (!onion_payload_identity_from_path(path.c_str(), identity,
+                                        sizeof(identity))) {
+    LOG_ERROR("Skipping payload with invalid path: %s", path.c_str());
+    return;
+  }
+  /* Confirm file is readable (ELF magic checked at launch). */
+  const int fd = open(path.c_str(), O_RDONLY, 0);
+  if (fd < 0) {
+    LOG_ERROR("Failed to open payload: %s", path.c_str());
+    return;
+  }
+  close(fd);
+
+  LOG_DEBUG("Found payload: %s key=%s", path.c_str(), identity);
+
+  char canonical[ONION_PAYLOAD_PATH_SIZE];
+  if (!onion_payload_canonical_path(path.c_str(), canonical, sizeof(canonical)))
+    return;
+
+  PayloadEntry entry;
+  entry.shellui_path = path;
+  entry.tid = identity;
+  entry.path = canonical;
+  entry.name = filename;
+  entry.version = "";
+  entry.id = identity;
+  const auto existing = std::find_if(
+      g_ui.payloads_list.begin(), g_ui.payloads_list.end(),
+      [&](const PayloadEntry& item) { return item.id == entry.id; });
+  if (existing != g_ui.payloads_list.end()) {
+    LOG_ERROR("Skipping Payload with colliding identity: %s", path.c_str());
+    return;
+  }
+
+  if (!onion_payload_config_load(path.c_str(), &entry.config))
+    LOG_WARN("Invalid payload config, using defaults: %s", path.c_str());
+  g_ui.payloads_list.push_back(std::move(entry));
+}
+
+std::string read_file_to_string(const char* path) {
+  struct stat st {};
+  if (stat(path, &st) == -1 || st.st_size <= 0) {
+    LOG_ERROR("Unable to stat file %s", path);
+    return {};
+  }
+
+  const int fd = open(path, O_RDONLY);
+  if (fd < 0) {
+    LOG_ERROR("Error reading %s file!", path);
+    return {};
+  }
+
+  std::string buf(static_cast<size_t>(st.st_size), '\0');
+  const ssize_t n = read(fd, buf.data(), buf.size());
+  close(fd);
+
+  if (n < 0 || static_cast<size_t>(n) != buf.size()) {
+    LOG_ERROR("read failed for %s", path);
+    return {};
+  }
+  return buf;
+}
+
+std::string join_authors(cJSON* root) {
+  std::unordered_set<std::string> seen;
+  std::string joined;
+  bool first = true;
+  cJSON* authors = onion_cjson::item(root, "authors");
+  if (!cJSON_IsArray(authors))
+    return joined;
+
+  cJSON* author = nullptr;
+  cJSON_ArrayForEach(author, authors) {
+    const char* value = onion_cjson::string_value(author);
+    if (!value || !seen.insert(value).second)
+      continue;
+    if (!first)
+      joined += ", ";
+    joined += value;
+    first = false;
+  }
+  return joined;
+}
+
+template <typename G>
+void append_cheat_array(G& page, cJSON* cheats,
+                        const std::string& game_name, bool can_toggle,
+                        const std::string& session_id) {
+  if (!cJSON_IsArray(cheats))
+    return;
+
+  cJSON* entry = nullptr;
+  cJSON_ArrayForEach(entry, cheats) {
+    const std::string name = onion_cjson::string_item(entry, "name", "");
+    std::string desc =
+        onion_cjson::string_item(entry, "description", "");
+    if (desc.empty())
+      desc = toolbox_i18n::tr("cheats.on_off");
+    const bool enabled = onion_cjson::bool_item(entry, "enabled");
+    const std::string key = onion_cjson::string_item(entry, "key", "");
+    if (can_toggle) {
+      const std::string id_attr = "id_cheat_" + session_id + "|" + key;
+      g_ui.set_cheat_toggle(id_attr, enabled);
+      page.toggle(id_attr, name, enabled, std::nullopt, desc);
+    } else {
+      /* Browse entries are informational. They must never enter the runtime
+       * toggle route, even if a stale page event arrives after navigation. */
+      page.button("id_cheat_view_" + key, name,
+                  toolbox_i18n::format("cheats.enable_fmt", game_name.c_str(),
+                            name.c_str()),
+                  desc);
+    }
+  }
+}
+
+template <typename G>
+void append_cheat_entries(G& page, cJSON* root,
+                          const std::string& game_name, bool can_toggle,
+                          const std::string& session_id) {
+  cJSON* groups = onion_cjson::item(root, "groups");
+  if (!cJSON_IsArray(groups) || cJSON_GetArraySize(groups) == 0) {
+    append_cheat_array(page, onion_cjson::item(root, "cheats"), game_name,
+                       can_toggle, session_id);
+    return;
+  }
+
+  int group_index = 0;
+  cJSON* group = nullptr;
+  cJSON_ArrayForEach(group, groups) {
+    const std::string format = onion_cjson::string_item(group, "format", "");
+    const std::string source_id =
+        onion_cjson::string_item(group, "sourceId", "");
+    const std::string authors = join_authors(group);
+    std::string heading =
+        format.empty() ? toolbox_i18n::tr("cheats.group.unnamed") : format;
+    if (!source_id.empty())
+      heading += " / " + source_id;
+    if (!authors.empty())
+      heading += " / " + authors;
+    /* U+3000: Settings needs a title to keep the row. Skip before the first source. */
+    if (group_index > 0)
+      page.label("id_cheat_group_spacer_" + std::to_string(group_index), "　",
+                 ps5ui::Style::Center);
+    page.label("id_cheat_group_" + std::to_string(group_index++), heading,
+               ps5ui::Style::Center);
+    append_cheat_array(page, onion_cjson::item(group, "cheats"), game_name,
+                       can_toggle, session_id);
+  }
+}
+
+} // namespace
+
+void generate_account_xml(std::string& xml_buffer) {
+  Activator activator(true);
+  ps5ui::Page page("id_account_activation", toolbox_i18n::tr("account.title"));
+  page.root_style(ps5ui::Style::Center);
+
+  if (!activator.Valid()) {
+    page.label("id_account_error", toolbox_i18n::tr("account.error.read"),
+               ps5ui::Style::Center);
+    xml_buffer = page.build();
+    return;
+  }
+
+  const char* username = activator.currentUser.Username.empty()
+                             ? "-"
+                             : activator.currentUser.Username.c_str();
+  page.label("id_account_user",
+             toolbox_i18n::format("account.user_fmt", username),
+             ps5ui::Style::Center);
+
+  if (!activator.IsNotActivated()) {
+    char id_hex[17] = {};
+    std::snprintf(id_hex, sizeof(id_hex), "%016llX",
+                  static_cast<unsigned long long>(activator.currentUser.accountID));
+    page.label("id_account_status", toolbox_i18n::tr("account.status.activated"),
+               ps5ui::Style::Center)
+        .label("id_account_id", toolbox_i18n::format("account.id_fmt", id_hex),
+               ps5ui::Style::Center);
+  } else {
+    page.label("id_account_status",
+               toolbox_i18n::tr("account.status.not_activated"),
+               ps5ui::Style::Center)
+        .label("id_account_warning", toolbox_i18n::tr("account.warning"),
+               ps5ui::Style::Center)
+        .button("id_activate_account", toolbox_i18n::tr("account.activate"),
+                toolbox_i18n::tr("account.activate.sub"), std::nullopt,
+                std::nullopt, ps5ui::Style::Center,
+                toolbox_i18n::tr("account.activate.confirm"),
+                toolbox_i18n::tr("account.activate.confirm_phrase"));
+  }
+
+  xml_buffer = page.build();
+}
+
+static bool payloads_model(ps5ui::Node& model) {
+  static const std::vector<std::string> kPayloadDirs = {
+      "/user/data/HyperHEN/payloads",
+      "/user/data/hyperhen/payloads",
+      "/data/HyperHEN/payloads",
+      "/data/hyperhen/payloads",
+      "/usb0/HyperHEN/payloads",
+      "/usb0/hyperhen/payloads",
+      "/usb1/HyperHEN/payloads",
+      "/usb1/hyperhen/payloads",
+      "/usb2/HyperHEN/payloads",
+      "/usb2/hyperhen/payloads",
+      "/usb3/HyperHEN/payloads",
+      "/usb3/hyperhen/payloads",
+  };
+
+  g_ui.payloads_list.clear();
+  ps5ui::Page page("id_payload", toolbox_i18n::tr("payload.title"));
+
+  for (const auto& directory : kPayloadDirs) {
+    DIR* dir = opendir(directory.c_str());
+    if (!dir) {
+      LOG_ERROR("Failed to open directory: %s", directory.c_str());
+      continue;
+    }
+    while (struct dirent* entry = readdir(dir))
+      append_payload_entry(directory, entry->d_name);
+    closedir(dir);
+  }
+
+  std::sort(g_ui.payloads_list.begin(), g_ui.payloads_list.end(),
+            [](const PayloadEntry& a, const PayloadEntry& b) {
+              return onion_payload_compare(a.config.priority, a.path.c_str(),
+                                           b.config.priority, b.path.c_str()) < 0;
+            });
+  for (const auto& entry : g_ui.payloads_list) {
+    const std::string status = payload_list_status(entry);
+    page.link("id_payload_item_" + entry.id, entry.name,
+              toolbox::payload_config_xml(entry.id),
+              toolbox_i18n::format("payload.status.schedule_fmt", status.c_str(),
+                                   entry.config.priority, entry.config.delay_seconds),
+              kIconPlugins);
+  }
+  model = page.root();
+  return true;
+}
+
+void generate_payload_xml(std::string& xml_buffer) {
+  ps5ui::Node model;
+  payloads_model(model);
+  xml_buffer = onion::shellui::settings::publish(model, payloads_model);
+}
+
+void generate_payload_config_xml(std::string& xml_buffer,
+                                 const std::string& payload_id) {
+  const auto found = std::find_if(
+      g_ui.payloads_list.begin(), g_ui.payloads_list.end(),
+      [&](const PayloadEntry& entry) { return entry.id == payload_id; });
+  if (found == g_ui.payloads_list.end()) {
+    ps5ui::Page page("id_payload_config", toolbox_i18n::tr("payload.title"));
+    page.label("id_payload_missing", toolbox_i18n::tr("payload.missing"));
+    xml_buffer = page.build();
+  } else {
+    const bool running = shellui_payload_is_running(found->tid.c_str());
+    const std::string auto_path = found->shellui_path + ".auto_start";
+    const bool auto_start = if_exists(auto_path.c_str());
+    onion_payload_config_load(found->shellui_path.c_str(), &found->config);
+    ps5ui::Page page("id_payload_config", found->name);
+    page.label("id_payload_path", found->path)
+        .toggle("id_payload_run_" + found->id,
+                toolbox_i18n::tr("payload.current_session"), running,
+                toolbox_i18n::tr("payload.current_session.sub"))
+        .toggle("id_payload_autostart_" + found->id,
+                toolbox_i18n::tr("payload.next_autostart"), auto_start,
+                toolbox_i18n::tr("payload.next_autostart.sub"))
+        .text_field("id_payload_priority_" + found->id,
+                    toolbox_i18n::tr("payload.priority"),
+                    toolbox_i18n::tr("payload.priority.sub"), "number", "1", "3",
+                    std::nullopt, std::nullopt, std::nullopt,
+                    std::to_string(found->config.priority))
+        .text_field("id_payload_delay_" + found->id,
+                    toolbox_i18n::tr("payload.delay"),
+                    toolbox_i18n::tr("payload.delay.sub"), "number", "1", "3",
+                    std::nullopt, std::nullopt, std::nullopt,
+                    std::to_string(found->config.delay_seconds));
+    xml_buffer = page.build();
+  }
+}
+
+void generate_overlay_metric_xml(std::string& xml_buffer,
+                                 const std::string& metric_id) {
+  const auto *row = onion::overlay::metric_ui_by_name(metric_id);
+  if (!row) {
+    ps5ui::Page page("id_overlay_metric", toolbox_i18n::tr("overlay.group"));
+    page.label("id_overlay_metric_missing",
+               toolbox_i18n::tr("overlay.group.sub"));
+    xml_buffer = page.build();
+    return;
+  }
+
+  ps5ui::Page page("id_overlay_metric", toolbox_i18n::tr(row->title_key));
+  page.toggle(row->enable_id, toolbox_i18n::tr(row->title_key),
+              onion::overlay::metric_toggle_on(g_settings, row->metric),
+              toolbox_i18n::tr(row->desc_key))
+      .list(
+          row->order_id, toolbox_i18n::tr("overlay.item.order"),
+          [](ps5ui::ListBuilder& L) {
+            L.item("id_overlay_order_1", "1", "1")
+                .item("id_overlay_order_2", "2", "2")
+                .item("id_overlay_order_3", "3", "3")
+                .item("id_overlay_order_4", "4", "4")
+                .item("id_overlay_order_5", "5", "5")
+                .item("id_overlay_order_6", "6", "6");
+          },
+          toolbox_i18n::tr("overlay.item.order.sub"),
+          std::to_string(onion::overlay_metric_position(
+              g_settings.overlay_order, row->metric)));
+  if (row->metric == onion::kOverlayMetricCpu) {
+    page.toggle("id_all_cpu_usage", toolbox_i18n::tr("overlay.cpu_all"),
+                g_settings.all_cpu_usage,
+                toolbox_i18n::tr("overlay.cpu_all.desc"));
+  }
+  xml_buffer = page.build();
+}
+
+static bool overlay_metrics_model(ps5ui::Node &model) {
+  constexpr const char *kIcon =
+      "/user/data/HyperHEN/assets/icon_xml_overlay.png";
+  ps5ui::Page page("id_overlay_metrics", toolbox_i18n::tr("overlay.items"));
+  auto order = g_settings.overlay_order;
+  onion::overlay_normalize_order(order);
+  for (int metric : order) {
+    const auto *row = onion::overlay::metric_ui_by_metric(metric);
+    if (!row)
+      continue;
+    const int pos =
+        onion::overlay_metric_position(g_settings.overlay_order, metric);
+    const bool on = onion::overlay::metric_toggle_on(g_settings, metric);
+    page.link(std::string("id_overlay_item_") + row->name,
+              toolbox_i18n::tr(row->title_key),
+              toolbox::overlay_metric_xml(row->name),
+              toolbox_i18n::format(on ? "overlay.item.status_on_fmt"
+                                      : "overlay.item.status_off_fmt",
+                                   pos),
+              kIcon);
+  }
+  model = page.root();
+  return true;
+}
+
+void generate_overlay_metrics_xml(std::string &xml_buffer) {
+  ps5ui::Node model;
+  overlay_metrics_model(model);
+  xml_buffer = onion::shellui::settings::publish(model, overlay_metrics_model);
+}
+
+static bool plugins_model(ps5ui::Node &model) {
+  using namespace onion::plugins;
+
+  ps5ui::Page page("id_plugins", toolbox_i18n::tr("plugins.title"));
+
+  /* The same model supplies initial XML and updates to existing elements. */
+  for (const auto &d : kRegistry) {
+    const char *status = d.sub_key;
+    if (std::string_view(d.key) == "kstuff")
+      status = g_settings.kstuff_autoload ? "plugin.kstuff.status.autoload"
+                                          : "plugin.kstuff.status.manual";
+    page.link(d.toggle_id, toolbox_i18n::tr(d.title_key), d.config_xml,
+              toolbox_i18n::tr(status));
+  }
+
+  const auto settings = onion::shellui::dynamic_ui::plugin_settings_links();
+  const auto inventory = onion::shellui::external_plugins::append_inventory(
+      page, settings);
+  onion::shellui::dynamic_ui::append_plugin_links(page, settings, inventory.matched_settings);
+
+  model = page.root();
+  return inventory.available;
+}
+
+static bool sprx_model(ps5ui::Node &model) {
+  ps5ui::Page page("id_sprx", toolbox_i18n::tr("sprx.title"));
+  const bool available = onion::shellui::external_sprx::append_inventory(page);
+  model = page.root();
+  return available;
+}
+
+void generate_plugins_xml(std::string &xml_buffer) {
+  ps5ui::Node model;
+  plugins_model(model);
+  xml_buffer = onion::shellui::settings::publish(model, plugins_model);
+}
+
+void generate_sprx_xml(std::string &xml_buffer) {
+  ps5ui::Node model;
+  sprx_model(model);
+  xml_buffer = onion::shellui::settings::publish(model, sprx_model);
+}
+
+static bool kstuff_model(ps5ui::Node &model) {
+  using namespace onion::plugins;
+  const Descriptor *d = find_by_key("kstuff");
+  ps5ui::Page page("id_plugin_config", toolbox_i18n::tr(d->title_key));
+  page.toggle("id_plugin_kstuff_autoload", toolbox_i18n::tr("kstuff.autoload"),
+              g_settings.kstuff_autoload,
+              toolbox_i18n::tr("kstuff.autoload.sub"));
+  model = page.root();
+  return true;
+}
+
+void generate_kstuff_config_xml(std::string &xml_buffer) {
+  ps5ui::Node model;
+  kstuff_model(model);
+  xml_buffer = onion::shellui::settings::publish(model, kstuff_model);
+}
+
+void generate_plugin_config_xml(std::string &xml_buffer) {
+  generate_kstuff_config_xml(xml_buffer);
+}
+
+void generate_cheats_xml(std::string& new_xml, std::string& not_open_tid,
+                         bool running_as_debug_settings, bool show_while_not_open) {
+  const std::string list_id =
+      running_as_debug_settings ? "id_debug_settings" : "id_cheat_title";
+
+  int appid = -1;
+  std::string running_tid;
+  g_ui.is_game_open = Get_Running_App_TID(running_tid, appid);
+  g_ui.is_current_game_open =
+      g_ui.is_game_open &&
+      running_tid == (show_while_not_open ? not_open_tid : running_tid);
+
+  if (!g_ui.is_game_open && !show_while_not_open) {
+    ps5ui::Page page(list_id, toolbox_i18n::tr("cheats.none"));
+    page.label("id_cheat_no_game", toolbox_i18n::tr("cheats.none.hint"),
+               ps5ui::Style::Center);
+    new_xml = page.build();
+    return;
+  }
+
+  const std::string target_tid =
+      show_while_not_open ? not_open_tid : running_tid;
+  IPC_Client& client = IPC_Client::getInstance(true);
+
+  std::string cheat_path;
+  onion_bigapp_process_t process{};
+  int process_result = -1;
+  if (g_ui.is_current_game_open) {
+    process_result = onion_resolve_running_bigapp(&process);
+    if (process_result == -2 && process.pid > 0) {
+      LOG_WARN("[cheats] runtime process identity is ambiguous result=%d; "
+               "using best match pid=%d process='%s'",
+               process_result, static_cast<int>(process.pid),
+               process.process_name);
+    } else if (process_result != 0) {
+      LOG_WARN("[cheats] runtime process identity unavailable result=%d; "
+               "falling back to read-only browse",
+               process_result);
+    }
+  }
+  const bool have_process = process.pid > 0 &&
+                            process.session_generation != 0 &&
+                            process.process_name[0] != '\0';
+  const bool runtime_request =
+      g_ui.is_game_open && g_ui.is_current_game_open && have_process &&
+      (process_result == 0 || process_result == -2);
+  const std::string mode = runtime_request ? "runtime" : "browse";
+  const int cheat_pid = runtime_request ? process.pid : 0;
+  std::string json_string;
+  if (client.GetGameCheats(target_tid, cheat_path, mode, cheat_pid,
+                           runtime_request ? process.appid : 0,
+                           runtime_request ? process.process_name : "",
+                           runtime_request ? process.session_generation : 0)) {
+    json_string = read_file_to_string(cheat_path.c_str());
+    unlink(cheat_path.c_str());
+  }
+
+  onion_cjson::Root res_json(json_string);
+  std::string display_ver = toolbox_i18n::tr("cheats.ver_unknown");
+  if (res_json) {
+    const std::string version =
+        onion_cjson::string_item(res_json.get(), "version", "");
+    if (!version.empty()) {
+      display_ver = version;
+    }
+  } else if (!json_string.empty()) {
+    LOG_ERROR("Failed to parse json from cheat response!");
+  }
+
+  ps5ui::Page page(list_id, toolbox_i18n::format("cheats.title_fmt",
+                                                 target_tid.c_str(),
+                                                 display_ver.c_str()));
+  if (!g_ui.is_game_open && show_while_not_open) {
+    page.label("id_cheat_disclaimer",
+               toolbox_i18n::format("cheats.not_running_fmt", target_tid.c_str()),
+               ps5ui::Style::Center);
+  }
+  if (!res_json) {
+    page.label("id_cheat_missing", toolbox_i18n::tr("cheats.missing"),
+               ps5ui::Style::Center);
+    new_xml = page.build();
+    return;
+  }
+
+  const std::string game_name =
+      onion_cjson::string_item(res_json.get(), "name", "");
+  page.label("id_cheat_title", "★ " + game_name + " ★", ps5ui::Style::Center);
+
+  const std::string authors = join_authors(res_json.get());
+  page.label("credits", toolbox_i18n::format("cheats.authors_fmt", authors.c_str()),
+             ps5ui::Style::Center);
+
+  append_cheat_entries(
+      page, res_json.get(), game_name,
+      onion_cjson::bool_item(res_json.get(), "canToggle"),
+      onion_cjson::string_item(res_json.get(), "sessionId", ""));
+  new_xml = page.build();
+}
+
+namespace {
+
+constexpr const char* kIconPkg =
+    "/user/data/HyperHEN/assets/icon_xml_package.png";
+constexpr const char* kIconGame = "/user/data/HyperHEN/assets/icon_xml_game.png";
+constexpr const char* kIconCheats =
+    "/user/data/HyperHEN/assets/icon_xml_cheats.png";
+constexpr const char* kIconDownload =
+    "/user/data/HyperHEN/assets/icon_xml_download.png";
+constexpr const char* kIconMonitor =
+    "/user/data/HyperHEN/assets/icon_xml_monitor.png";
+constexpr const char* kIconAccount =
+    "/user/data/HyperHEN/assets/icon_xml_account.png";
+constexpr const char* kIconSettings =
+    "/user/data/HyperHEN/assets/icon_xml_settings.png";
+constexpr const char* kIconShortcuts =
+    "/user/data/HyperHEN/assets/icon_xml_shortcuts.png";
+constexpr const char* kIconDebug =
+    "/user/data/HyperHEN/assets/icon_xml_debug.png";
+constexpr const char* kIconLinux =
+    "/user/data/HyperHEN/assets/icon_xml_linux.png";
+constexpr const char* kIconAbout =
+    "/user/data/HyperHEN/assets/icon_xml_about.png";
+constexpr const char* kIconOverlay =
+    "/user/data/HyperHEN/assets/icon_xml_overlay.png";
+constexpr const char* kIconTitleId =
+    "/user/data/HyperHEN/assets/icon_xml_title_id.png";
+constexpr const char* kIconMenuOption =
+    "/user/data/HyperHEN/assets/icon_xml_menu_option.png";
+constexpr const char* kIconFan =
+    "/user/data/HyperHEN/assets/icon_xml_fan.png";
+constexpr const char* kIconRestMode =
+    "/user/data/HyperHEN/assets/icon_xml_restmode.png";
+constexpr const char* kIconHardDrive =
+    "/user/data/HyperHEN/assets/icon_xml_hardrive.png";
+constexpr const char* kIconDiscLicense =
+    "/user/data/HyperHEN/assets/icon_xml_disc_license.png";
+constexpr const char* kIconThanks =
+    "/user/data/HyperHEN/assets/icon_xml_thanks.png";
+constexpr const char* kIconProject =
+    "/user/data/HyperHEN/assets/icon_xml_project.png";
+constexpr const char* kIconHyperHen = "/user/data/HyperHEN/hyperhen.png";
+
+bool toolbox_on(const char* id) {
+  return resolve_toolbox_control_value(id) == "1";
+}
+
+std::string toolbox_val(const char* id, const char* fallback = "0") {
+  std::string v = resolve_toolbox_control_value(id);
+  return v.empty() ? fallback : v;
+}
+
+void append_toolbox_pkg_group(ps5ui::Group& g) {
+  g.link("id_game_package_installer", toolbox_i18n::tr("pkg.installer"),
+         "PkgInstaller/data/pkginstaller.xml",
+         toolbox_i18n::tr("pkg.installer.sub"))
+      .link("id_game_add_content_manager", toolbox_i18n::tr("pkg.add_content"),
+            "Addcontent/data/addcontent.xml",
+            toolbox_i18n::tr("pkg.add_content.sub"));
+}
+
+void append_toolbox_payloads_group(ps5ui::Group& g) {
+  g.link("id_payloads", toolbox_i18n::tr("payloads.link"), "payloads.xml",
+         toolbox_i18n::tr("payloads.link.sub"), kIconPlugins)
+      .link("id_plugins", toolbox_i18n::tr("plugins.link"), "plugins.xml",
+            toolbox_i18n::tr("plugins.link.sub"), kIconPlugins)
+      .link("id_sprx", toolbox_i18n::tr("sprx.link"), "sprx.xml",
+            toolbox_i18n::tr("sprx.link.sub"), kIconPlugins);
+}
+
+void append_toolbox_game_group(ps5ui::Group& g) {
+  g.link("id_cheats", toolbox_i18n::tr("cheats.link"), "cheats.xml",
+         toolbox_i18n::tr("cheats.link.sub"), kIconCheats)
+      .button("id_download_cheats", toolbox_i18n::tr("cheats.repo.download"),
+              toolbox_i18n::tr("cheats.repo.download.desc"), std::nullopt,
+              kIconDownload, ps5ui::Style::None,
+              toolbox_i18n::tr("cheats.repo.download.confirm"),
+              toolbox_i18n::tr("cheats.repo.download.confirm_phrase"));
+}
+
+void append_toolbox_network_group(ps5ui::Group& g) {
+  Activator activator(true);
+  std::optional<std::string> remote_play_alert;
+  if (!activator.Valid()) {
+    remote_play_alert = toolbox_i18n::tr("account.error.read");
+  } else if (activator.IsNotActivated()) {
+    remote_play_alert =
+        std::string(toolbox_i18n::tr("account.status.not_activated")) + "\n" +
+        toolbox_i18n::tr("group.network") + " > " +
+        toolbox_i18n::tr("account.link") + "\n" +
+        toolbox_i18n::tr("account.link.sub");
+  }
+
+  if (remote_play_alert) {
+    // Legacy Settings only drives its confirm Alert flow for button elements.
+    // The handler consumes this non-navigating entry after confirmation.
+    g.button("id_remote_play", toolbox_i18n::tr("remote_play.title"),
+             toolbox_i18n::tr("remote_play.sub"), std::nullopt, std::nullopt,
+             ps5ui::Style::None, std::move(remote_play_alert),
+             toolbox_i18n::tr("account.activate.confirm_phrase"));
+  } else {
+    g.link("id_remote_play", toolbox_i18n::tr("remote_play.title"),
+           "remote_play.xml", toolbox_i18n::tr("remote_play.sub"));
+  }
+}
+
+void append_toolbox_display_group(ps5ui::Group& g) {
+  g.group(
+       "id_overlay_opts", toolbox_i18n::tr("overlay.group"),
+       [](ps5ui::Group& o) {
+         o.toggle("id_overlay_enabled", toolbox_i18n::tr("overlay.enabled"),
+                  toolbox_on("id_overlay_enabled"), std::nullopt,
+                  toolbox_i18n::tr("overlay.enabled.desc"))
+             .toggle("id_overlay_background",
+                     toolbox_i18n::tr("overlay.background"),
+                     toolbox_on("id_overlay_background"), std::nullopt,
+                     toolbox_i18n::tr("overlay.background.desc"))
+             .list("id_overlay_change_pos", toolbox_i18n::tr("overlay.pos"),
+                   [](ps5ui::ListBuilder& L) {
+                     L.item("id_overlay_pos_1",
+                            toolbox_i18n::tr("overlay.pos.top"), "0")
+                         .item("id_overlay_pos_3",
+                               toolbox_i18n::tr("overlay.pos.bottom"), "2");
+                   },
+                   toolbox_i18n::tr("overlay.pos.sub"),
+                   toolbox_val("id_overlay_change_pos"))
+             .list("id_overlay_align", toolbox_i18n::tr("overlay.align"),
+                   [](ps5ui::ListBuilder& L) {
+                     L.item("id_overlay_align_left",
+                            toolbox_i18n::tr("overlay.align.left"), "0")
+                         .item("id_overlay_align_center",
+                               toolbox_i18n::tr("overlay.align.center"), "1")
+                         .item("id_overlay_align_right",
+                               toolbox_i18n::tr("overlay.align.right"), "2");
+                   },
+                   toolbox_i18n::tr("overlay.align.sub"),
+                   toolbox_val("id_overlay_align"))
+             .list("id_overlay_font_size", toolbox_i18n::tr("overlay.font"),
+                   [](ps5ui::ListBuilder& L) {
+                     L.item("id_overlay_font_small",
+                            toolbox_i18n::tr("overlay.font.small"), "0")
+                         .item("id_overlay_font_medium",
+                               toolbox_i18n::tr("overlay.font.medium"), "1")
+                         .item("id_overlay_font_large",
+                               toolbox_i18n::tr("overlay.font.large"), "2");
+                   },
+                   toolbox_i18n::tr("overlay.font.sub"),
+                   toolbox_val("id_overlay_font_size"))
+             .link("id_overlay_items", toolbox_i18n::tr("overlay.items"),
+                   "overlay_metrics.xml",
+                   toolbox_i18n::tr("overlay.items.sub"));
+       },
+       toolbox_i18n::tr("overlay.group.sub"), kIconOverlay,
+       "id_overlay_enabled")
+      .toggle("id_disp_titleids", toolbox_i18n::tr("disp_tids"),
+              toolbox_on("id_disp_titleids"), toolbox_i18n::tr("disp_tids.sub"),
+              std::nullopt, kIconTitleId)
+      .toggle("id_custom_game_opts", toolbox_i18n::tr("game_opts.toggle"),
+              toolbox_on("id_custom_game_opts"),
+              toolbox_i18n::tr("game_opts.toggle.sub"), std::nullopt,
+              kIconMenuOption);
+}
+
+void append_toolbox_account_group(ps5ui::Group& g) {
+  g.link("id_account_activation", toolbox_i18n::tr("account.link"),
+         "account.xml", toolbox_i18n::tr("account.link.sub"));
+}
+
+void append_toolbox_system_group(ps5ui::Group& g) {
+  g.group(
+       "id_group_fan", toolbox_i18n::tr("fan.group"),
+       [](ps5ui::Group& f) {
+         f.toggle("id_enable_fan_speed", toolbox_i18n::tr("fan.enable"),
+                  toolbox_on("id_enable_fan_speed"),
+                  toolbox_i18n::tr("fan.enable.sub"))
+             .text_field("id_fan_speed", toolbox_i18n::tr("fan.threshold"),
+                         toolbox_i18n::tr("fan.threshold.sub"), "number", "2",
+                         "2", std::nullopt, std::nullopt, std::nullopt,
+                         toolbox_val("id_fan_speed", ""));
+       },
+       toolbox_i18n::tr("fan.group.sub"), kIconFan, "id_enable_fan_speed")
+      .group(
+          "id_rest_mode", toolbox_i18n::tr("rest.group"),
+          [](ps5ui::Group& r) {
+            r.text_field("id_rest_1", toolbox_i18n::tr("rest.delay"),
+                         toolbox_i18n::tr("rest.delay.sub"), "number", "1",
+                         "3", std::nullopt, std::nullopt, std::nullopt,
+                         toolbox_val("id_rest_1", ""));
+          },
+          toolbox_i18n::tr("rest.group.sub"), kIconRestMode, "id_rest_1")
+      .link("id_external_hdd", toolbox_i18n::tr("hdd.external"),
+            "DebugSettings/data/debug_settings_external_hdd.xml",
+            toolbox_i18n::tr("hdd.external.sub"), kIconHardDrive)
+      .link("id_licenseactivation", toolbox_i18n::tr("license.bd"),
+            "DebugSettings/data/debug_settings_licenseactivation.xml",
+            toolbox_i18n::tr("license.bd.sub"), kIconDiscLicense);
+}
+
+void append_toolbox_preferences_group(ps5ui::Group& g) {
+  g.list("id_start_opt", toolbox_i18n::tr("startup.open_after_load"),
+         [](ps5ui::ListBuilder& L) {
+           L.item("id_start_opt_none", toolbox_i18n::tr("startup.none"), "0")
+               .item("id_start_opt_home_menu",
+                     toolbox_i18n::tr("startup.home_menu"), "1");
+         },
+         toolbox_i18n::tr("startup.open_after_load.sub"),
+         toolbox_val("id_start_opt", "0"),
+         toolbox_i18n::tr("startup.open_after_load.confirm"),
+         toolbox_i18n::tr("startup.open_after_load.confirm_phrase"))
+      .toggle("id_boot_thanks", toolbox_i18n::tr("boot.thanks"),
+              toolbox_on("id_boot_thanks"), toolbox_i18n::tr("boot.thanks.sub"))
+      .toggle("id_hype_voice", toolbox_i18n::tr("boot.hype_voice"),
+              toolbox_on("id_hype_voice"),
+              toolbox_i18n::tr("boot.hype_voice.sub"))
+      .list("id_ui_lang", toolbox_i18n::tr("lang.list"),
+         [](ps5ui::ListBuilder& L) {
+           L.item("id_ui_lang_system", toolbox_i18n::tr("lang.system"), "0")
+               .item("id_ui_lang_zh", toolbox_i18n::tr("lang.zh"), "1")
+               .item("id_ui_lang_zh_hant", toolbox_i18n::tr("lang.zh_hant"), "4")
+               .item("id_ui_lang_en", toolbox_i18n::tr("lang.en"), "2")
+               .item("id_ui_lang_ja", toolbox_i18n::tr("lang.ja"), "5")
+               .item("id_ui_lang_ko", toolbox_i18n::tr("lang.ko"), "8")
+               .item("id_ui_lang_fr", toolbox_i18n::tr("lang.fr"), "6")
+               .item("id_ui_lang_de", toolbox_i18n::tr("lang.de"), "7")
+               .item("id_ui_lang_it", toolbox_i18n::tr("lang.it"), "11")
+               .item("id_ui_lang_es", toolbox_i18n::tr("lang.es"), "9")
+               .item("id_ui_lang_pt_br", toolbox_i18n::tr("lang.pt_br"), "10")
+               .item("id_ui_lang_pl", toolbox_i18n::tr("lang.pl"), "13")
+               .item("id_ui_lang_ru", toolbox_i18n::tr("lang.ru"), "12")
+               .item("id_ui_lang_ar", toolbox_i18n::tr("lang.ar"), "3")
+               .item("id_ui_lang_th", toolbox_i18n::tr("lang.th"), "14")
+               .item("id_ui_lang_nl", toolbox_i18n::tr("lang.nl"), "15")
+               .item("id_ui_lang_fi", toolbox_i18n::tr("lang.fi"), "16")
+               .item("id_ui_lang_sv", toolbox_i18n::tr("lang.sv"), "17")
+               .item("id_ui_lang_da", toolbox_i18n::tr("lang.da"), "18")
+               .item("id_ui_lang_no", toolbox_i18n::tr("lang.no"), "19")
+               .item("id_ui_lang_tr", toolbox_i18n::tr("lang.tr"), "20")
+               .item("id_ui_lang_cs", toolbox_i18n::tr("lang.cs"), "21")
+               .item("id_ui_lang_hu", toolbox_i18n::tr("lang.hu"), "22")
+               .item("id_ui_lang_el", toolbox_i18n::tr("lang.el"), "23")
+               .item("id_ui_lang_ro", toolbox_i18n::tr("lang.ro"), "24")
+               .item("id_ui_lang_vi", toolbox_i18n::tr("lang.vi"), "25")
+               .item("id_ui_lang_id", toolbox_i18n::tr("lang.id"), "26")
+               .item("id_ui_lang_uk", toolbox_i18n::tr("lang.uk"), "27")
+               .item("id_ui_lang_pt", toolbox_i18n::tr("lang.pt"), "28");
+         },
+         toolbox_i18n::tr("lang.list.sub"), toolbox_val("id_ui_lang", "0"))
+      .list("id_toolbox_shortcut", toolbox_i18n::tr("sc.toolbox"),
+            [](ps5ui::ListBuilder& L) {
+              L.item("id_toolbox_shortcut_0", toolbox_i18n::tr("sc.off"), "0")
+                  .item("id_toolbox_shortcut_1", toolbox_i18n::tr("sc.l2_r3"),
+                        "1")
+                  .item("id_toolbox_shortcut_2",
+                        toolbox_i18n::tr("sc.long_share"), "2")
+                  .item("id_toolbox_shortcut_3", toolbox_i18n::tr("sc.share"),
+                        "3");
+            },
+            toolbox_i18n::tr("sc.toolbox.sub"),
+            toolbox_val("id_toolbox_shortcut"))
+      .list("id_cheats_shortcut", toolbox_i18n::tr("sc.cheats"),
+            [](ps5ui::ListBuilder& L) {
+              L.item("id_cheats_shortcut_0", toolbox_i18n::tr("sc.off"), "0")
+                  .item("id_cheats_shortcut_1", toolbox_i18n::tr("sc.r3_l3"),
+                        "1")
+                  .item("id_cheats_shortcut_2", toolbox_i18n::tr("sc.l2_tri"),
+                        "2")
+                  .item("id_cheats_shortcut_3",
+                        toolbox_i18n::tr("sc.long_options"), "3")
+                  .item("id_cheats_shortcut_4",
+                        toolbox_i18n::tr("sc.long_share"), "4")
+                  .item("id_cheats_shortcut_5", toolbox_i18n::tr("sc.share"),
+                        "5");
+            },
+            toolbox_i18n::tr("sc.cheats.sub"), toolbox_val("id_cheats_shortcut"))
+      .list("id_cheats_mirror", toolbox_i18n::tr("cheats.repo.mirror"),
+            [](ps5ui::ListBuilder& L) {
+              L.item("id_cheats_mirror_auto",
+                     toolbox_i18n::tr("cheats.repo.mirror.auto"), "0")
+                  .item("id_cheats_mirror_github",
+                        toolbox_i18n::tr("cheats.repo.mirror.github"), "1")
+                  .item("id_cheats_mirror_cnb",
+                        toolbox_i18n::tr("cheats.repo.mirror.cnb"), "2");
+            },
+            toolbox_i18n::tr("cheats.repo.mirror.sub"),
+            toolbox_val("id_cheats_mirror"));
+}
+
+void append_toolbox_debug_group(ps5ui::Group& g) {
+  g.button("id_linux_loader", toolbox_i18n::tr("linux.loader"),
+           toolbox_i18n::tr("linux.loader.sub"), std::nullopt, kIconLinux,
+           ps5ui::Style::None, toolbox_i18n::tr("linux.loader.confirm"),
+           toolbox_i18n::tr("linux.loader.confirm_phrase"))
+      .list("id_log_level", toolbox_i18n::tr("log.level"),
+         [](ps5ui::ListBuilder& L) {
+           L.item("id_log_level_off", toolbox_i18n::tr("log.off"), "0")
+               .item("id_log_level_error", toolbox_i18n::tr("log.error"), "1")
+               .item("id_log_level_warn", toolbox_i18n::tr("log.warn"), "2")
+               .item("id_log_level_info", toolbox_i18n::tr("log.info"), "3");
+           if constexpr (ONION_LOG_COMPILE_LEVEL >= ONION_LOG_DEBUG) {
+             L.item("id_log_level_debug", toolbox_i18n::tr("log.debug"), "4");
+           }
+           if constexpr (ONION_LOG_COMPILE_LEVEL >= ONION_LOG_TRACE) {
+             L.item("id_log_level_trace", toolbox_i18n::tr("log.trace"), "5");
+           }
+         },
+         toolbox_i18n::tr("log.level.sub"), toolbox_val("id_log_level", "3"))
+      .list("id_log_max_bytes", toolbox_i18n::tr("log.max_bytes"),
+            [](ps5ui::ListBuilder& L) {
+              /* Sizes are unit-only on purpose: no locale needs them
+                 translated, so the list stays identical in every language. */
+              L.item("id_log_max_bytes_256k", "256 KiB", "262144")
+                  .item("id_log_max_bytes_768k", "768 KiB", "786432")
+                  .item("id_log_max_bytes_2m", "2 MiB", "2097152")
+                  .item("id_log_max_bytes_8m", "8 MiB", "8388608");
+            },
+            toolbox_i18n::tr("log.max_bytes.sub"),
+            toolbox_val("id_log_max_bytes", "786432"))
+      .toggle("id_app_jailbreak_enabled",
+              toolbox_i18n::tr("app_jailbreak.enabled"),
+              toolbox_on("id_app_jailbreak_enabled"),
+              toolbox_i18n::tr("app_jailbreak.enabled.sub"))
+      .toggle("id_debug_jb", toolbox_i18n::tr("debug.jb"),
+              toolbox_on("id_debug_jb"), toolbox_i18n::tr("debug.jb.sub"))
+      .text_field("id_np_env", toolbox_i18n::tr("debug.np_env"),
+                  toolbox_i18n::tr("debug.np_env.sub"), "basic_latin", "1",
+                  "16", "/NP/env", toolbox_i18n::tr("debug.np_env.confirm"),
+                  toolbox_i18n::tr("debug.np_env.confirm_phrase"));
+}
+
+void append_toolbox_about_group(ps5ui::Group& g) {
+  /* About page top: same HYPERHEN_VERSION as welcome toast / beta banner. */
+  const std::string build_line =
+      toolbox_i18n::format("about.build", HYPERHEN_VERSION);
+
+  g.label("id_about_build", build_line, ps5ui::Style::Center)
+      .group(
+          "id_hyperhen_credits", toolbox_i18n::tr("about.credits"),
+          [](ps5ui::Group& c) {
+            const std::string ver =
+                std::string("★ HyperHEN ") + HYPERHEN_VERSION;
+            c.label("id_about_version", ver, ps5ui::Style::Center)
+                .label("id_about_lineage", "HYPERHEN PROJECT",
+                       ps5ui::Style::Center)
+                .label("id_about_lineage_1", "Coded by MICHELE MEDIA",
+                       ps5ui::Style::Center)
+                .label("id_about_lineage_2",
+                       "All-in-one runtime for PS5 homebrew",
+                       ps5ui::Style::Center)
+                .label("id_about_contributor",
+                       "HyperCore integrated firmware profile router",
+                       ps5ui::Style::Center)
+                .label("id_about_donors",
+                       "Hypervisor, legacy and A53 cores",
+                       ps5ui::Style::Center)
+                .label("id_about_donor_names",
+                       "Automount and backport runtime",
+                       ps5ui::Style::Center)
+                .label("id_about_testers", "HyperHEN Toolbox",
+                       ps5ui::Style::Center)
+                .label("id_about_testers_intro",
+                       "Plugins, cheats and overlay",
+                       ps5ui::Style::Center)
+                .label("id_about_tester_1", "HyperDPI package installer",
+                       ps5ui::Style::Center)
+                .label("id_about_tester_2", "HyperLinux loader",
+                       ps5ui::Style::Center)
+                .label("id_about_tester_3",
+                       "etaHEN plugin container compatibility",
+                       ps5ui::Style::Center)
+                .label("id_about_tester_4", "Native ELF plugin runtime",
+                       ps5ui::Style::Center)
+                .label("id_about_tester_5", "28-language interface catalog",
+                       ps5ui::Style::Center)
+                .label("id_about_more",
+                       "Upstream authors and licenses: README / LICENSES",
+                       ps5ui::Style::Center);
+          },
+          toolbox_i18n::tr("about.credits.sub"), kIconThanks)
+      .group(
+          "id_inc_project", toolbox_i18n::tr("about.projects"),
+          [](ps5ui::Group& p) {
+            p.label("id_project_info", toolbox_i18n::tr("about.projects.info"),
+                    ps5ui::Style::Center)
+                .label("id_project_1",
+                       "HyperCore — kstuff + A53/PPR + BackPork engine",
+                       ps5ui::Style::Center)
+                .label("id_project_2",
+                       "Hypervisor Core — Byepervisor Reborn + 5.xx profiles",
+                       ps5ui::Style::Center)
+                .label("id_project_3",
+                       "Legacy HEN Core — exact 1.xx–4.51 profiles",
+                       ps5ui::Style::Center)
+                .label("id_project_4",
+                       "HyperHEN Automount — mount and backport engine",
+                       ps5ui::Style::Center)
+                .label("id_project_5",
+                       "HyperDPI — embedded network package installer",
+                       ps5ui::Style::Center)
+                .label("id_project_6",
+                       "HyperLinux — embedded clean-boot Linux loader",
+                       ps5ui::Style::Center)
+                .label("id_project_7",
+                       "HyperHEN Toolbox — ShellUI, plugins, cheats and overlay",
+                       ps5ui::Style::Center)
+                .label("id_project_8",
+                       "Runtime — PS5 Payload SDK / elfldr / libhijacker / NineS",
+                       ps5ui::Style::Center)
+                .label("id_project_9",
+                       "Libraries — cJSON / LZMA / miniz / Keystone",
+                       ps5ui::Style::Center)
+                .label("id_project_10",
+                       "Plugin Runtime — etaHEN containers / TacHen compatibility",
+                       ps5ui::Style::Center);
+          },
+          toolbox_i18n::tr("about.projects.sub"), kIconProject);
+}
+
+} // namespace
+
+void generate_toolbox_xml(std::string& new_xml) {
+  ps5ui::Page page("id_debug_settings", toolbox_i18n::tr("root.title"));
+  page.root_focus("id_group_pkg").root_icon(kIconHyperHen);
+
+  page.label("id_hyperhen_visual_header",
+             std::string("HYPERCORE // ONLINE  •  ") + HYPERHEN_VERSION,
+             ps5ui::Style::Center, kIconHyperHen)
+      .group(
+          "id_group_pkg", toolbox_i18n::tr("group.pkg"),
+          [](ps5ui::Group& g) { append_toolbox_pkg_group(g); },
+          toolbox_i18n::tr("group.pkg.sub"), kIconPkg,
+          "id_game_package_installer")
+      .group(
+          "id_group_payloads", toolbox_i18n::tr("group.payloads"),
+          [](ps5ui::Group& g) { append_toolbox_payloads_group(g); },
+          toolbox_i18n::tr("group.payloads.sub"), kIconPlugins, "id_payloads")
+      .group(
+          "id_group_game", toolbox_i18n::tr("group.game"),
+          [](ps5ui::Group& g) { append_toolbox_game_group(g); },
+          toolbox_i18n::tr("group.game.sub"), kIconGame, "id_cheats")
+        .group(
+          "id_group_network", toolbox_i18n::tr("group.network"),
+          [](ps5ui::Group& g) {
+            append_toolbox_network_group(g);
+            append_toolbox_account_group(g);
+          },
+          toolbox_i18n::tr("group.network.sub"), kIconAccount,
+          "id_remote_play")
+      .group(
+          "id_group_display", toolbox_i18n::tr("group.display"),
+          [](ps5ui::Group& g) { append_toolbox_display_group(g); },
+          toolbox_i18n::tr("group.display.sub"), kIconMonitor,
+          "id_overlay_opts")
+      .group(
+          "id_group_system", toolbox_i18n::tr("group.system"),
+          [](ps5ui::Group& g) { append_toolbox_system_group(g); },
+          toolbox_i18n::tr("group.system.sub"), kIconSettings,
+          "id_group_fan")
+      .group(
+          "id_group_preferences", toolbox_i18n::tr("group.preferences"),
+          [](ps5ui::Group& g) { append_toolbox_preferences_group(g); },
+          toolbox_i18n::tr("group.preferences.sub"), kIconShortcuts,
+          "id_start_opt")
+      .group(
+          "id_group_debug", toolbox_i18n::tr("group.debug"),
+          [](ps5ui::Group& g) { append_toolbox_debug_group(g); },
+          toolbox_i18n::tr("group.debug.sub"), kIconDebug,
+          "id_app_jailbreak_enabled")
+      .group(
+          "id_hyperhen_credit_options", toolbox_i18n::tr("group.about"),
+          [](ps5ui::Group& g) { append_toolbox_about_group(g); },
+          toolbox_i18n::tr("group.about.sub"), kIconAbout, std::nullopt,
+          ps5ui::Style::Center);
+
+  new_xml = page.build();
+}

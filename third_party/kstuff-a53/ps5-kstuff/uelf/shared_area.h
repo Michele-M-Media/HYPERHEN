@@ -1,0 +1,484 @@
+#pragma once
+
+#include <stdint.h>
+
+#ifndef KSTUFF_OBS
+#define KSTUFF_OBS 0
+#endif
+
+enum {
+    SHARED_FAKE_KEY_SLOTS = 63,
+    SHARED_PPR_PLAINTEXT_LATCH_SLOTS = 8,
+    SHARED_FPKG_SCOPE_SLOTS = 8,
+    SHARED_LOG_WORD_CAP = 16,
+    SHARED_LOG_MSG_CAP = 488,
+    SHARED_IOCTL_COM_TRACK_CAP = 128,
+};
+
+#if KSTUFF_OBS
+enum { SHARED_AREA_SIZE = 16384 };
+#else
+enum { SHARED_AREA_SIZE = 8192 };
+#endif
+
+struct kstuff_ppr_plaintext_latch
+{
+    uint64_t td;
+    uint64_t state;
+};
+
+struct kstuff_fpkg_scope
+{
+    uint64_t td;
+    uint64_t state;
+};
+
+/*
+ * verifyImage command 0x101 normally asks sm_pfs to read these two regions
+ * through its file-image handle.  PLAINTEXT_NOAUTH snapshots them explicitly
+ * before nmount so the mailbox trap never has to call VFS while the debug
+ * exception is active.
+ */
+struct kstuff_ppr_plaintext_staging
+{
+    uint64_t td;
+    uint64_t ready;
+    uint64_t bytes_written;
+    uint64_t reserved;
+    uint8_t fih[0x1000];
+    uint8_t superblock[0x5a0];
+};
+
+struct kstuff_metrics
+{
+    uint64_t handle_entries;
+    uint64_t handle_from_userspace_entries;
+    uint64_t handle_doreti_iret_entries;
+    uint64_t debug_reg_decrypt_events;
+    uint64_t debug_reg_decrypt_rax;
+    uint64_t debug_reg_decrypt_rcx;
+    uint64_t debug_reg_decrypt_rdx;
+    uint64_t debug_reg_decrypt_rbx;
+    uint64_t debug_reg_decrypt_rbp;
+    uint64_t debug_reg_decrypt_rsi;
+    uint64_t debug_reg_decrypt_rdi;
+    uint64_t debug_reg_decrypt_r8;
+    uint64_t debug_reg_decrypt_r9;
+    uint64_t debug_reg_decrypt_r10;
+    uint64_t debug_reg_decrypt_r11;
+    uint64_t debug_reg_decrypt_r12;
+    uint64_t debug_reg_decrypt_r13;
+    uint64_t debug_reg_decrypt_r14;
+    uint64_t debug_reg_decrypt_r15;
+    uint64_t debug_reg_decrypt_rsi_only_events;
+    uint64_t debug_reg_decrypt_rsi_multi_events;
+    uint64_t debug_reg_decrypt_non_rsi_single_events;
+    uint64_t debug_reg_decrypt_non_rsi_multi_events;
+    uint64_t debug_unhandled_traps;
+    uint64_t mailbox_traps;
+    uint64_t mailbox_fself;
+    uint64_t mailbox_fpkg;
+    uint64_t mailbox_npdrm;
+    uint64_t mailbox_unhandled;
+    uint64_t fself_traps;
+    uint64_t fpkg_traps;
+    uint64_t syscall_fix_traps;
+    uint64_t syscall_kekcall_dispatches;
+    uint64_t syscall_fself_dispatches;
+    uint64_t syscall_fpkg_dispatches;
+    uint64_t syscall_ioctl_dispatches;
+    uint64_t syscall_fix_dispatches;
+    uint64_t ioctl_prefilter_allowed;
+    uint64_t ioctl_prefilter_skipped;
+    uint64_t ioctl_prefilter_copy_in_fail_open;
+
+    uint64_t handle_cycles_total;
+    uint64_t handle_cycles_max;
+    uint64_t handle_syscall_cycles_total;
+    uint64_t handle_syscall_cycles_max;
+    uint64_t generic_decrypt_cycles_total;
+    uint64_t generic_decrypt_cycles_max;
+    uint64_t fpkg_crypto_request_cycles_total;
+    uint64_t fpkg_crypto_request_cycles_max;
+    uint64_t npdrm_mailbox_cycles_total;
+    uint64_t npdrm_mailbox_cycles_max;
+    uint64_t xts_cycles_total;
+    uint64_t xts_cycles_max;
+    uint64_t virt2phys_cycles_total;
+    uint64_t virt2phys_cycles_max;
+    uint64_t copy_from_cycles_total;
+    uint64_t copy_from_cycles_max;
+    uint64_t copy_to_cycles_total;
+    uint64_t copy_to_cycles_max;
+    uint64_t syscall_execve_armed;
+    uint64_t syscall_execve_trap;
+    uint64_t syscall_execve_emulated;
+    uint64_t syscall_dynlib_load_prx_armed;
+    uint64_t syscall_dynlib_load_prx_trap;
+    uint64_t syscall_dynlib_load_prx_emulated;
+    uint64_t syscall_get_self_auth_info_armed;
+    uint64_t syscall_get_self_auth_info_trap;
+    uint64_t syscall_get_self_auth_info_emulated;
+    uint64_t syscall_get_sdk_compiled_version_armed;
+    uint64_t syscall_get_sdk_compiled_version_trap;
+    uint64_t syscall_get_sdk_compiled_version_emulated;
+    uint64_t syscall_get_ppr_sdk_compiled_version_armed;
+    uint64_t syscall_get_ppr_sdk_compiled_version_trap;
+    uint64_t syscall_get_ppr_sdk_compiled_version_emulated;
+    uint64_t syscall_mmap_armed;
+    uint64_t syscall_mmap_trap;
+    uint64_t syscall_mmap_emulated;
+    uint64_t syscall_mlock_armed;
+    uint64_t syscall_mlock_trap;
+    uint64_t syscall_mlock_emulated;
+    uint64_t syscall_nmount_armed;
+    uint64_t syscall_nmount_trap;
+    uint64_t syscall_nmount_emulated;
+    uint64_t syscall_unmount_armed;
+    uint64_t syscall_unmount_trap;
+    uint64_t syscall_unmount_emulated;
+    uint64_t syscall_ioctl_armed;
+    uint64_t syscall_ioctl_trap;
+    uint64_t syscall_ioctl_emulated;
+    uint64_t syscall_mprotect_armed;
+    uint64_t syscall_mprotect_trap;
+    uint64_t syscall_mprotect_emulated;
+    uint64_t syscall_mdbg_call_armed;
+    uint64_t syscall_mdbg_call_trap;
+    uint64_t syscall_mdbg_call_emulated;
+
+    uint64_t fself_header_cache_hits;
+    uint64_t fself_header_cache_misses;
+    uint64_t fself_context_cache_hits;
+    uint64_t fself_context_cache_misses;
+    uint64_t fself_header_parse_fself;
+    uint64_t fself_header_parse_not_fself;
+    uint64_t fself_header_parse_failures;
+    uint64_t fself_authinfo_loads;
+    uint64_t fself_authinfo_found;
+    uint64_t fself_mailbox_verify_header;
+    uint64_t fself_mailbox_verify_header_emulated;
+    uint64_t fself_mailbox_load_self_segment;
+    uint64_t fself_mailbox_load_self_segment_emulated;
+    uint64_t fself_mailbox_decrypt_self_block;
+    uint64_t fself_mailbox_decrypt_self_block_emulated;
+    uint64_t fself_mailbox_decrypt_multiple_self_blocks;
+    uint64_t fself_mailbox_decrypt_multiple_self_blocks_emulated;
+    uint64_t fself_trap_is_loadable2;
+    uint64_t fself_trap_is_loadable2_emulated;
+    uint64_t fself_trap_watchpoint;
+    uint64_t fself_trap_watchpoint_emulated;
+    uint64_t fself_trap_epilogue;
+    uint64_t fself_trap_epilogue_emulated;
+    uint64_t fself_mailbox_cycles_total;
+    uint64_t fself_mailbox_cycles_max;
+    uint64_t fself_trap_cycles_total;
+    uint64_t fself_trap_cycles_max;
+
+    uint64_t fake_key_has_hits;
+    uint64_t fake_key_has_misses;
+    uint64_t fake_key_get_hits;
+    uint64_t fake_key_get_misses;
+    uint64_t fake_key_registers;
+    uint64_t fake_key_unregisters;
+
+    uint64_t pfs_derive_calls;
+    uint64_t pfs_derive_successes;
+    uint64_t pfs_derive_failures;
+    uint64_t hmac_cache_hits;
+    uint64_t hmac_cache_misses;
+    uint64_t xts_cache_hits;
+    uint64_t xts_cache_misses;
+    uint64_t fpu_enters;
+    uint64_t fpu_nested_enters;
+    uint64_t fpu_enter_failures;
+
+    uint64_t crypto_requests_total;
+    uint64_t crypto_requests_emulated;
+    uint64_t crypto_requests_fallback;
+    uint64_t crypto_requests_failed;
+    uint64_t crypto_messages_total;
+    uint64_t crypto_messages_xts;
+    uint64_t crypto_messages_hmac;
+    uint64_t crypto_messages_other;
+    uint64_t crypto_emulated_messages;
+    uint64_t hmac_requests;
+    uint64_t hmac_bytes;
+    uint64_t xts_requests;
+    uint64_t xts_sectors;
+    uint64_t xts_run_messages_total;
+
+    uint64_t xts_full_direct_runs;
+    uint64_t xts_full_direct_sectors;
+    uint64_t xts_full_fallback_sectors;
+
+    uint64_t verify_superblock_mailbox;
+    uint64_t verify_superblock_emulated;
+    uint64_t clear_key_mailbox;
+    uint64_t clear_key_emulated;
+
+    uint64_t npdrm_mailbox_total;
+    uint64_t npdrm_mailbox_emulated;
+    uint64_t npdrm_cmd5;
+    uint64_t npdrm_cmd6;
+    uint64_t npdrm_debug_rif_matches;
+    uint64_t npdrm_reject_bad_lr;
+    uint64_t npdrm_reject_copy_in_fail;
+    uint64_t npdrm_reject_bad_cmd;
+    uint64_t npdrm_reject_bad_rif_type;
+    uint64_t npdrm_reject_fpu_fail;
+    uint64_t npdrm_reject_bad_hash;
+    uint64_t npdrm_reject_bad_secret;
+    uint64_t npdrm_reject_copy_out_fail;
+
+    uint64_t virt2phys_calls;
+    uint64_t virt2phys_failures;
+    uint64_t copy_from_calls;
+    uint64_t copy_from_bytes;
+    uint64_t copy_from_failures;
+    uint64_t copy_to_calls;
+    uint64_t copy_to_bytes;
+    uint64_t copy_to_failures;
+
+    uint64_t fpkg_reject_xts_non_fake;
+    uint64_t fpkg_reject_hmac_non_fake;
+    uint64_t fpkg_reject_hmac_bad_shape;
+    uint64_t fpkg_reject_other_message;
+    uint64_t fpkg_request_no_emulation;
+    uint64_t fpkg_request_fpu_enter_fail;
+
+    uint64_t shared_area_snapshots;
+    uint64_t log_word_writes;
+    uint64_t log_msg_writes;
+    uint64_t log_msg_bytes;
+
+    /* Keep new metrics appended so existing field offsets remain stable. */
+    uint64_t uelf_main_entries;
+    uint64_t uelf_main_trap_read_failures;
+    uint64_t uelf_main_just_return_read_failures;
+    uint64_t uelf_main_trap_write_failures;
+    uint64_t uelf_main_cycles_total;
+    uint64_t uelf_main_cycles_max;
+
+    uint64_t run_gadget_calls;
+    uint64_t run_gadget_failures;
+    uint64_t run_gadget_cycles_total;
+    uint64_t run_gadget_cycles_max;
+
+    uint64_t scalar_copy_from_calls;
+    uint64_t scalar_copy_from_cycles_total;
+    uint64_t scalar_copy_from_cycles_max;
+    uint64_t scalar_copy_to_calls;
+    uint64_t scalar_copy_to_cycles_total;
+    uint64_t scalar_copy_to_cycles_max;
+
+    uint64_t crypto_message_snapshot_reads;
+    uint64_t crypto_message_snapshot_failures;
+    uint64_t crypto_message_snapshot_cycles_total;
+    uint64_t crypto_message_snapshot_cycles_max;
+
+    uint64_t trap_mapping_hits;
+    uint64_t trap_mapping_misses;
+    uint64_t trap_mapping_fallbacks;
+    uint64_t just_return_mapping_hits;
+    uint64_t just_return_mapping_misses;
+    uint64_t just_return_mapping_fallbacks;
+    uint64_t pcpu_mapping_hits;
+    uint64_t pcpu_mapping_misses;
+    uint64_t pcpu_mapping_fallbacks;
+    uint64_t tss_mapping_hits;
+    uint64_t tss_mapping_misses;
+    uint64_t tss_mapping_fallbacks;
+    uint64_t wrmsr_args_mapping_hits;
+    uint64_t wrmsr_args_mapping_misses;
+    uint64_t wrmsr_args_mapping_fallbacks;
+
+    /* R09: operation counts and transitions eliminated by the DR chain. */
+    uint64_t dbg_read_calls;
+    uint64_t dbg_write_calls;
+    uint64_t dbg_write_chain_calls;
+    uint64_t dbg_write_elided_gadgets;
+    uint64_t cr0_read_calls;
+    uint64_t cr0_write_calls;
+    uint64_t msr_read_calls;
+    uint64_t msr_write_calls;
+    uint64_t cr0_read_clear_calls;
+    uint64_t reserved_cr0_read_clear_slot;
+    uint64_t cr0_clear_elided_transitions;
+    uint64_t cr0_ts_already_clear;
+    uint64_t fpu_exit_failures;
+
+    /* Hardware DR snapshots avoided when PCB_DBREGS is clear. */
+    uint64_t dbg_snapshot_reads;
+    uint64_t dbg_snapshot_skips;
+
+    /* CR0 chain which avoids the secondary XSAVE/FXSAVE fault. */
+    uint64_t cr0_chain_read_clear_calls;
+    uint64_t cr0_deferred_restore_arms;
+    uint64_t cr0_chain_failures;
+    uint64_t cr0_restore_calls;
+    uint64_t reserved_cr0_restore_slot;
+    uint64_t cr0_fast_enter_arms;
+    uint64_t cr0_fast_enter_failures;
+    uint64_t fpu_exits;
+
+    /* End-to-end and CR0-only FPU transition timings (TSC cycles). */
+    uint64_t fpu_enter_cycles_total;
+    uint64_t fpu_enter_cycles_max;
+    uint64_t fpu_exit_cycles_total;
+    uint64_t fpu_exit_cycles_max;
+    uint64_t cr0_read_clear_cycles_total;
+    uint64_t cr0_read_clear_cycles_max;
+    uint64_t cr0_restore_cycles_total;
+    uint64_t cr0_restore_cycles_max;
+
+    /* Fixed per-CPU KELF hook mappings and their complete arm cost. */
+    uint64_t cr0_enter_hook_mapping_hits;
+    uint64_t cr0_enter_hook_mapping_misses;
+    uint64_t cr0_enter_hook_mapping_fallbacks;
+    uint64_t cr0_exit_hook_mapping_hits;
+    uint64_t cr0_exit_hook_mapping_misses;
+    uint64_t cr0_exit_hook_mapping_fallbacks;
+    uint64_t cr0_fast_enter_arm_cycles_total;
+    uint64_t cr0_fast_enter_arm_cycles_max;
+    uint64_t cr0_deferred_arm_cycles_total;
+    uint64_t cr0_deferred_arm_cycles_max;
+
+    /* Runtime-selected architectural FPU state save path. */
+    uint64_t fpu_xcr0_initializations;
+    uint64_t fpu_xsave_calls;
+    uint64_t fpu_xsavec_calls;
+    uint64_t fpu_xsave_cycles_total;
+    uint64_t fpu_xsave_cycles_max;
+    uint64_t fpu_xrstor_cycles_total;
+    uint64_t fpu_xrstor_cycles_max;
+
+    /* Profile-selected per-mount PLAINTEXT_NOAUTH G6 marker. */
+    uint64_t ppr_plaintext_g6_traps;
+    uint64_t ppr_plaintext_profile_matches;
+    uint64_t ppr_plaintext_g6_applied;
+    uint64_t ppr_plaintext_g6_bad_initial_indices;
+    uint64_t ppr_plaintext_g6_copy_failures;
+
+    /* Last exactly matched verifyImage request and ShellCore hook state. */
+    uint64_t ppr_verify_last_lr;
+    uint64_t ppr_verify_expected_lr;
+    uint64_t ppr_verify_last_req0;
+    uint64_t ppr_verify_last_req3;
+    uint64_t ppr_verify_last_fih_pa;
+    uint64_t ppr_verify_last_sblock_pa;
+    uint64_t ppr_verify_last_icv_pa;
+    uint64_t ppr_verify_last_malformed;
+    uint64_t ppr_verify_last_latch_td;
+    uint64_t ppr_plaintext_hook_stage;
+    uint64_t ppr_plaintext_hook_value;
+
+    /* Synthetic cleanup call-site handling. */
+    uint64_t ppr_plaintext_cleanup_put_emulated;
+};
+
+struct kstuff_word_log_entry
+{
+    uint64_t seq;
+    uint64_t word;
+};
+
+struct kstuff_word_log
+{
+    uint64_t next_seq;
+    struct kstuff_word_log_entry entries[SHARED_LOG_WORD_CAP];
+};
+
+struct kstuff_ioctl_com_entry
+{
+    uint64_t com;
+    uint32_t total_hits;
+    uint32_t emulated_hits;
+    uint32_t cmd5_hits;
+    uint32_t cmd6_hits;
+};
+
+struct kstuff_ioctl_com_table
+{
+    uint64_t write_lock;
+    uint64_t overflows;
+    struct kstuff_ioctl_com_entry entries[SHARED_IOCTL_COM_TRACK_CAP];
+};
+
+struct kstuff_msg_log
+{
+    uint64_t write_lock;
+    uint64_t next_seq;
+    char bytes[SHARED_LOG_MSG_CAP];
+};
+
+struct kstuff_snapshot
+{
+    uint64_t bitmask;
+    uint64_t ready_mask;
+    struct kstuff_metrics metrics;
+    struct kstuff_word_log word_log;
+    struct kstuff_ioctl_com_table ioctl_com_table;
+    struct kstuff_msg_log msg_log;
+    /* Exact lifetime gauge; kept outside metrics so concurrent retain/release
+     * cannot leave a mirrored diagnostic value stale. */
+    uint64_t ppr_plaintext_key_pairs_outstanding;
+};
+
+struct shared_area_layout
+{
+    uint64_t bitmask;
+    uint64_t ready_mask;
+    char pad[16];
+    uint8_t key_data[SHARED_FAKE_KEY_SLOTS][32];
+    struct kstuff_ppr_plaintext_latch
+        ppr_plaintext_latches[SHARED_PPR_PLAINTEXT_LATCH_SLOTS];
+    /* Only ShellCore's four public game-package wrappers create these
+     * per-thread scopes. nmount/unmount remain completely stock elsewhere. */
+    struct kstuff_fpkg_scope fpkg_scopes[SHARED_FPKG_SCOPE_SLOTS];
+    struct kstuff_ppr_plaintext_staging ppr_plaintext_staging;
+    /* Synthetic FE/FF indices identify retained FD/FC handles.  They survive
+     * cleanup_a53io_pkg_keys and end at the matching sceSblPfsClearKey pair
+     * tree-miss in a later unmount syscall. */
+    /* XTS and CMAC are created and destroyed as one synthetic pair.  Keep a
+     * single lifetime counter so an interrupted path cannot leave the two
+     * halves permanently out of sync. */
+    uint64_t ppr_plaintext_key_pairs_outstanding;
+    uint64_t ppr_plaintext_key_pairs_reserved;
+#if KSTUFF_OBS
+    struct kstuff_metrics metrics;
+    struct kstuff_word_log word_log;
+    struct kstuff_ioctl_com_table ioctl_com_table;
+    struct kstuff_msg_log msg_log;
+#endif
+};
+
+extern struct shared_area_layout shared_area;
+
+#if KSTUFF_OBS
+#define METRIC_INC(field) __atomic_fetch_add(&shared_area.metrics.field, 1, __ATOMIC_RELAXED)
+#define METRIC_ADD(field, value) __atomic_fetch_add(&shared_area.metrics.field, (uint64_t)(value), __ATOMIC_RELAXED)
+#define METRIC_MAX(field, value) do { \
+    uint64_t _metric_max_value = (uint64_t)(value); \
+    uint64_t _metric_max_old = __atomic_load_n(&shared_area.metrics.field, __ATOMIC_RELAXED); \
+    while(_metric_max_value > _metric_max_old \
+       && !__atomic_compare_exchange_n(&shared_area.metrics.field, &_metric_max_old, _metric_max_value, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {} \
+} while(0)
+#else
+#define METRIC_INC(field) do { } while(0)
+#define METRIC_ADD(field, value) do { } while(0)
+#define METRIC_MAX(field, value) do { } while(0)
+#endif
+
+_Static_assert(sizeof(struct kstuff_metrics) == 2312, "unexpected metrics size");
+_Static_assert(sizeof(struct kstuff_word_log) == 264, "unexpected word log size");
+_Static_assert(sizeof(struct kstuff_ioctl_com_entry) == 24, "unexpected ioctl com entry size");
+_Static_assert(sizeof(struct kstuff_ioctl_com_table) == 3088, "unexpected ioctl com table size");
+_Static_assert(sizeof(struct kstuff_msg_log) == 504, "unexpected message log size");
+_Static_assert(sizeof(struct kstuff_snapshot) == 6192, "unexpected snapshot size");
+#if KSTUFF_OBS
+_Static_assert(sizeof(struct shared_area_layout) == 14056, "unexpected shared_area size");
+#else
+_Static_assert(sizeof(struct shared_area_layout) == 7888, "unexpected non-OBS shared_area size");
+#endif
+_Static_assert(sizeof(struct shared_area_layout) <= SHARED_AREA_SIZE, "shared_area must fit in configured mapping");

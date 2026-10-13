@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "en",
+    "bcp47": "en-US",
+    "fallback": true
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "Network installer enabled",
+    "notify.pkgnet.disabled": "Network installer disabled",
+    "notify.pkgnet.toggle_failed": "Unable to change the network installer state",
+    "notify.pkgnet.next_boot_on": "Network installer will start when HyperHEN starts",
+    "notify.pkgnet.next_boot_off": "Network installer will not start when HyperHEN starts",
+    "notify.pkgnet.receiving": "Receiving package",
+    "notify.pkgnet.received": "Package received: %s",
+    "notify.pkgnet.reusing": "Package already on the PS5: %s",
+    "notify.pkgnet.install_failed": "Installation failed (%s)",
+    "notify.pkgnet.reinstall_accepted": "Reinstall accepted.",
+    "notify.pkgnet.still_installing": "Installation still in progress.",
+    "notify.pkgnet.takeover_backoff": "Another installation is running; retrying.",
+    "notify.pkgnet.socket_failed": "Failed to open the network socket.",
+    "notify.pkgnet.bind_failed": "Failed to bind port %u: %s",
+    "notify.pkgnet.listening": "Network installer listening on port %u.",
+    "notify.pkgnet.webui_listening": "Web UI listening on port %u.",
+    "notify.pkgnet.escalation_failed": "Privilege escalation failed.",
+    "notify.pkg.installing": "Installing package from:\n%s",
+    "notify.pkg.finished": "Installation finished.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "Open http://<PS5-IP>:<WebUI port> in a browser",
+    "ui.server": "Server",
+    "ui.enabled": "Enabled",
+    "ui.api_port": "HyperDPI API port",
+    "ui.webui_port": "WebUI port",
+    "ui.restart": "Restart server",
+    "ui.doc_description": "Configure the browser-based package installer"
+  }
+}

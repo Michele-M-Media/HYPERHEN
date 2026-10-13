@@ -1,0 +1,16 @@
+# Build output
+bin/
+*.o
+*.elf
+
+# Generated shellcode blobs / embedded headers
+shellcode_0607/shellcode_0607.bin
+shellcode_0607/shellcode_0607.h
+shellcode_hv/shellcode_hv.bin
+shellcode_hv/shellcode_hv.h
+shellcode_kernel/shellcode_kernel.bin
+shellcode_kernel/shellcode_kernel.h
+
+# Editor / OS noise
+*.swp
+.DS_Store

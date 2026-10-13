@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "ko",
+    "bcp47": "ko-KR",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "네트워크 설치 관리자가 활성화되었습니다",
+    "notify.pkgnet.disabled": "네트워크 설치 관리자가 비활성화되었습니다",
+    "notify.pkgnet.toggle_failed": "네트워크 설치 관리자의 상태를 변경할 수 없습니다",
+    "notify.pkgnet.next_boot_on": "다음에 HyperHEN을 시작할 때 네트워크 설치 관리자를 실행합니다",
+    "notify.pkgnet.next_boot_off": "다음에 HyperHEN을 시작할 때 네트워크 설치 관리자를 실행하지 않습니다",
+    "notify.pkgnet.receiving": "패키지 수신 중",
+    "notify.pkgnet.received": "패키지를 받았습니다: %s",
+    "notify.pkgnet.reusing": "패키지가 이미 PS5에 있습니다: %s",
+    "notify.pkgnet.install_failed": "설치에 실패했습니다 (%s)",
+    "notify.pkgnet.reinstall_accepted": "재설치가 승인되었습니다.",
+    "notify.pkgnet.still_installing": "설치가 아직 진행 중입니다.",
+    "notify.pkgnet.takeover_backoff": "다른 설치가 실행 중입니다. 다시 시도합니다.",
+    "notify.pkgnet.socket_failed": "네트워크 소켓을 열 수 없습니다.",
+    "notify.pkgnet.bind_failed": "포트 %u를 바인딩하지 못했습니다: %s",
+    "notify.pkgnet.listening": "네트워크 설치 프로그램이 포트 %u에서 대기 중입니다.",
+    "notify.pkgnet.webui_listening": "Web UI가 포트 %u에서 대기 중입니다.",
+    "notify.pkgnet.escalation_failed": "권한 상승에 실패했습니다.",
+    "notify.pkg.installing": "다음 위치에서 패키지를 설치하는 중:\n%s",
+    "notify.pkg.finished": "설치가 끝났습니다.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "브라우저에서 http://<PS5 IP>:<WebUI 포트> 를 엽니다",
+    "ui.server": "서버",
+    "ui.enabled": "사용",
+    "ui.api_port": "HyperDPI API 포트",
+    "ui.webui_port": "WebUI 포트",
+    "ui.restart": "서버 다시 시작",
+    "ui.doc_description": "브라우저 기반 패키지 설치 프로그램 구성"
+  }
+}

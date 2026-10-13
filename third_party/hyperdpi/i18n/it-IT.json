@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "it",
+    "bcp47": "it-IT",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "Installatore di rete attivato",
+    "notify.pkgnet.disabled": "Installatore di rete disattivato",
+    "notify.pkgnet.toggle_failed": "Impossibile modificare lo stato dell'installatore di rete",
+    "notify.pkgnet.next_boot_on": "L’installatore di rete si avvierà all’avvio di HyperHEN",
+    "notify.pkgnet.next_boot_off": "L’installatore di rete non si avvierà all’avvio di HyperHEN",
+    "notify.pkgnet.receiving": "Ricezione del pacchetto",
+    "notify.pkgnet.received": "Pacchetto ricevuto: %s",
+    "notify.pkgnet.reusing": "Il pacchetto è già sulla PS5: %s",
+    "notify.pkgnet.install_failed": "Installazione non riuscita (%s)",
+    "notify.pkgnet.reinstall_accepted": "Reinstallazione accettata.",
+    "notify.pkgnet.still_installing": "L'installazione è ancora in corso.",
+    "notify.pkgnet.takeover_backoff": "È in corso un'altra installazione; nuovo tentativo.",
+    "notify.pkgnet.socket_failed": "Impossibile aprire il socket di rete.",
+    "notify.pkgnet.bind_failed": "Impossibile associare la porta %u: %s",
+    "notify.pkgnet.listening": "Installatore di rete in ascolto sulla porta %u.",
+    "notify.pkgnet.webui_listening": "Interfaccia web in ascolto sulla porta %u.",
+    "notify.pkgnet.escalation_failed": "Elevazione dei privilegi non riuscita.",
+    "notify.pkg.installing": "Installazione del pacchetto da:\n%s",
+    "notify.pkg.finished": "Installazione terminata.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "Apri http://<IP-PS5>:<porta-WebUI> in un browser",
+    "ui.server": "Server",
+    "ui.enabled": "Attivato",
+    "ui.api_port": "Porta API HyperDPI",
+    "ui.webui_port": "Porta WebUI",
+    "ui.restart": "Riavvia server",
+    "ui.doc_description": "Configura l'installatore di pacchetti tramite browser"
+  }
+}

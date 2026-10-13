@@ -1,0 +1,8 @@
+*.a
+*.so
+*.o
+*.elf
+*.bin
+*.sprx
+.gdb_history
+.DS_Store

@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "ru",
+    "bcp47": "ru-RU",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "Сетевой установщик включён",
+    "notify.pkgnet.disabled": "Сетевой установщик выключен",
+    "notify.pkgnet.toggle_failed": "Не удалось изменить состояние сетевого установщика",
+    "notify.pkgnet.next_boot_on": "Сетевой установщик запустится при старте HyperHEN",
+    "notify.pkgnet.next_boot_off": "Сетевой установщик не запустится при старте HyperHEN",
+    "notify.pkgnet.receiving": "Получение пакета",
+    "notify.pkgnet.received": "Пакет получен: %s",
+    "notify.pkgnet.reusing": "Пакет уже на PS5: %s",
+    "notify.pkgnet.install_failed": "Установка не удалась (%s)",
+    "notify.pkgnet.reinstall_accepted": "Повторная установка принята.",
+    "notify.pkgnet.still_installing": "Установка ещё продолжается.",
+    "notify.pkgnet.takeover_backoff": "Выполняется другая установка; повторяю попытку.",
+    "notify.pkgnet.socket_failed": "Не удалось открыть сетевой сокет.",
+    "notify.pkgnet.bind_failed": "Не удалось привязать порт %u: %s",
+    "notify.pkgnet.listening": "Сетевой установщик слушает порт %u.",
+    "notify.pkgnet.webui_listening": "Веб-интерфейс слушает порт %u.",
+    "notify.pkgnet.escalation_failed": "Не удалось повысить привилегии.",
+    "notify.pkg.installing": "Установка пакета из:\n%s",
+    "notify.pkg.finished": "Установка завершена.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "Откройте http://<IP-PS5>:<порт-WebUI> в браузере",
+    "ui.server": "Сервер",
+    "ui.enabled": "Включено",
+    "ui.api_port": "Порт API HyperDPI",
+    "ui.webui_port": "Порт WebUI",
+    "ui.restart": "Перезапустить сервер",
+    "ui.doc_description": "Настройте установщик пакетов через браузер"
+  }
+}

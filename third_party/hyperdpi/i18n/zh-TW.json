@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "zh-Hant",
+    "bcp47": "zh-TW",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "網路安裝器已啟用",
+    "notify.pkgnet.disabled": "網路安裝器已停用",
+    "notify.pkgnet.toggle_failed": "無法變更網路安裝程式狀態",
+    "notify.pkgnet.next_boot_on": "下次啟動 HyperHEN 時將啟動網路安裝器",
+    "notify.pkgnet.next_boot_off": "下次啟動 HyperHEN 時不會啟動網路安裝器",
+    "notify.pkgnet.receiving": "正在接收軟體套件",
+    "notify.pkgnet.received": "已接收軟體套件：%s",
+    "notify.pkgnet.reusing": "軟體套件已在 PS5 上：%s",
+    "notify.pkgnet.install_failed": "安裝失敗（%s）",
+    "notify.pkgnet.reinstall_accepted": "已接受重新安裝。",
+    "notify.pkgnet.still_installing": "安裝仍在進行中。",
+    "notify.pkgnet.takeover_backoff": "有另一個安裝正在執行，正在重試。",
+    "notify.pkgnet.socket_failed": "無法開啟網路通訊端。",
+    "notify.pkgnet.bind_failed": "無法繫結連接埠 %u：%s",
+    "notify.pkgnet.listening": "網路安裝程式正在監聽連接埠 %u。",
+    "notify.pkgnet.webui_listening": "Web UI 正在監聽連接埠 %u。",
+    "notify.pkgnet.escalation_failed": "提高權限失敗。",
+    "notify.pkg.installing": "正在從以下位置安裝套件：\n%s",
+    "notify.pkg.finished": "安裝結束。",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "在瀏覽器中開啟 http://<PS5 IP>:<WebUI 連接埠>",
+    "ui.server": "伺服器",
+    "ui.enabled": "已啟用",
+    "ui.api_port": "HyperDPI API 連接埠",
+    "ui.webui_port": "WebUI 連接埠",
+    "ui.restart": "重新啟動伺服器",
+    "ui.doc_description": "設定以瀏覽器為基礎的套件安裝程式"
+  }
+}

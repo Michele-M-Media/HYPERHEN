@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "ar",
+    "bcp47": "ar-SA",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "تم تفعيل مثبّت الشبكة",
+    "notify.pkgnet.disabled": "تم تعطيل مثبّت الشبكة",
+    "notify.pkgnet.toggle_failed": "تعذر تغيير حالة مثبّت الشبكة",
+    "notify.pkgnet.next_boot_on": "سيبدأ مثبّت الشبكة عند تشغيل HyperHEN",
+    "notify.pkgnet.next_boot_off": "لن يبدأ مثبّت الشبكة عند تشغيل HyperHEN",
+    "notify.pkgnet.receiving": "جارٍ استلام الحزمة",
+    "notify.pkgnet.received": "تم استلام الحزمة: %s",
+    "notify.pkgnet.reusing": "الحزمة موجودة بالفعل على PS5: %s",
+    "notify.pkgnet.install_failed": "فشل التثبيت (%s)",
+    "notify.pkgnet.reinstall_accepted": "تم قبول إعادة التثبيت.",
+    "notify.pkgnet.still_installing": "لا يزال التثبيت قيد التنفيذ.",
+    "notify.pkgnet.takeover_backoff": "يوجد تثبيت آخر قيد التنفيذ؛ سأحاول مرة أخرى.",
+    "notify.pkgnet.socket_failed": "تعذر فتح مقبس الشبكة.",
+    "notify.pkgnet.bind_failed": "تعذر ربط المنفذ %u: %s",
+    "notify.pkgnet.listening": "مثبّت الشبكة يستمع على المنفذ %u.",
+    "notify.pkgnet.webui_listening": "الواجهة الإلكترونية تستمع على المنفذ %u.",
+    "notify.pkgnet.escalation_failed": "فشل رفع الامتيازات.",
+    "notify.pkg.installing": "جاري تثبيت الحزمة من:\n%s",
+    "notify.pkg.finished": "انتهى التثبيت",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "افتح http://<عنوان-IP-لـ-PS5>:<منفذ-WebUI> في المتصفح",
+    "ui.server": "الخادم",
+    "ui.enabled": "مُفعّل",
+    "ui.api_port": "منفذ HyperDPI API",
+    "ui.webui_port": "منفذ WebUI",
+    "ui.restart": "إعادة تشغيل الخادم",
+    "ui.doc_description": "إعداد مثبّت الحزم عبر المتصفح"
+  }
+}

@@ -1,0 +1,28 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <linearGradient id="linux-frame" x1="8" y1="7" x2="57" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#45F4FF"/>
+      <stop offset="0.48" stop-color="#5B8CFF"/>
+      <stop offset="1" stop-color="#E13CFF"/>
+    </linearGradient>
+    <radialGradient id="linux-core" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(25 20) rotate(51) scale(48)">
+      <stop stop-color="#183C68"/>
+      <stop offset="0.5" stop-color="#0A1730"/>
+      <stop offset="1" stop-color="#050A18"/>
+    </radialGradient>
+    <clipPath id="linux-art-clip">
+      <rect x="12" y="10" width="40" height="42" rx="8"/>
+    </clipPath>
+    <filter id="linux-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+  <path d="M18 3.5H46L60.5 18V46L46 60.5H18L3.5 46V18L18 3.5Z" fill="#061022" fill-opacity="0.96" stroke="#122A4A"/>
+  <path d="M19 5H45L59 19V45L45 59H19L5 45V19L19 5Z" fill="url(#linux-core)" stroke="url(#linux-frame)" stroke-width="1.6"/>
+  <path d="M17 8H27M37 8H47M56 17V27M56 37V47M47 56H37M27 56H17M8 47V37M8 27V17" stroke="url(#linux-frame)" stroke-width="1.4" stroke-linecap="round" opacity="0.92"/>
+  <rect x="11" y="9" width="42" height="44" rx="9" fill="#37E9FF" opacity="0.22" filter="url(#linux-glow)"/>
+  <rect x="11.5" y="9.5" width="41" height="43" rx="8.5" fill="#F7FBFF" stroke="url(#linux-frame)"/>
+  <image x="12" y="10" width="40" height="42" preserveAspectRatio="xMidYMid meet" clip-path="url(#linux-art-clip)" xlink:href="../../../../third_party/hyperlinux/upstream-logo.png"/>
+  <circle cx="48.5" cy="48.5" r="6.5" fill="#071126" stroke="url(#linux-frame)"/>
+  <path d="M45.5 48.5H51.5M48.5 45.5V51.5" stroke="#45F4FF" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

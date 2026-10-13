@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+find_dependency(Python3 COMPONENTS Interpreter)
+set(ONION_SDK_ROOT "@PACKAGE_PREFIX_DIR@")
+include("${CMAKE_CURRENT_LIST_DIR}/HyperHENPluginSDKTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/OnionPlugin.cmake")

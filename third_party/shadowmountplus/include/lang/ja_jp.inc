@@ -1,0 +1,81 @@
+static const char *const g_ja_jp[SM_L10N_COUNT] = {
+    /* English: Go to Debug Settings */
+    [SM_L10N_ACTION_DEBUG_SETTINGS] = "デバッグ設定へ移動",
+    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA */
+    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
+    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u */
+    [SM_L10N_STARTUP_WEB] =
+        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+    /* English: HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2. */
+    [SM_L10N_RECURSIVE_SCAN_DEPRECATED] = "HyperHEN Automount: recursive_scan=1 は非推奨です。scan_depth=2 を使用します。",
+    /* English: HyperHEN Automount: scan depth %u enabled. */
+    [SM_L10N_SCAN_DEPTH_ENABLED] = "HyperHEN Automount: スキャン深度 %u が有効です。",
+    /* English: Backport overlay failed: %s\n%s\n0x%08X */
+    [SM_L10N_BACKPORT_OVERLAY_FAILED] = "バックポートオーバーレイのマウントに失敗しました: %s\n%s\n0x%08X",
+    /* English: Emulators applied to game: %s */
+    [SM_L10N_GAME_EMULATORS_APPLIED] = "ゲーム %s にエミュレーターを適用しました",
+    /* English: Backport applied to game: %s */
+    [SM_L10N_GAME_BACKPORTED] = "ゲームにバックポートを適用しました: %s",
+    /* English: Backport applied to game: %s\nEmulators updated */
+    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "ゲームにバックポートを適用しました: %s\n複数のエミュレーターを更新しました",
+    /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nSaved image_sector override: %u.\nTry mounting again. */
+    [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] = "イメージのマウントが拒否されました:\n%s\nクラスタサイズが小さすぎます (%llu < %u)。\nimage_sector override を保存しました: %u。\nもう一度マウントしてください。",
+    /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nUse a larger cluster size in the image or lower sector size in config. */
+    [SM_L10N_IMAGE_REJECTED_CLUSTER_CONFIG] = "イメージのマウントが拒否されました:\n%s\nクラスタサイズが小さすぎます (%llu < %u)。\nイメージのクラスタサイズを大きくするか、設定のセクタサイズを小さくしてください。",
+    /* English: Register failed: %s (%s)\nAppInstallTitleDir unavailable */
+    [SM_L10N_REGISTER_FAILED_UNAVAILABLE] = "登録に失敗しました: %s (%s)\nAppInstallTitleDir が利用できません",
+    /* English: Register failed: %s (%s)\nTitleDir bridge unavailable */
+    [SM_L10N_REGISTER_BRIDGE_UNAVAILABLE] = "登録に失敗しました: %s (%s)\nTitleDir ブリッジを利用できません",
+    /* English: Register failed: %s (%s)\ncode=0x%08X */
+    [SM_L10N_REGISTER_FAILED_CODE] = "登録に失敗しました: %s (%s)\nコード=0x%08X",
+    /* English: Installing: %s (%s)... */
+    [SM_L10N_INSTALLING] = "インストール中: %s (%s)...",
+    /* English: Installed: %s */
+    [SM_L10N_INSTALLED] = "インストール済み: %s",
+    /* English: Unknown */
+    [SM_L10N_UNKNOWN] = "不明",
+    /* English: Image mount failed: 0x%08X (%s)\n%s */
+    [SM_L10N_IMAGE_MOUNT_FAILED] = "イメージのマウントに失敗しました: 0x%08X (%s)\n%s",
+    /* English: Filesystem cluster size (%llu) is smaller than device sector size (%u) for %s */
+    [SM_L10N_FS_CLUSTER_SMALL] = "ファイルシステムのクラスタサイズ (%llu) がデバイスセクタサイズ (%u) より小さいです: %s",
+    /* English: Mounted image is unreadable or damaged */
+    [SM_L10N_IMAGE_UNREADABLE_DAMAGED] = "マウント済みイメージを読み取れないか破損しています",
+    /* English: Image cache full (%u entries), cannot track mount %s */
+    [SM_L10N_IMAGE_CACHE_FULL_TRACK] = "イメージキャッシュが満杯です (%u 件)。マウント %s を追跡できません",
+    /* English: Install failed: %s (%s)\nTimed out after 5 minutes */
+    [SM_L10N_INSTALL_FAILED_TIMEOUT] = "インストールに失敗しました: %s (%s)\n5 分後にタイムアウトしました",
+    /* English: Batch install queued (%d): */
+    [SM_L10N_BATCH_INSTALL_QUEUED] = "一括インストールをキューに追加しました (%d):",
+    /* English: \n... and %d more */
+    [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... 他 %d 件",
+    /* English: Batch install failed for %d app(s).\ncode=0x%08X */
+    [SM_L10N_BATCH_INSTALL_FAILED] = "%d 個のアプリの一括インストールに失敗しました。\nコード=0x%08X",
+    /* English: Missing/invalid param.json:\n%s */
+    [SM_L10N_MISSING_PARAM] = "param.json が見つからないか無効です:\n%s",
+    /* English: Found %d new games. Processing... */
+    [SM_L10N_FOUND_NEW_GAMES] = "%d 本の新しいゲームを検出しました。処理中...",
+    /* English: Library synchronized.\nFound %d games. */
+    [SM_L10N_LIBRARY_SYNCED] = "ライブラリを同期しました。\n%d 本のゲームを検出しました。",
+    /* English: HyperHEN Automount: config reloaded. */
+    [SM_L10N_CONFIG_RELOADED] = "HyperHEN Automount: 設定を再読み込みしました。",
+    /* English: Duplicate %s ignored:\n%s\nexisting: %s */
+    [SM_L10N_DUPLICATE_IGNORED] = "重複 %s を無視しました:\n%s\n既存: %s",
+    /* English: AMPR emulator updated */
+    [SM_L10N_AMPR_EMULATOR_UPDATED] = "AMPRエミュレーターを更新しました",
+    /* English: HyperHEN Automount: failed to install ShellCore hooks */
+    [SM_L10N_SHELLCORE_HOOKS_FAILED] = "HyperHEN Automount: ShellCoreフックのインストールに失敗しました",
+    /* English: Target temperature %u °C → %u °C */
+    [SM_L10N_TEMPERATURE_TRANSITION] = "目標温度 %u °C → %u °C",
+    /* English: External drive %s connected\nFree %llu.%llu GB of %llu.%llu (Block size %llu KB)\nGames on drive: %d%s */
+    [SM_L10N_USB_CONNECTED_SCANNING] = "外付けドライブ %s が接続されました。\n空き容量: %llu.%llu / %llu.%llu GB（ブロックサイズ: %llu KB）\nドライブ上のゲーム: %d%s",
+    /* English: \nFor maximum performance, use a cluster size of no more than 64 KB */
+    [SM_L10N_USB_CLUSTER_RECOMMENDATION] = "\n最大限のパフォーマンスを得るには、クラスターサイズを 64 KB 以下にしてください",
+    /* English: External drive %s disconnected */
+    [SM_L10N_USB_DISCONNECTED] = "外付けドライブ %s が切断されました",
+    /* English: Game %s crashed. */
+    [SM_L10N_GAME_CRASHED] = "ゲーム %s がクラッシュしました。",
+    /* English: Error in game %s:\n%s */
+    [SM_L10N_GAME_ERROR] = "ゲーム %s のエラー:\n%s",
+    /* English: External drive %s connected */
+    [SM_L10N_USB_CONNECTED] = "外付けドライブ %s が接続されました。",
+};

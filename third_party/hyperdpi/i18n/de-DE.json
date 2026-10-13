@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "de",
+    "bcp47": "de-DE",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "Netzwerkinstaller aktiviert",
+    "notify.pkgnet.disabled": "Netzwerkinstaller deaktiviert",
+    "notify.pkgnet.toggle_failed": "Der Status des Netzwerkinstallers konnte nicht geändert werden",
+    "notify.pkgnet.next_boot_on": "Netzwerkinstaller startet beim nächsten HyperHEN-Start",
+    "notify.pkgnet.next_boot_off": "Netzwerkinstaller startet beim nächsten HyperHEN-Start nicht",
+    "notify.pkgnet.receiving": "Paket wird empfangen",
+    "notify.pkgnet.received": "Paket empfangen: %s",
+    "notify.pkgnet.reusing": "Paket ist bereits auf der PS5: %s",
+    "notify.pkgnet.install_failed": "Installation fehlgeschlagen (%s)",
+    "notify.pkgnet.reinstall_accepted": "Neuinstallation akzeptiert.",
+    "notify.pkgnet.still_installing": "Installation läuft noch.",
+    "notify.pkgnet.takeover_backoff": "Eine andere Installation läuft; neuer Versuch.",
+    "notify.pkgnet.socket_failed": "Netzwerk-Socket konnte nicht geöffnet werden.",
+    "notify.pkgnet.bind_failed": "Port %u konnte nicht gebunden werden: %s",
+    "notify.pkgnet.listening": "Netzwerkinstaller lauscht auf Port %u.",
+    "notify.pkgnet.webui_listening": "Web-UI lauscht auf Port %u.",
+    "notify.pkgnet.escalation_failed": "Privilegieneskalation fehlgeschlagen.",
+    "notify.pkg.installing": "Paket wird installiert von:\n%s",
+    "notify.pkg.finished": "Installation beendet.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "Öffne http://<PS5-IP>:<WebUI-Port> in einem Browser",
+    "ui.server": "Server",
+    "ui.enabled": "Aktiviert",
+    "ui.api_port": "HyperDPI-API-Port",
+    "ui.webui_port": "WebUI-Port",
+    "ui.restart": "Server neu starten",
+    "ui.doc_description": "Browserbasierten Paketinstaller konfigurieren"
+  }
+}

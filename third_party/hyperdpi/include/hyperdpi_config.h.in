@@ -1,0 +1,12 @@
+#pragma once
+
+#define HYPERDPI_PLUGIN_ID "@HYPERDPI_PLUGIN_ID@"
+#define HYPERDPI_PLUGIN_VERSION "@HYPERDPI_PLUGIN_VERSION@"
+#define HYPERDPI_PLUGIN_NAME "@HYPERDPI_PLUGIN_NAME@"
+#define HYPERDPI_LOG_PATH "/data/HyperHEN/HyperDPI.log"
+#define HYPERDPI_SERVER_LOG_PATH "/data/HyperHEN/HyperDPI-server.log"
+#define HYPERDPI_SETTINGS_PATH "/data/HyperHEN/HyperDPI.ini"
+#define HYPERDPI_PACKAGE_PATH "/user/data/HyperHEN/pkgs"
+
+#define HYPERDPI_API_PORT 9090u
+#define HYPERDPI_WEBUI_PORT 12800u

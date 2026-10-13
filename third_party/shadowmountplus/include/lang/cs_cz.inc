@@ -1,0 +1,81 @@
+static const char *const g_cs_cz[SM_L10N_COUNT] = {
+    /* English: Go to Debug Settings */
+    [SM_L10N_ACTION_DEBUG_SETTINGS] = "Přejít do nastavení ladění",
+    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA */
+    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
+    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u */
+    [SM_L10N_STARTUP_WEB] =
+        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+    /* English: HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2. */
+    [SM_L10N_RECURSIVE_SCAN_DEPRECATED] = "HyperHEN Automount: recursive_scan=1 je zastaralé, používá se scan_depth=2.",
+    /* English: HyperHEN Automount: scan depth %u enabled. */
+    [SM_L10N_SCAN_DEPTH_ENABLED] = "HyperHEN Automount: povolena hloubka prohledávání %u.",
+    /* English: Backport overlay failed: %s\n%s\n0x%08X */
+    [SM_L10N_BACKPORT_OVERLAY_FAILED] = "Backport overlay selhal: %s\n%s\n0x%08X",
+    /* English: Emulators applied to game: %s */
+    [SM_L10N_GAME_EMULATORS_APPLIED] = "Emulátory použity pro hru: %s",
+    /* English: Backport applied to game: %s */
+    [SM_L10N_GAME_BACKPORTED] = "Backport hry použit: %s",
+    /* English: Backport applied to game: %s\nEmulators updated */
+    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "Backport hry použit: %s\nEmulátory aktualizovány",
+    /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nSaved image_sector override: %u.\nTry mounting again. */
+    [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] = "Připojení obrazu odmítnuto:\n%s\nVelikost clusteru je příliš malá (%llu < %u).\nUloženo přepsání image_sector: %u.\nZkuste připojit znovu.",
+    /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nUse a larger cluster size in the image or lower sector size in config. */
+    [SM_L10N_IMAGE_REJECTED_CLUSTER_CONFIG] = "Připojení obrazu odmítnuto:\n%s\nVelikost clusteru je příliš malá (%llu < %u).\nPoužijte v obrazu větší cluster nebo v konfiguraci menší velikost sektoru.",
+    /* English: Register failed: %s (%s)\nAppInstallTitleDir unavailable */
+    [SM_L10N_REGISTER_FAILED_UNAVAILABLE] = "Registrace selhala: %s (%s)\nAppInstallTitleDir není dostupné",
+    /* English: Register failed: %s (%s)\nTitleDir bridge unavailable */
+    [SM_L10N_REGISTER_BRIDGE_UNAVAILABLE] = "Registrace selhala: %s (%s)\nMost TitleDir není dostupný",
+    /* English: Register failed: %s (%s)\ncode=0x%08X */
+    [SM_L10N_REGISTER_FAILED_CODE] = "Registrace selhala: %s (%s)\nkód=0x%08X",
+    /* English: Installing: %s (%s)... */
+    [SM_L10N_INSTALLING] = "Instalace: %s (%s)...",
+    /* English: Installed: %s */
+    [SM_L10N_INSTALLED] = "Nainstalováno: %s",
+    /* English: Unknown */
+    [SM_L10N_UNKNOWN] = "Neznámé",
+    /* English: Image mount failed: 0x%08X (%s)\n%s */
+    [SM_L10N_IMAGE_MOUNT_FAILED] = "Připojení obrazu selhalo: 0x%08X (%s)\n%s",
+    /* English: Filesystem cluster size (%llu) is smaller than device sector size (%u) for %s */
+    [SM_L10N_FS_CLUSTER_SMALL] = "Velikost clusteru souborového systému (%llu) je menší než velikost sektoru zařízení (%u) pro %s",
+    /* English: Mounted image is unreadable or damaged */
+    [SM_L10N_IMAGE_UNREADABLE_DAMAGED] = "Připojený obraz je nečitelný nebo poškozený",
+    /* English: Image cache full (%u entries), cannot track mount %s */
+    [SM_L10N_IMAGE_CACHE_FULL_TRACK] = "Mezipaměť obrazů je plná (%u položek), připojení %s nelze sledovat",
+    /* English: Install failed: %s (%s)\nTimed out after 5 minutes */
+    [SM_L10N_INSTALL_FAILED_TIMEOUT] = "Instalace selhala: %s (%s)\nČasový limit po 5 minutách",
+    /* English: Batch install queued (%d): */
+    [SM_L10N_BATCH_INSTALL_QUEUED] = "Dávková instalace ve frontě (%d):",
+    /* English: \n... and %d more */
+    [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... a dalších %d",
+    /* English: Batch install failed for %d app(s).\ncode=0x%08X */
+    [SM_L10N_BATCH_INSTALL_FAILED] = "Dávková instalace selhala pro %d aplikací.\nkód=0x%08X",
+    /* English: Missing/invalid param.json:\n%s */
+    [SM_L10N_MISSING_PARAM] = "Chybí nebo je neplatný param.json:\n%s",
+    /* English: Found %d new games. Processing... */
+    [SM_L10N_FOUND_NEW_GAMES] = "Nalezeno %d nových her. Zpracovávám...",
+    /* English: Library synchronized.\nFound %d games. */
+    [SM_L10N_LIBRARY_SYNCED] = "Knihovna synchronizována.\nNalezeno %d her.",
+    /* English: HyperHEN Automount: config reloaded. */
+    [SM_L10N_CONFIG_RELOADED] = "HyperHEN Automount: konfigurace byla znovu načtena.",
+    /* English: Duplicate %s ignored:\n%s\nexisting: %s */
+    [SM_L10N_DUPLICATE_IGNORED] = "Duplicitní %s ignorováno:\n%s\nexistující: %s",
+    /* English: AMPR emulator updated */
+    [SM_L10N_AMPR_EMULATOR_UPDATED] = "Emulátor AMPR byl aktualizován",
+    /* English: HyperHEN Automount: failed to install ShellCore hooks */
+    [SM_L10N_SHELLCORE_HOOKS_FAILED] = "HyperHEN Automount: instalace hooků ShellCore se nezdařila",
+    /* English: Target temperature %u °C → %u °C */
+    [SM_L10N_TEMPERATURE_TRANSITION] = "Cílová teplota %u °C → %u °C",
+    /* English: External drive %s connected\nFree %llu.%llu GB of %llu.%llu (Block size %llu KB)\nGames on drive: %d%s */
+    [SM_L10N_USB_CONNECTED_SCANNING] = "Externí disk %s připojen.\nVolné místo: %llu.%llu z %llu.%llu GB (blok %llu KB)\nHer na disku: %d%s",
+    /* English: \nFor maximum performance, use a cluster size of no more than 64 KB */
+    [SM_L10N_USB_CLUSTER_RECOMMENDATION] = "\nPro maximální výkon použijte velikost clusteru nejvýše 64 KB",
+    /* English: External drive %s disconnected */
+    [SM_L10N_USB_DISCONNECTED] = "Externí disk %s odpojen",
+    /* English: Game %s crashed. */
+    [SM_L10N_GAME_CRASHED] = "Hra %s spadla.",
+    /* English: Error in game %s:\n%s */
+    [SM_L10N_GAME_ERROR] = "Chyba ve hře %s:\n%s",
+    /* English: External drive %s connected */
+    [SM_L10N_USB_CONNECTED] = "Externí disk %s připojen.",
+};

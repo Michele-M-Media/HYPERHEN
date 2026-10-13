@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "ja",
+    "bcp47": "ja-JP",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "ネットワークインストーラーを有効にしました",
+    "notify.pkgnet.disabled": "ネットワークインストーラーを無効にしました",
+    "notify.pkgnet.toggle_failed": "ネットワークインストーラーの状態を変更できません",
+    "notify.pkgnet.next_boot_on": "次回の HyperHEN 起動時にネットワークインストーラーを開始します",
+    "notify.pkgnet.next_boot_off": "次回の HyperHEN 起動時にネットワークインストーラーは開始しません",
+    "notify.pkgnet.receiving": "パッケージを受信中",
+    "notify.pkgnet.received": "パッケージを受信しました: %s",
+    "notify.pkgnet.reusing": "パッケージはすでにPS5にあります: %s",
+    "notify.pkgnet.install_failed": "インストールに失敗しました (%s)",
+    "notify.pkgnet.reinstall_accepted": "再インストールが受理されました",
+    "notify.pkgnet.still_installing": "インストールはまだ進行中です",
+    "notify.pkgnet.takeover_backoff": "別のインストールが実行中のため、再試行します",
+    "notify.pkgnet.socket_failed": "ネットワークソケットを開けませんでした",
+    "notify.pkgnet.bind_failed": "ポート%uをバインドできませんでした: %s",
+    "notify.pkgnet.listening": "ネットワークインストーラーがポート%uで待機中です",
+    "notify.pkgnet.webui_listening": "Web UIがポート%uで待機中です",
+    "notify.pkgnet.escalation_failed": "権限昇格に失敗しました",
+    "notify.pkg.installing": "次の場所からパッケージをインストールしています：\n%s",
+    "notify.pkg.finished": "インストールが終了しました。",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "ブラウザーで http://<PS5のIP>:<WebUIポート> を開きます",
+    "ui.server": "サーバー",
+    "ui.enabled": "有効",
+    "ui.api_port": "HyperDPI APIポート",
+    "ui.webui_port": "WebUIポート",
+    "ui.restart": "サーバーを再起動",
+    "ui.doc_description": "ブラウザーベースのパッケージインストーラーを設定"
+  }
+}

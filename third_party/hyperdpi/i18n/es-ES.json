@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "es",
+    "bcp47": "es-ES",
+    "fallback": false
+  },
+  "notifications": {
+    "notify.pkgnet.enabled": "Instalador por red activado",
+    "notify.pkgnet.disabled": "Instalador por red desactivado",
+    "notify.pkgnet.toggle_failed": "No se pudo cambiar el estado del instalador por red",
+    "notify.pkgnet.next_boot_on": "El instalador por red se iniciará al arrancar HyperHEN",
+    "notify.pkgnet.next_boot_off": "El instalador por red no se iniciará al arrancar HyperHEN",
+    "notify.pkgnet.receiving": "Recibiendo paquete",
+    "notify.pkgnet.received": "Paquete recibido: %s",
+    "notify.pkgnet.reusing": "El paquete ya está en la PS5: %s",
+    "notify.pkgnet.install_failed": "La instalación falló (%s)",
+    "notify.pkgnet.reinstall_accepted": "Reinstalación aceptada.",
+    "notify.pkgnet.still_installing": "La instalación sigue en curso.",
+    "notify.pkgnet.takeover_backoff": "Hay otra instalación en curso; reintentando.",
+    "notify.pkgnet.socket_failed": "No se pudo abrir el socket de red.",
+    "notify.pkgnet.bind_failed": "No se pudo enlazar el puerto %u: %s",
+    "notify.pkgnet.listening": "Instalador de red escuchando en el puerto %u.",
+    "notify.pkgnet.webui_listening": "Interfaz web escuchando en el puerto %u.",
+    "notify.pkgnet.escalation_failed": "La elevación de privilegios falló.",
+    "notify.pkg.installing": "Instalando el paquete desde:\n%s",
+    "notify.pkg.finished": "Instalación terminada.",
+    "ui.webui": "WebUI",
+    "ui.webui_desc": "Abre http://<IP-de-la-PS5>:<puerto-WebUI> en un navegador",
+    "ui.server": "Servidor",
+    "ui.enabled": "Activado",
+    "ui.api_port": "Puerto de la API HyperDPI",
+    "ui.webui_port": "Puerto de la WebUI",
+    "ui.restart": "Reiniciar servidor",
+    "ui.doc_description": "Configura el instalador de paquetes mediante navegador"
+  }
+}

@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+
+# Extended tests: Run a few more options other than make check
+
+set -xe #exit on fail
+
+# Defaults
+cpus=1
+S=$RANDOM
+MAKE=make
+READLINK=readlink
+test_level=check
+build_opt=''
+msg=''
+
+# Override defaults if exist
+command -V gmake >/dev/null 2>&1 && MAKE=gmake
+command -V greadlink >/dev/null 2>&1 && READLINK=greadlink
+[ -n "$CC" ] && build_opt+="CC=$CC "
+[ -n "$AS" ] && build_opt+="AS=$AS "
+[ -n "$EXTRA_BUILD_OPTS" ] && build_opt+="$EXTRA_BUILD_OPTS "
+
+out="$PWD"
+src=$($READLINK -f $(dirname $0))/..
+source $src/tools/test_tools.sh
+cd "$src"
+
+# Run on mult cpus
+if command -V lscpu >/dev/null 2>&1; then
+    cpus=`lscpu -p | tail -1 | cut -d, -f 2`
+    cpus=$(($cpus + 1))
+elif command -V sysctl; then
+    if sysctl -n hw.ncpu >/dev/null 2>&1; then
+	cpus=$(sysctl -n hw.ncpu)
+	cpus=$(($cpus + 1))
+    fi
+fi
+echo "Using $cpus cpu threads"
+
+if [ -z "$S" ]; then
+    S=`tr -cd 0-9 </dev/urandom | head -c 4 | sed -e 's/^0*/1/g'`
+    [ "$S" -gt 0 ] 2> /dev/null || S="123"
+fi
+msg+="Running with TEST_SEED=$S".$'\n'
+
+# Fix Darwin issues
+if uname | grep -q 'Darwin' 2>&1; then
+    export SED=`which sed`
+fi
+
+# Check for test libs to add
+if command -V ldconfig >/dev/null 2>&1; then
+    if ldconfig -p | grep -q libcrypto.so; then
+	test_level=test
+	msg+=$'With extra tests\n'
+    fi
+    if ldconfig -p | grep -q libefence.so; then
+	build_opt+="LDFLAGS+='-lefence' "
+	msg+=$'With efence\n'
+    fi
+fi
+
+# Std makefile build test
+$MAKE -f Makefile.unx clean
+test_start "extended_build_test"
+time $MAKE -f Makefile.unx -j $cpus $build_opt
+test_end "extended_build_test" $?
+msg+=$'Std makefile build: Pass\n'
+
+# Check for gnu executable stack set
+if command -V readelf >/dev/null 2>&1; then
+    test_start "stack_nx_check"
+    if readelf -W -l bin/libisal_crypto.so | grep 'GNU_STACK' | grep -q 'RWE'; then
+	echo $0: Stack NX check bin/libisal_crypto.so: Fail
+	test_end "stack_nx_check" 1
+	exit 1
+    else
+	test_end "stack_nx_check" 0
+	msg+=$'Stack NX check bin/lib/libisal_crypto.so: Pass\n'
+    fi
+else
+    msg+=$'Stack NX check not supported: Skip\n'
+fi
+
+# Std makefile build perf tests
+test_start "extended_perf_test"
+time $MAKE -f Makefile.unx -j $cpus $build_opt perfs
+test_end "extended_perf_test" $?
+msg+=$'Std makefile build perf: Pass\n'
+
+# Std makefile run tests
+test_start "extended_makefile_tests"
+time $MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S" $test_level
+test_end "extended_makefile_tests" $?
+msg+=$'Std makefile tests: Pass\n'
+
+# Std makefile build other
+test_start "extended_other_tests"
+time $MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S" other
+test_end "extended_other_tests" $?
+msg+=$'Other tests build: Pass\n'
+
+# Std makefile build extended apps
+test_start "extended_apps"
+time $MAKE -C tests/extended/
+test_end "extended_apps" $?
+msg+=$'Extended apps build: Pass\n'
+
+$MAKE -f Makefile.unx clean
+
+# Std makefile run tests with NT_LDST
+test_start "extended_makefile_tests with NT_LDST"
+$MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S NT_LDST"
+time $MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S NT_LDST" $test_level
+test_end "extended_makefile_tests with NT_LDST" $?
+msg+=$'Std makefile tests: Pass\n'
+
+$MAKE -f Makefile.unx clean
+
+# noarch makefile run tests
+# FIPS build not supported - remove from build options
+noarch_build_opt=$(echo "$build_opt" | sed 's/FIPS_MODE=y//')
+
+test_start "extended_makefile_tests"
+time $MAKE -f Makefile.unx -j $cpus $noarch_build_opt D="TEST_SEED=$S" \
+	arch=noarch
+time $MAKE -f Makefile.unx -j $cpus $noarch_build_opt D="TEST_SEED=$S" \
+	arch=noarch $test_level
+test_end "extended_makefile_tests" $?
+msg+=$'noarch makefile tests: Pass\n'
+
+$MAKE -f Makefile.unx clean
+
+# Test other implementations with SDE
+if [ $(uname -m) == "x86_64" ] && command -V sde64 >/dev/null 2>&1; then
+    # Compile tests
+    $MAKE -f Makefile.unx -j $cpus checks
+    # Loop through architectures
+    while [ $# -gt 0 ]
+    do
+        test_start "SDE test on $1 architecture"
+        time sde64 -$1 -- $MAKE -f Makefile.unx -j $cpus D="TEST_SEED=$S" check
+        test_end "SDE test on $1 architecture" $?
+        # Drop architecture from list, to test the next one
+        shift;
+    done
+        msg+=$'Running tests with SDE: Pass\n'
+    else
+        msg+=$'Running tests with SDE: Skip\n'
+fi
+
+set +x
+echo
+echo "Summary test $0:"
+echo "Build opt: $build_opt"
+echo "$msg"
+echo "$0: Final: Pass"

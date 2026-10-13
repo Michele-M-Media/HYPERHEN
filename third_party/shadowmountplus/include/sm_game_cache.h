@@ -1,0 +1,45 @@
+#ifndef SM_GAME_CACHE_H
+#define SM_GAME_CACHE_H
+
+#include <stdbool.h>
+#include <stddef.h>
+
+#include "sm_limits.h"
+
+typedef struct {
+  char path[MAX_PATH];
+  char title_id[MAX_TITLE_ID];
+  char title_name[MAX_TITLE_NAME];
+} sm_game_cache_snapshot_entry_t;
+
+typedef bool (*game_cache_iter_fn)(const char *path, const char *title_id,
+                                   const char *title_name,
+                                   const char *owning_scan_root, void *ctx);
+
+// Cache resolved metadata for a mounted or discovered game.
+void cache_game_entry(const char *path, const char *title_id,
+                      const char *title_name);
+// Drop invalid or stale entries from the game cache.
+void prune_game_cache(void);
+// Drop invalid or stale entries that belong to a specific scan root.
+void prune_game_cache_for_root(const char *root);
+// Cancel pending removal when the same title is discovered at a valid source.
+void note_game_cache_source_seen(const char *path, const char *title_id,
+                                 const char *title_name);
+// Reconcile app.db auto-remove candidates and uninstall expired missing entries.
+void reconcile_missing_app_db_games(void);
+// Reset pending missing timers after relevant runtime config changes.
+void reset_missing_game_cache_timers(void);
+// Look up a cached game entry by path or title ID.
+bool find_cached_game(const char *path, const char *title_id,
+                      const char **existing_path_out);
+// Visit cached games, optionally limited to one source root.
+void for_each_cached_game_entry(const char *root, game_cache_iter_fn fn,
+                                void *ctx);
+// Allocate a stable snapshot of all cached games. Caller frees it.
+bool sm_game_cache_snapshot(sm_game_cache_snapshot_entry_t **entries_out,
+                            size_t *count_out);
+// Remove a game cache entry by path.
+void clear_cached_game(const char *path);
+
+#endif

@@ -1,0 +1,3661 @@
+#include "sm_platform.h"
+
+#include <arpa/inet.h>
+#include <json-c/json.h>
+#include <microhttpd.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <sys/socket.h>
+
+#include "sm_api_protocol.h"
+#include "sm_api_service.h"
+#include "sm_appdb.h"
+#include "sm_config_mount.h"
+#include "sm_filesystem.h"
+#include "sm_game_cache.h"
+#include "sm_game_lifecycle.h"
+#include "sm_gameinfo.h"
+#include "sm_icon_thumb.h"
+#include "sm_image.h"
+#include "sm_image_cache.h"
+#include "sm_image_index.h"
+#include "sm_install_queue.h"
+#include "sm_log.h"
+#include "sm_manual.h"
+#include "sm_mdbg.h"
+#include "sm_mount_device.h"
+#include "sm_path_utils.h"
+#include "sm_paths.h"
+#include "sm_runtime.h"
+#include "sm_scanner.h"
+#include "sm_shellcore_service.h"
+#include "sm_storage.h"
+#include "sm_time.h"
+#include "sm_title_state.h"
+
+#ifndef SHADOWMOUNT_VERSION
+#define SHADOWMOUNT_VERSION "unknown"
+#endif
+
+#define SM_API_RETRY_INITIAL_MS 250u
+#define SM_API_RETRY_MAX_MS 5000u
+#define SM_API_ROUTE_SIZE 128u
+#define SM_API_WORKER_COUNT 8u
+#define SM_API_CONNECTION_LIMIT 32u
+#define SM_API_CONNECTION_TIMEOUT_SECONDS 15u
+#define SM_API_LISTEN_BACKLOG 32u
+#define SM_API_CONNECTION_MEMORY_LIMIT 16384u
+#define SM_API_STORAGE_STOP_LOG_SECONDS 5
+#define SM_API_LOG_DEFAULT_BYTES (128u * 1024u)
+#define SM_API_LOG_MAX_BYTES (256u * 1024u)
+
+extern unsigned char web_index_html[];
+extern unsigned int web_index_html_len;
+
+typedef struct {
+  pthread_t thread;
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  bool started;
+  bool stop_requested;
+  struct MHD_Daemon *daemon;
+  char bind_address[MAX_API_BIND_ADDRESS];
+  uint16_t port;
+} sm_api_service_state_t;
+
+typedef struct {
+  char body[SM_API_MAX_JSON_BODY_SIZE + 1u];
+  size_t body_size;
+  size_t expected_body_size;
+  bool header_size_checked;
+  bool headers_validated;
+  bool response_queued;
+} sm_http_request_t;
+
+typedef struct {
+  int fd;
+} sm_file_response_t;
+
+typedef enum {
+  GAME_STORAGE_MOVE,
+  GAME_STORAGE_COPY,
+  GAME_STORAGE_DELETE,
+  GAME_STORAGE_UNPACK,
+} game_storage_operation_t;
+
+typedef enum {
+  STORAGE_JOB_IDLE,
+  STORAGE_JOB_PREPARING,
+  STORAGE_JOB_MEASURING,
+  STORAGE_JOB_TRANSFERRING,
+  STORAGE_JOB_DELETING,
+  STORAGE_JOB_FINALIZING,
+  STORAGE_JOB_COMPLETED,
+  STORAGE_JOB_FAILED,
+  STORAGE_JOB_CANCELLED,
+} storage_job_state_t;
+
+typedef struct {
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  bool accepting;
+  bool cancel_requested;
+  uint64_t next_id;
+  uint64_t id;
+  game_storage_operation_t operation;
+  storage_job_state_t state;
+  char title_id[MAX_TITLE_ID];
+  char source_type[16];
+  char source[MAX_PATH];
+  char runtime_source[MAX_PATH];
+  char destination[MAX_PATH];
+  bool delete_source;
+  uint64_t total_bytes;
+  uint64_t processed_bytes;
+  uint64_t total_files;
+  uint64_t processed_files;
+  uint64_t started_us;
+  uint64_t transfer_started_us;
+  uint64_t transfer_finished_us;
+  uint64_t finished_us;
+  size_t affected_titles;
+  int result_status;
+  char result_error_reason[32];
+  bool scan_queued;
+} storage_job_t;
+
+typedef struct {
+  bool active;
+  bool cancel_requested;
+  uint64_t id;
+  game_storage_operation_t operation;
+  storage_job_state_t state;
+  char title_id[MAX_TITLE_ID];
+  char source_type[16];
+  char source[MAX_PATH];
+  char runtime_source[MAX_PATH];
+  char destination[MAX_PATH];
+  bool delete_source;
+  uint64_t total_bytes;
+  uint64_t processed_bytes;
+  uint64_t total_files;
+  uint64_t processed_files;
+  uint64_t started_us;
+  uint64_t transfer_started_us;
+  uint64_t transfer_finished_us;
+  uint64_t finished_us;
+  size_t affected_titles;
+  int result_status;
+  char result_error_reason[32];
+  bool scan_queued;
+} storage_job_snapshot_t;
+
+static sm_api_service_state_t g_api = {
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .cond = PTHREAD_COND_INITIALIZER,
+};
+
+static storage_job_t g_storage_job = {
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .cond = PTHREAD_COND_INITIALIZER,
+    .state = STORAGE_JOB_IDLE,
+};
+
+static int operation_http_status(int status);
+static bool destination_is_managed(const char *destination);
+static void handle_game_storage_operation(
+    struct MHD_Connection *connection, struct json_object *request,
+    game_storage_operation_t operation);
+static void handle_storage_job_status(struct MHD_Connection *connection,
+                                      struct json_object *request);
+static void handle_storage_job_cancel(struct MHD_Connection *connection,
+                                      struct json_object *request);
+
+static uint32_t next_retry_delay_ms(uint32_t current) {
+  if (current >= SM_API_RETRY_MAX_MS)
+    return SM_API_RETRY_MAX_MS;
+  if (current > SM_API_RETRY_MAX_MS / 2u)
+    return SM_API_RETRY_MAX_MS;
+  return current * 2u;
+}
+
+static bool wait_until_runtime_awake(void) {
+  pthread_mutex_lock(&g_api.mutex);
+  while (!g_api.stop_requested && runtime_sleep_mode_active()) {
+    int rc = pthread_cond_wait(&g_api.cond, &g_api.mutex);
+    if (rc != 0) {
+      log_debug("  [API] sleep wait failed: %s", strerror(rc));
+      pthread_mutex_unlock(&g_api.mutex);
+      return false;
+    }
+  }
+  bool keep_running = !g_api.stop_requested;
+  pthread_mutex_unlock(&g_api.mutex);
+  return keep_running;
+}
+
+static bool wait_before_listener_retry(uint32_t delay_ms) {
+  struct timespec deadline;
+  if (clock_gettime(CLOCK_REALTIME, &deadline) != 0) {
+    sceKernelUsleep(SM_API_RETRY_INITIAL_MS * 1000u);
+    pthread_mutex_lock(&g_api.mutex);
+    bool keep_running = !g_api.stop_requested;
+    pthread_mutex_unlock(&g_api.mutex);
+    return keep_running;
+  }
+
+  deadline.tv_sec += (time_t)(delay_ms / 1000u);
+  deadline.tv_nsec += (long)(delay_ms % 1000u) * 1000000l;
+  if (deadline.tv_nsec >= 1000000000l) {
+    deadline.tv_sec++;
+    deadline.tv_nsec -= 1000000000l;
+  }
+
+  pthread_mutex_lock(&g_api.mutex);
+  int wait_status = 0;
+  while (!g_api.stop_requested && !runtime_sleep_mode_active()) {
+    wait_status =
+        pthread_cond_timedwait(&g_api.cond, &g_api.mutex, &deadline);
+    if (wait_status != 0)
+      break;
+  }
+  bool keep_running = !g_api.stop_requested;
+  pthread_mutex_unlock(&g_api.mutex);
+
+  if (keep_running && wait_status != 0 && wait_status != ETIMEDOUT) {
+    sceKernelUsleep(SM_API_RETRY_INITIAL_MS * 1000u);
+    pthread_mutex_lock(&g_api.mutex);
+    keep_running = !g_api.stop_requested;
+    pthread_mutex_unlock(&g_api.mutex);
+  }
+  return keep_running;
+}
+
+static bool add_common_response_headers(struct MHD_Response *response) {
+  return MHD_add_response_header(response,
+                                 MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN,
+                                 "*") == MHD_YES &&
+         MHD_add_response_header(response, MHD_HTTP_HEADER_CONNECTION,
+                                 "close") == MHD_YES;
+}
+
+static bool send_json_text(struct MHD_Connection *connection, int http_status,
+                           const char *body, size_t body_size) {
+  struct MHD_Response *response = MHD_create_response_from_buffer(
+      body_size, (void *)body, MHD_RESPMEM_MUST_COPY);
+  if (!response)
+    return false;
+  bool ready = add_common_response_headers(response) &&
+               MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE,
+                                       "application/json") == MHD_YES &&
+               MHD_add_response_header(response, MHD_HTTP_HEADER_CACHE_CONTROL,
+                                       "no-store") == MHD_YES;
+  enum MHD_Result result =
+      ready ? MHD_queue_response(connection, (unsigned int)http_status,
+                                 response)
+            : MHD_NO;
+  MHD_destroy_response(response);
+  return result == MHD_YES;
+}
+
+static bool send_preflight_response(struct MHD_Connection *connection) {
+  struct MHD_Response *response =
+      MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
+  if (!response)
+    return false;
+  bool ready = add_common_response_headers(response) &&
+               MHD_add_response_header(
+                   response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS,
+                   "GET, POST, OPTIONS") == MHD_YES &&
+               MHD_add_response_header(
+                   response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS,
+                   "Content-Type") == MHD_YES &&
+               MHD_add_response_header(
+                   response, "Access-Control-Allow-Private-Network",
+                   "true") == MHD_YES &&
+               MHD_add_response_header(response, "Access-Control-Max-Age",
+                                       "86400") == MHD_YES;
+  enum MHD_Result result =
+      ready ? MHD_queue_response(connection, MHD_HTTP_NO_CONTENT, response)
+            : MHD_NO;
+  MHD_destroy_response(response);
+  return result == MHD_YES;
+}
+
+static bool send_json_object(struct MHD_Connection *connection,
+                             int http_status,
+                             struct json_object *response) {
+  const char *body =
+      json_object_to_json_string_ext(response, JSON_C_TO_STRING_PLAIN);
+  if (!body)
+    return false;
+  return send_json_text(connection, http_status, body, strlen(body));
+}
+
+static ssize_t read_file_response(void *cls, uint64_t pos, char *buf,
+                                  size_t max) {
+  sm_file_response_t *file = cls;
+  off_t offset = (off_t)pos;
+  if (!file || file->fd < 0 || (uint64_t)offset != pos)
+    return MHD_CONTENT_READER_END_WITH_ERROR;
+
+  ssize_t read_size;
+  do {
+    read_size = pread(file->fd, buf, max, offset);
+  } while (read_size < 0 && errno == EINTR);
+  return read_size > 0 ? read_size : MHD_CONTENT_READER_END_WITH_ERROR;
+}
+
+static void free_file_response(void *cls) {
+  sm_file_response_t *file = cls;
+  if (!file)
+    return;
+  if (file->fd >= 0)
+    (void)close(file->fd);
+  free(file);
+}
+
+static bool send_file_response(struct MHD_Connection *connection, int fd,
+                               uint64_t size, const char *content_type,
+                               const char *cache_control) {
+  sm_file_response_t *file = malloc(sizeof(*file));
+  if (!file) {
+    (void)close(fd);
+    return false;
+  }
+  file->fd = fd;
+  struct MHD_Response *response = MHD_create_response_from_callback(
+      size, 64u * 1024u, read_file_response, file, free_file_response);
+  if (!response) {
+    free_file_response(file);
+    return false;
+  }
+  bool ready = add_common_response_headers(response) &&
+               MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE,
+                                       content_type) == MHD_YES &&
+               MHD_add_response_header(response, MHD_HTTP_HEADER_CACHE_CONTROL,
+                                       cache_control) == MHD_YES;
+  enum MHD_Result result =
+      ready ? MHD_queue_response(connection, MHD_HTTP_OK, response) : MHD_NO;
+  MHD_destroy_response(response);
+  return result == MHD_YES;
+}
+
+static bool send_embedded_index_response(struct MHD_Connection *connection) {
+  struct MHD_Response *response = MHD_create_response_from_buffer(
+      (size_t)web_index_html_len, web_index_html, MHD_RESPMEM_PERSISTENT);
+  if (!response)
+    return false;
+  bool ready = add_common_response_headers(response) &&
+               MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE,
+                                       "text/html; charset=utf-8") == MHD_YES &&
+               MHD_add_response_header(response, MHD_HTTP_HEADER_CACHE_CONTROL,
+                                       "no-cache") == MHD_YES;
+  enum MHD_Result result =
+      ready ? MHD_queue_response(connection, MHD_HTTP_OK, response) : MHD_NO;
+  MHD_destroy_response(response);
+  return result == MHD_YES;
+}
+
+static bool add_json_value(struct json_object *object, const char *key,
+                           struct json_object *value) {
+  if (!value)
+    return false;
+  if (json_object_object_add_ex(object, key, value,
+                                JSON_C_OBJECT_ADD_CONSTANT_KEY) == 0) {
+    return true;
+  }
+  json_object_put(value);
+  return false;
+}
+
+static bool add_json_int(struct json_object *object, const char *key,
+                         int64_t value) {
+  return add_json_value(object, key, json_object_new_int64(value));
+}
+
+static bool add_json_double(struct json_object *object, const char *key,
+                            double value) {
+  return add_json_value(object, key, json_object_new_double(value));
+}
+
+static bool add_json_bool(struct json_object *object, const char *key,
+                          bool value) {
+  return add_json_value(object, key, json_object_new_boolean(value));
+}
+
+static bool add_json_string(struct json_object *object, const char *key,
+                            const char *value) {
+  return add_json_value(object, key, json_object_new_string(value));
+}
+
+static bool append_json_string(struct json_object *array, const char *value) {
+  struct json_object *item = json_object_new_string(value);
+  if (!item)
+    return false;
+  if (json_object_array_add(array, item) == 0)
+    return true;
+  json_object_put(item);
+  return false;
+}
+
+static struct json_object *new_status_response(int status) {
+  struct json_object *response = json_object_new_object();
+  if (response && !add_json_int(response, "status", status)) {
+    json_object_put(response);
+    return NULL;
+  }
+  return response;
+}
+
+static bool send_out_of_memory_response(struct MHD_Connection *connection) {
+  static const char body[] =
+      "{\"status\":12,\"error\":\"out of memory\"}";
+  return send_json_text(connection, 500, body, sizeof(body) - 1u);
+}
+
+static bool send_error_response(struct MHD_Connection *connection,
+                                int http_status, int status,
+                                const char *message) {
+  struct json_object *response = new_status_response(status);
+  if (!response)
+    return send_out_of_memory_response(connection);
+  if (!add_json_string(response, "error", message)) {
+    json_object_put(response);
+    return send_out_of_memory_response(connection);
+  }
+  bool sent = send_json_object(connection, http_status, response);
+  json_object_put(response);
+  return sent;
+}
+
+static bool is_json_content_type(const char *value) {
+  static const char media_type[] = "application/json";
+  size_t size = sizeof(media_type) - 1u;
+  if (strncasecmp(value, media_type, size) != 0)
+    return false;
+  value += size;
+  while (*value == ' ' || *value == '\t')
+    value++;
+  return *value == '\0' || *value == ';';
+}
+
+static bool parse_content_length(const char *value, size_t *size_out) {
+  if (!value || !size_out || value[0] == '\0' || value[0] == '-')
+    return false;
+  errno = 0;
+  char *end = NULL;
+  unsigned long long parsed = strtoull(value, &end, 10);
+  if (errno != 0 || end == value || *end != '\0' || parsed > SIZE_MAX)
+    return false;
+  *size_out = (size_t)parsed;
+  return true;
+}
+
+static struct json_object *parse_request_json(const sm_http_request_t *request) {
+  struct json_tokener *tokener = json_tokener_new_ex(16);
+  if (!tokener)
+    return NULL;
+  json_tokener_set_flags(tokener, JSON_TOKENER_STRICT | JSON_TOKENER_VALIDATE_UTF8);
+  struct json_object *root =
+      json_tokener_parse_ex(tokener, request->body, (int)request->body_size);
+  enum json_tokener_error error = json_tokener_get_error(tokener);
+  size_t parsed_size = json_tokener_get_parse_end(tokener);
+  while (parsed_size < request->body_size &&
+         isspace((unsigned char)request->body[parsed_size])) {
+    parsed_size++;
+  }
+  bool valid = error == json_tokener_success && root != NULL &&
+               parsed_size == request->body_size &&
+               json_object_is_type(root, json_type_object);
+  json_tokener_free(tokener);
+  if (!valid) {
+    if (root)
+      json_object_put(root);
+    return NULL;
+  }
+  return root;
+}
+
+static const char *get_title_id(struct json_object *request) {
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, "title_id", &value) ||
+      !json_object_is_type(value, json_type_string)) {
+    return NULL;
+  }
+  const char *title_id = json_object_get_string(value);
+  return is_supported_game_title_id(title_id) ? title_id : NULL;
+}
+
+static bool get_manual_path(struct json_object *request,
+                            char path_out[MAX_PATH]) {
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, "path", &value) ||
+      !json_object_is_type(value, json_type_string)) {
+    return false;
+  }
+  return sm_manual_normalize_path(json_object_get_string(value), path_out);
+}
+
+static bool get_mount_mode(struct json_object *request, bool *present_out,
+                           bool *read_only_out) {
+  *present_out = false;
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, "mode", &value))
+    return true;
+  if (!json_object_is_type(value, json_type_string))
+    return false;
+
+  const char *mode = json_object_get_string(value);
+  if (strcmp(mode, "ro") == 0 || strcmp(mode, "r/o") == 0) {
+    *read_only_out = true;
+  } else if (strcmp(mode, "rw") == 0 || strcmp(mode, "r/w") == 0) {
+    *read_only_out = false;
+  } else {
+    return false;
+  }
+  *present_out = true;
+  return true;
+}
+
+static bool get_optional_bool(struct json_object *request, const char *key,
+                              bool default_value, bool *value_out) {
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, key, &value)) {
+    *value_out = default_value;
+    return true;
+  }
+  if (!json_object_is_type(value, json_type_boolean))
+    return false;
+  *value_out = json_object_get_boolean(value) != 0;
+  return true;
+}
+
+static bool get_optional_job_id(struct json_object *request, bool required,
+                                uint64_t *job_id_out) {
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, "job_id", &value)) {
+    *job_id_out = 0;
+    return !required;
+  }
+  if (!json_object_is_type(value, json_type_int))
+    return false;
+  int64_t job_id = json_object_get_int64(value);
+  if (job_id <= 0)
+    return false;
+  *job_id_out = (uint64_t)job_id;
+  return true;
+}
+
+static const char *get_destination_dir(struct json_object *request) {
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, "destination_dir", &value) ||
+      !json_object_is_type(value, json_type_string)) {
+    return NULL;
+  }
+  const char *path = json_object_get_string(value);
+  size_t size = strlen(path);
+  return size > 1u && size < MAX_PATH && path[0] == '/' ? path : NULL;
+}
+
+typedef struct {
+  size_t size;
+  bool too_large;
+} http_header_size_ctx_t;
+
+static enum MHD_Result count_http_header_size(void *ctx_ptr,
+                                              enum MHD_ValueKind kind,
+                                              const char *key,
+                                              const char *value) {
+  (void)kind;
+  http_header_size_ctx_t *ctx = ctx_ptr;
+  size_t key_size = key ? strlen(key) : 0;
+  size_t value_size = value ? strlen(value) : 0;
+  if (key_size > SM_API_MAX_HTTP_HEADER_SIZE - ctx->size ||
+      value_size > SM_API_MAX_HTTP_HEADER_SIZE - ctx->size - key_size ||
+      4u > SM_API_MAX_HTTP_HEADER_SIZE - ctx->size - key_size - value_size) {
+    ctx->too_large = true;
+    return MHD_NO;
+  }
+  ctx->size += key_size + value_size + 4u;
+  return MHD_YES;
+}
+
+static bool http_headers_fit(struct MHD_Connection *connection,
+                             const char *url, const char *method,
+                             const char *version) {
+  http_header_size_ctx_t ctx = {0};
+  size_t request_line_size = strlen(method) + strlen(url) + strlen(version) + 4u;
+  if (request_line_size > SM_API_MAX_HTTP_HEADER_SIZE - 2u)
+    return false;
+  ctx.size = request_line_size + 2u;
+  (void)MHD_get_connection_values(connection, MHD_HEADER_KIND,
+                                  count_http_header_size, &ctx);
+  return !ctx.too_large && ctx.size <= SM_API_MAX_HTTP_HEADER_SIZE;
+}
+
+static void handle_version(struct MHD_Connection *fd) {
+  struct json_object *response = new_status_response(0);
+  struct json_object *capabilities = json_object_new_array();
+  if (!response || !capabilities) {
+    if (response)
+      json_object_put(response);
+    if (capabilities)
+      json_object_put(capabilities);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_int(response, "api_version", SM_API_VERSION) ||
+      !add_json_string(response, "shadowmount_version", SHADOWMOUNT_VERSION) ||
+      !append_json_string(capabilities, "web_ui") ||
+      !append_json_string(capabilities, "storage_space") ||
+      !append_json_string(capabilities, "list_images") ||
+      !append_json_string(capabilities, "list_games") ||
+      !append_json_string(capabilities, "installed_pkg_games") ||
+      !append_json_string(capabilities, "game_fakelib_settings") ||
+      !append_json_string(capabilities, "game_info") ||
+      !append_json_string(capabilities, "game_icon") ||
+      !append_json_string(capabilities, "mount_game") ||
+      !append_json_string(capabilities, "unmount_game") ||
+      !append_json_string(capabilities, "uninstall_game") ||
+      !append_json_string(capabilities, "move_game_source") ||
+      !append_json_string(capabilities, "copy_game_source") ||
+      !append_json_string(capabilities, "delete_game_source") ||
+      !append_json_string(capabilities, "unpack_game_image") ||
+      !append_json_string(capabilities, "storage_job_status") ||
+      !append_json_string(capabilities, "storage_job_cancel") ||
+      !append_json_string(capabilities, "list_manual_sources") ||
+      !append_json_string(capabilities, "add_manual_source") ||
+      !append_json_string(capabilities, "remove_manual_source") ||
+      !append_json_string(capabilities, "manage_settings") ||
+      !append_json_string(capabilities, "read_debug_log") ||
+      !append_json_string(capabilities, "read_kernel_log") ||
+      !append_json_string(capabilities, "rescan")) {
+    json_object_put(capabilities);
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_value(response, "capabilities", capabilities)) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+static int64_t filesystem_size_bytes(uint64_t blocks, uint64_t block_size) {
+  if (block_size == 0)
+    return 0;
+  if (blocks > (uint64_t)INT64_MAX / block_size)
+    return INT64_MAX;
+  return (int64_t)(blocks * block_size);
+}
+
+static bool filesystem_has_capacity(const struct statfs *mount) {
+  if (mount->f_bsize <= 0 || mount->f_blocks == 0 ||
+      mount->f_mntonname[0] != '/') {
+    return false;
+  }
+
+  static const char *const virtual_types[] = {
+      "devfs", "fdescfs", "linprocfs", "nullfs", "procfs", "tmpfs",
+  };
+  for (size_t i = 0; i < sizeof(virtual_types) / sizeof(virtual_types[0]);
+       ++i) {
+    if (strcmp(mount->f_fstypename, virtual_types[i]) == 0)
+      return false;
+  }
+  return true;
+}
+
+static struct json_object *filesystem_to_json(const struct statfs *mount) {
+  uint64_t block_size = (uint64_t)mount->f_bsize;
+  uint64_t total_blocks = (uint64_t)mount->f_blocks;
+  uint64_t free_blocks = mount->f_bfree > 0 ? (uint64_t)mount->f_bfree : 0;
+  uint64_t available_blocks =
+      mount->f_bavail > 0 ? (uint64_t)mount->f_bavail : 0;
+  if (free_blocks > total_blocks)
+    free_blocks = total_blocks;
+  if (available_blocks > free_blocks)
+    available_blocks = free_blocks;
+
+  int64_t total_bytes = filesystem_size_bytes(total_blocks, block_size);
+  int64_t free_bytes = filesystem_size_bytes(free_blocks, block_size);
+  int64_t available_bytes =
+      filesystem_size_bytes(available_blocks, block_size);
+  int64_t used_bytes = total_bytes - available_bytes;
+
+  struct json_object *item = json_object_new_object();
+  if (!item)
+    return NULL;
+  if (!add_json_string(item, "source", mount->f_mntfromname) ||
+      !add_json_string(item, "mount_point", mount->f_mntonname) ||
+      !add_json_string(item, "filesystem", mount->f_fstypename) ||
+      !add_json_int(item, "total_bytes", total_bytes) ||
+      !add_json_int(item, "free_bytes", free_bytes) ||
+      !add_json_int(item, "available_bytes", available_bytes) ||
+      !add_json_int(item, "used_bytes", used_bytes) ||
+      !add_json_bool(item, "read_only", (mount->f_flags & MNT_RDONLY) != 0)) {
+    json_object_put(item);
+    return NULL;
+  }
+  return item;
+}
+
+static int append_storage_destination(struct json_object *items,
+                                      const char *path) {
+  char resolved[MAX_PATH];
+  struct stat st;
+  struct statfs filesystem;
+  if (!realpath(path, resolved) || stat(resolved, &st) != 0 ||
+      !S_ISDIR(st.st_mode) || !destination_is_managed(resolved) ||
+      statfs(resolved, &filesystem) != 0 ||
+      !filesystem_has_capacity(&filesystem) ||
+      (filesystem.f_flags & MNT_RDONLY) != 0) {
+    return 0;
+  }
+
+  struct json_object *item = filesystem_to_json(&filesystem);
+  if (!item || !add_json_string(item, "path", path) ||
+      json_object_array_add(items, item) != 0) {
+    if (item)
+      json_object_put(item);
+    return -1;
+  }
+  return 1;
+}
+
+static void handle_storage(struct MHD_Connection *connection) {
+  struct statfs *mounts = NULL;
+  int mount_count = sm_mount_table_snapshot(&mounts);
+  if (mount_count < 0) {
+    int status = errno != 0 ? errno : EIO;
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+
+  struct json_object *response = new_status_response(0);
+  struct json_object *items = json_object_new_array_ext(mount_count);
+  struct json_object *destinations = json_object_new_array();
+  if (!response || !items || !destinations) {
+    free(mounts);
+    if (response)
+      json_object_put(response);
+    if (items)
+      json_object_put(items);
+    if (destinations)
+      json_object_put(destinations);
+    send_out_of_memory_response(connection);
+    return;
+  }
+
+  size_t count = 0;
+  for (int i = 0; i < mount_count; ++i) {
+    if (!filesystem_has_capacity(&mounts[i]))
+      continue;
+    struct json_object *item = filesystem_to_json(&mounts[i]);
+    if (!item || json_object_array_add(items, item) != 0) {
+      free(mounts);
+      if (item)
+        json_object_put(item);
+      json_object_put(items);
+      json_object_put(destinations);
+      json_object_put(response);
+      send_out_of_memory_response(connection);
+      return;
+    }
+    count++;
+  }
+  free(mounts);
+
+  static const char *const destination_paths[] = {
+      "/data/homebrew",
+      "/mnt/ext0",          "/mnt/ext0/homebrew",
+      "/mnt/ext1",          "/mnt/ext1/homebrew",
+      "/mnt/usb0",          "/mnt/usb0/homebrew",
+      "/mnt/usb1",          "/mnt/usb1/homebrew",
+      "/mnt/usb2",          "/mnt/usb2/homebrew",
+      "/mnt/usb3",          "/mnt/usb3/homebrew",
+      "/mnt/usb4",          "/mnt/usb4/homebrew",
+      "/mnt/usb5",          "/mnt/usb5/homebrew",
+      "/mnt/usb6",          "/mnt/usb6/homebrew",
+      "/mnt/usb7",          "/mnt/usb7/homebrew",
+  };
+  size_t destination_count = 0;
+  for (size_t i = 0;
+       i < sizeof(destination_paths) / sizeof(destination_paths[0]); ++i) {
+    int result = append_storage_destination(destinations,
+                                            destination_paths[i]);
+    if (result < 0) {
+      json_object_put(destinations);
+      json_object_put(items);
+      json_object_put(response);
+      send_out_of_memory_response(connection);
+      return;
+    }
+    destination_count += (size_t)result;
+  }
+
+  if (!add_json_int(response, "count", (int64_t)count) ||
+      !add_json_int(response, "destination_count",
+                    (int64_t)destination_count)) {
+    json_object_put(destinations);
+    json_object_put(items);
+    json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  if (!add_json_value(response, "mounts", items)) {
+    json_object_put(destinations);
+    json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  if (!add_json_value(response, "destinations", destinations)) {
+    json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, 200, response);
+  json_object_put(response);
+}
+
+static struct json_object *image_to_json(const void *entry) {
+  const sm_image_index_snapshot_entry_t *source = entry;
+  struct json_object *item = json_object_new_object();
+  if (!item)
+    return NULL;
+
+  char mount_point[MAX_PATH];
+  get_image_mount_point_for_source(source->path, mount_point);
+  bool source_available = path_exists(source->path);
+  bool mapped = false;
+  bool mounted = false;
+  int unit_id = -1;
+  attach_backend_t backend = ATTACH_BACKEND_NONE;
+
+  image_cache_entry_t cached;
+  if (find_image_cache_entry(source->path, &cached, NULL)) {
+    mapped = true;
+    (void)strlcpy(mount_point, cached.mount_point, sizeof(mount_point));
+    unit_id = cached.unit_id;
+    backend = cached.backend;
+    mounted = cached.unit_id >= 0 && cached.backend != ATTACH_BACKEND_NONE &&
+              is_active_image_mount_point(cached.mount_point);
+  }
+
+  if (!add_json_string(item, "path", source->path) ||
+      !add_json_string(item, "mount_point", mount_point) ||
+      !add_json_int(item, "size", source->size) ||
+      !add_json_int(item, "mtime_sec", source->mtime_sec) ||
+      !add_json_int(item, "mtime_nsec", source->mtime_nsec) ||
+      !add_json_int(item, "unit_id", unit_id) ||
+      !add_json_string(item, "backend", attach_backend_name(backend)) ||
+      !add_json_bool(item, "complete", source->complete) ||
+      !add_json_bool(item, "source_available", source_available) ||
+      !add_json_bool(item, "mapped", mapped) ||
+      !add_json_bool(item, "mounted", mounted)) {
+    json_object_put(item);
+    return NULL;
+  }
+  return item;
+}
+
+typedef struct {
+  char physical_path[MAX_PATH];
+  char runtime_path[MAX_PATH];
+  const char *source_type;
+  const char *image_type;
+  bool image_backed;
+} game_source_info_t;
+
+static bool resolve_game_source(const sm_game_cache_snapshot_entry_t *source,
+                                game_source_info_t *info) {
+  memset(info, 0, sizeof(*info));
+  (void)strlcpy(info->runtime_path, source->path,
+                sizeof(info->runtime_path));
+
+  char image_path[MAX_PATH];
+  if (read_mount_image_link(source->title_id, image_path,
+                            sizeof(image_path))) {
+    (void)strlcpy(info->physical_path, image_path,
+                  sizeof(info->physical_path));
+    info->source_type = "image";
+    info->image_type = image_fs_type_name_for_path(image_path);
+    info->image_backed = true;
+    return true;
+  }
+
+  (void)strlcpy(info->physical_path, source->path,
+                sizeof(info->physical_path));
+  info->source_type = "folder";
+  info->image_type = "";
+  return info->physical_path[0] != '\0';
+}
+
+static const char *game_platform_name(const char *title_id,
+                                      const sm_app_db_game_info_t *metadata) {
+  if (strncmp(title_id, "CUSA", 4u) == 0)
+    return "ps4";
+  if (strncmp(title_id, "PPSA", 4u) == 0)
+    return "ps5";
+  if (!metadata)
+    return "unknown";
+  if (metadata->platform == 0)
+    return "ps4";
+  if (metadata->platform == 1)
+    return "ps5";
+  return "unknown";
+}
+
+static bool api_listener_stop_requested(void *ctx) {
+  (void)ctx;
+  pthread_mutex_lock(&g_api.mutex);
+  bool stopping = g_api.stop_requested;
+  pthread_mutex_unlock(&g_api.mutex);
+  return stopping;
+}
+
+static bool copy_regular_file_path(const char *path, char out[MAX_PATH]) {
+  struct stat st;
+  if (!path || path[0] == '\0' || stat(path, &st) != 0 ||
+      !S_ISREG(st.st_mode) || st.st_size <= 0) {
+    return false;
+  }
+  (void)strlcpy(out, path, MAX_PATH);
+  return true;
+}
+
+static bool resolve_game_icon_path(const char *title_id,
+                                   const char *recorded_path,
+                                   char out[MAX_PATH]) {
+  static const char *const storage_prefixes[] = {
+      "", "/mnt/ext0", "/mnt/ext0/ps5", "/mnt/ext1", "/mnt/ext1/ps5"};
+  static const struct {
+    const char *base;
+    const char *suffix;
+  } icon_dirs[] = {
+      {APP_BASE, ""}, {APPMETA_BASE, ""}, {APP_BASE, "/sce_sys"},
+      {APPMETA_BASE "/external", ""}};
+  char recorded_icon[MAX_PATH] = {0};
+  if (recorded_path) {
+    size_t length = strcspn(recorded_path, "?");
+    if (length < sizeof(recorded_icon))
+      memcpy(recorded_icon, recorded_path, length);
+  }
+
+  for (size_t i = 0;
+       i < sizeof(storage_prefixes) / sizeof(storage_prefixes[0]); ++i) {
+    for (size_t j = 0; j < sizeof(icon_dirs) / sizeof(icon_dirs[0]); ++j) {
+      char root[MAX_PATH];
+      int written = snprintf(root, sizeof(root), "%s%s/%s%s",
+                             storage_prefixes[i], icon_dirs[j].base,
+                             title_id, icon_dirs[j].suffix);
+      if (written <= 0 || (size_t)written >= sizeof(root))
+        continue;
+
+      char candidate[MAX_PATH];
+      written = snprintf(candidate, sizeof(candidate), "%s/icon0.png", root);
+      if (written > 0 && (size_t)written < sizeof(candidate) &&
+          copy_regular_file_path(candidate, out)) {
+        return true;
+      }
+      // Recorded icons belong to appmeta or sce_sys, never the app root.
+      if (j != 0 && path_matches_root_or_child(recorded_icon, root) &&
+          copy_regular_file_path(recorded_icon, out)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+static bool resolve_installed_pkg_game(
+    const char *title_id, const sm_app_db_game_info_t *metadata,
+    sm_game_cache_snapshot_entry_t *entry) {
+  if (!is_supported_game_title_id(title_id)) {
+    errno = EINVAL;
+    return false;
+  }
+  char managed_path[MAX_PATH];
+  if (read_mount_link(title_id, managed_path, sizeof(managed_path)) ||
+      read_mount_image_link(title_id, managed_path, sizeof(managed_path))) {
+    errno = ENOENT;
+    return false;
+  }
+
+  static const char *const roots[] = {
+      APP_BASE, "/mnt/ext0/user/app", "/mnt/ext0/ps5/user/app",
+      "/mnt/ext1/user/app", "/mnt/ext1/ps5/user/app"};
+  char package_path[MAX_PATH];
+  for (size_t i = 0; i <= sizeof(roots) / sizeof(roots[0]); ++i) {
+    if (i == 0) {
+      const char *path = metadata ? metadata->metadata_path : NULL;
+      size_t length = path ? strlen(path) : 0;
+      static const char suffix[] = "/sce_sys";
+      if (length <= sizeof(suffix) - 1u ||
+          strcmp(path + length - (sizeof(suffix) - 1u), suffix) != 0)
+        continue;
+      int written = snprintf(package_path, sizeof(package_path),
+                              "%.*s/app.pkg",
+                              (int)(length - (sizeof(suffix) - 1u)), path);
+      if (written <= 0 || (size_t)written >= sizeof(package_path))
+        continue;
+    } else {
+      int written = snprintf(package_path, sizeof(package_path),
+                              "%s/%s/app.pkg", roots[i - 1u], title_id);
+      if (written <= 0 || (size_t)written >= sizeof(package_path))
+        continue;
+    }
+    struct stat st;
+    if (stat(package_path, &st) != 0 || !S_ISREG(st.st_mode))
+      continue;
+    memset(entry, 0, sizeof(*entry));
+    (void)strlcpy(entry->path, package_path, sizeof(entry->path));
+    (void)strlcpy(entry->title_id, title_id, sizeof(entry->title_id));
+    (void)strlcpy(entry->title_name,
+                  metadata ? metadata->title_name : title_id,
+                  sizeof(entry->title_name));
+    return true;
+  }
+  errno = ENOENT;
+  return false;
+}
+
+static bool find_installed_pkg_game(const char *title_id,
+                                     sm_game_cache_snapshot_entry_t *entry) {
+  char managed_path[MAX_PATH];
+  if (read_mount_link(title_id, managed_path, sizeof(managed_path)) ||
+      read_mount_image_link(title_id, managed_path, sizeof(managed_path))) {
+    errno = ENOENT;
+    return false;
+  }
+  if (resolve_installed_pkg_game(title_id, NULL, entry))
+    return true;
+  sm_app_db_game_info_t *metadata = NULL;
+  size_t count = 0;
+  if (!app_db_game_info_snapshot(&metadata, &count))
+    return false;
+  const sm_app_db_game_info_t *info = app_db_find_game_info(metadata, count,
+                                                          title_id);
+  bool found = info && resolve_installed_pkg_game(title_id, info, entry);
+  free(metadata);
+  if (!found)
+    errno = ENOENT;
+  return found;
+}
+
+static struct json_object *game_to_json(
+    const sm_game_cache_snapshot_entry_t *source,
+    const sm_app_db_game_info_t *metadata, const runtime_config_t *cfg,
+    bool installed_pkg, bool include_size,
+    bool thumbnail_icon) {
+  struct json_object *item = json_object_new_object();
+  if (!item)
+    return NULL;
+
+  game_source_info_t source_info;
+  if (installed_pkg) {
+    memset(&source_info, 0, sizeof(source_info));
+    (void)strlcpy(source_info.physical_path, source->path,
+                  sizeof(source_info.physical_path));
+    source_info.source_type = "pkg";
+    source_info.image_type = "";
+  } else if (!resolve_game_source(source, &source_info)) {
+    json_object_put(item);
+    return NULL;
+  }
+
+  char managed_path[MAX_PATH];
+  bool installed = installed_pkg || is_installed(source->title_id);
+  bool mounted = !installed_pkg && is_data_mounted(source->title_id);
+  bool managed = !installed_pkg &&
+      read_mount_link(source->title_id, managed_path, sizeof(managed_path));
+  bool source_available = path_exists(source_info.physical_path);
+  const char *title_name =
+      metadata && metadata->title_name[0] != '\0' ? metadata->title_name
+                                                  : source->title_name;
+  const char *content_id = metadata ? metadata->content_id : "";
+  const char *last_access_time = metadata ? metadata->last_access_time : "";
+  const char *install_time = metadata ? metadata->install_time : "";
+  const char *platform = game_platform_name(source->title_id, metadata);
+  bool can_toggle_fakelib = strcmp(platform, "ps5") == 0;
+  sm_fakelib_mode_t fakelib_mode =
+      sm_config_title_fakelib_mode(cfg, source->title_id);
+  bool fakelib_enabled = fakelib_mode != SM_FAKELIB_DISABLED;
+  char icon_url[SM_API_ROUTE_SIZE + MAX_TITLE_ID + 32u];
+  char icon_path[MAX_PATH];
+  icon_url[0] = '\0';
+  if (resolve_game_icon_path(source->title_id,
+                             metadata ? metadata->icon_path : NULL,
+                             icon_path)) {
+    struct stat icon_st;
+    if (stat(icon_path, &icon_st) == 0) {
+      const char *size_arg = thumbnail_icon ? "&size=thumb" : "";
+      (void)snprintf(
+          icon_url, sizeof(icon_url), "%s?title_id=%s%s&v=%lld-%lld",
+          SM_API_ROUTE_GAME_ICON, source->title_id, size_arg,
+          (long long)icon_st.st_mtime, (long long)icon_st.st_size);
+    }
+  }
+
+  if (!add_json_string(item, "path", source_info.physical_path) ||
+      !add_json_string(item, "runtime_path", source_info.runtime_path) ||
+      !add_json_string(item, "source_type", source_info.source_type) ||
+      !add_json_string(item, "image_type", source_info.image_type) ||
+      !add_json_string(item, "platform", platform) ||
+      !add_json_string(item, "title_id", source->title_id) ||
+      !add_json_string(item, "content_id", content_id) ||
+      !add_json_string(item, "title_name", title_name) ||
+      !add_json_string(item, "version", metadata ? metadata->version : "") ||
+      !add_json_string(item, "last_access_time", last_access_time) ||
+      !add_json_string(item, "install_time", install_time) ||
+      !add_json_string(item, "icon_url", icon_url) ||
+      !add_json_int(item, "app_db_size_bytes",
+                    metadata ? (int64_t)metadata->installed_size : 0) ||
+      !add_json_bool(item, "installed", installed) ||
+      !add_json_bool(item, "managed", managed) ||
+      !add_json_bool(item, "mounted", mounted) ||
+      !add_json_bool(item, "image_backed", source_info.image_backed) ||
+      !add_json_bool(item, "source_available", source_available)) {
+    json_object_put(item);
+    return NULL;
+  }
+  if (!add_json_bool(item, "installed_pkg", installed_pkg) ||
+      !add_json_bool(item, "can_uninstall", installed) ||
+      !add_json_bool(item, "can_manage_source", !installed_pkg) ||
+      !add_json_bool(item, "can_toggle_fakelib", can_toggle_fakelib) ||
+      !add_json_bool(item, "fakelib_enabled", fakelib_enabled) ||
+      !add_json_string(item, "fakelib_mode",
+                       sm_config_fakelib_mode_name(fakelib_mode)) ||
+      !add_json_string(item, "fakelib_default_mode",
+                       sm_config_fakelib_mode_name(cfg->fakelib_default_mode)) ||
+      !add_json_string(item, "fakelib_mode_override",
+                       sm_config_fakelib_mode_name(
+                           sm_config_title_fakelib_override(cfg, source->title_id))) ||
+      !add_json_bool(item, "fakelib_effective_enabled",
+                     fakelib_enabled && cfg->backport_fakelib_enabled)) {
+    json_object_put(item);
+    return NULL;
+  }
+
+  if (include_size) {
+    uint64_t size = 0;
+    uint64_t file_count = 0;
+    int size_status = 0;
+    if (installed_pkg && metadata && metadata->installed_size > 0)
+      size = metadata->installed_size;
+    else
+      size_status = sm_storage_measure_path_progress(
+          source_info.physical_path, &size, &file_count,
+          api_listener_stop_requested, NULL);
+    int size_error = size_status == 0 ? 0 : (errno != 0 ? errno : EIO);
+    if (!add_json_int(item, "size_status", size_error) ||
+        (size_status == 0 &&
+         !add_json_int(item, "size_bytes", (int64_t)size))) {
+      json_object_put(item);
+      return NULL;
+    }
+  }
+  return item;
+}
+
+static bool game_snapshot_contains_title(
+    const sm_game_cache_snapshot_entry_t *snapshot, size_t count,
+    const char *title_id) {
+  for (size_t i = 0; i < count; ++i) {
+    if (strcmp(snapshot[i].title_id, title_id) == 0)
+      return true;
+  }
+  return false;
+}
+
+typedef struct json_object *(*snapshot_to_json_fn)(const void *entry);
+
+static void send_snapshot_response(struct MHD_Connection *fd, void *snapshot,
+                                   size_t count,
+                                   size_t entry_size, const char *array_key,
+                                   snapshot_to_json_fn to_json) {
+  struct json_object *response = new_status_response(0);
+  struct json_object *items = json_object_new_array_ext((int)count);
+  if (!response || !items) {
+    if (response)
+      json_object_put(response);
+    if (items)
+      json_object_put(items);
+    free(snapshot);
+    send_out_of_memory_response(fd);
+    return;
+  }
+
+  const unsigned char *entries = snapshot;
+  for (size_t i = 0; i < count; ++i) {
+    struct json_object *item = to_json(entries + i * entry_size);
+    if (!item || json_object_array_add(items, item) != 0) {
+      if (item)
+        json_object_put(item);
+      json_object_put(items);
+      json_object_put(response);
+      free(snapshot);
+      send_out_of_memory_response(fd);
+      return;
+    }
+  }
+  free(snapshot);
+
+  if (!add_json_int(response, "count", (int64_t)count)) {
+    json_object_put(items);
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_value(response, array_key, items)) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+static void handle_images(struct MHD_Connection *fd) {
+  sm_image_index_snapshot_entry_t *snapshot = NULL;
+  size_t count = 0;
+  if (!sm_image_index_snapshot(&snapshot, &count)) {
+    send_out_of_memory_response(fd);
+    return;
+  }
+  send_snapshot_response(fd, snapshot, count, sizeof(*snapshot), "images",
+                         image_to_json);
+}
+
+static void handle_games(struct MHD_Connection *fd,
+                         struct json_object *request) {
+  bool include_size = false;
+  if (!get_optional_bool(request, "include_size", false, &include_size)) {
+    send_error_response(fd, 400, EINVAL, "include_size must be boolean");
+    return;
+  }
+  if (include_size) {
+    (void)MHD_set_connection_option(fd, MHD_CONNECTION_OPTION_TIMEOUT, 0u);
+  }
+
+  sm_game_cache_snapshot_entry_t *snapshot = NULL;
+  size_t count = 0;
+  if (!sm_game_cache_snapshot(&snapshot, &count)) {
+    send_out_of_memory_response(fd);
+    return;
+  }
+
+  sm_app_db_game_info_t *metadata = NULL;
+  size_t metadata_count = 0;
+  if (!app_db_game_info_snapshot(&metadata, &metadata_count)) {
+    int status = errno != 0 ? errno : EIO;
+    free(snapshot);
+    send_error_response(fd, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+
+  struct json_object *response = new_status_response(0);
+  struct json_object *games = json_object_new_array_ext((int)count);
+  if (!response || !games) {
+    if (response)
+      json_object_put(response);
+    if (games)
+      json_object_put(games);
+    free(metadata);
+    free(snapshot);
+    send_out_of_memory_response(fd);
+    return;
+  }
+
+  bool built = true;
+  bool cancelled = false;
+  const runtime_config_t cfg = runtime_config();
+  for (size_t i = 0; i < count; ++i) {
+    if (api_listener_stop_requested(NULL)) {
+      cancelled = true;
+      break;
+    }
+    const sm_app_db_game_info_t *game_metadata = app_db_find_game_info(
+        metadata, metadata_count, snapshot[i].title_id);
+    sm_game_cache_snapshot_entry_t package;
+    bool installed_pkg = resolve_installed_pkg_game(snapshot[i].title_id,
+                                                    game_metadata, &package);
+    struct json_object *game = game_to_json(
+        installed_pkg ? &package : &snapshot[i], game_metadata, &cfg,
+        installed_pkg, include_size, true);
+    if (!game || json_object_array_add(games, game) != 0) {
+      if (game)
+        json_object_put(game);
+      built = false;
+      break;
+    }
+  }
+  for (size_t i = 0; built && !cancelled && i < metadata_count; ++i) {
+    if (api_listener_stop_requested(NULL)) {
+      cancelled = true;
+      break;
+    }
+    if (game_snapshot_contains_title(snapshot, count, metadata[i].title_id) ||
+        (i > 0 && strcmp(metadata[i - 1u].title_id, metadata[i].title_id) == 0))
+      continue;
+    sm_game_cache_snapshot_entry_t package;
+    if (!resolve_installed_pkg_game(metadata[i].title_id, &metadata[i], &package))
+      continue;
+    struct json_object *game = game_to_json(&package, &metadata[i], &cfg, true,
+                                           include_size, true);
+    if (!game || json_object_array_add(games, game) != 0) {
+      if (game)
+        json_object_put(game);
+      built = false;
+    }
+  }
+  free(metadata);
+  free(snapshot);
+  if (cancelled) {
+    json_object_put(games);
+    json_object_put(response);
+    send_error_response(fd, 409, ECANCELED, strerror(ECANCELED));
+    return;
+  }
+  if (!built) {
+    json_object_put(games);
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_int(response, "count", (int64_t)json_object_array_length(games)) ||
+      !add_json_bool(response, "size_included", include_size)) {
+    json_object_put(games);
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_value(response, "games", games)) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+static bool find_game_snapshot_by_title(
+    const char *title_id, sm_game_cache_snapshot_entry_t *entry_out) {
+  sm_game_cache_snapshot_entry_t *snapshot = NULL;
+  size_t count = 0;
+  if (!sm_game_cache_snapshot(&snapshot, &count)) {
+    errno = ENOMEM;
+    return false;
+  }
+  bool found = false;
+  for (size_t i = 0; i < count; ++i) {
+    if (strcmp(snapshot[i].title_id, title_id) != 0)
+      continue;
+    *entry_out = snapshot[i];
+    found = true;
+    break;
+  }
+  free(snapshot);
+  if (!found)
+    errno = ENOENT;
+  return found;
+}
+
+static void handle_game_info(struct MHD_Connection *connection,
+                             struct json_object *request) {
+  const char *title_id = get_title_id(request);
+  if (!title_id) {
+    send_error_response(connection, 400, EINVAL,
+                        "title_id must be a valid PS4 or PS5 title ID");
+    return;
+  }
+  (void)MHD_set_connection_option(connection, MHD_CONNECTION_OPTION_TIMEOUT,
+                                  0u);
+
+  sm_app_db_game_info_t *metadata = NULL;
+  size_t metadata_count = 0;
+  if (!app_db_game_info_snapshot(&metadata, &metadata_count)) {
+    int status = errno != 0 ? errno : EIO;
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  const sm_app_db_game_info_t *game_metadata =
+      app_db_find_game_info(metadata, metadata_count, title_id);
+  sm_game_cache_snapshot_entry_t game_entry;
+  bool installed_pkg = game_metadata &&
+                       resolve_installed_pkg_game(title_id, game_metadata,
+                                                   &game_entry);
+  if (!installed_pkg && !find_game_snapshot_by_title(title_id, &game_entry)) {
+    int status = errno != 0 ? errno : ENOENT;
+    free(metadata);
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  const runtime_config_t cfg = runtime_config();
+  struct json_object *response =
+      game_to_json(&game_entry, game_metadata, &cfg, installed_pkg, true, false);
+  free(metadata);
+  if (!response) {
+    send_out_of_memory_response(connection);
+    return;
+  }
+  if (!add_json_int(response, "status", 0)) {
+    json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, 200, response);
+  json_object_put(response);
+}
+
+static bool handle_game_icon(struct MHD_Connection *connection) {
+  const char *title_id = MHD_lookup_connection_value(
+      connection, MHD_GET_ARGUMENT_KIND, "title_id");
+  if (!title_id || !is_supported_game_title_id(title_id)) {
+    return send_error_response(
+        connection, 400, EINVAL,
+        "title_id query parameter must be a valid PS4 or PS5 title ID");
+  }
+  const char *size = MHD_lookup_connection_value(
+      connection, MHD_GET_ARGUMENT_KIND, "size");
+  bool want_thumbnail = size && size[0] != '\0';
+  if (want_thumbnail && strcmp(size, "thumb") != 0) {
+    return send_error_response(connection, 400, EINVAL,
+                               "size query parameter must be thumb");
+  }
+
+  char icon_path[MAX_PATH];
+  if (!resolve_game_icon_path(title_id, NULL, icon_path)) {
+    sm_app_db_game_info_t *metadata = NULL;
+    size_t metadata_count = 0;
+    if (!app_db_game_info_snapshot(&metadata, &metadata_count)) {
+      int status = errno != 0 ? errno : EIO;
+      return send_error_response(connection, operation_http_status(status),
+                                 status, strerror(status));
+    }
+    const sm_app_db_game_info_t *game_metadata =
+        app_db_find_game_info(metadata, metadata_count, title_id);
+    char recorded_path[MAX_PATH];
+    (void)strlcpy(recorded_path,
+                  game_metadata ? game_metadata->icon_path : "",
+                  sizeof(recorded_path));
+    free(metadata);
+    if (!resolve_game_icon_path(title_id, recorded_path, icon_path)) {
+      return send_error_response(connection, 404, ENOENT,
+                                 "game icon is not available");
+    }
+  }
+  int fd = open(icon_path, O_RDONLY);
+  if (fd < 0) {
+    int status = errno != 0 ? errno : EIO;
+    return send_error_response(connection, operation_http_status(status),
+                               status, strerror(status));
+  }
+  struct stat st;
+  if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0) {
+    (void)close(fd);
+    return send_error_response(connection, 404, ENOENT,
+                               "game icon is not available");
+  }
+  if (want_thumbnail) {
+    char thumbnail_path[MAX_PATH];
+    if (sm_icon_thumbnail_path(title_id, icon_path, &st, thumbnail_path)) {
+      int thumbnail_fd = open(thumbnail_path, O_RDONLY);
+      struct stat thumbnail_st;
+      if (thumbnail_fd >= 0 && fstat(thumbnail_fd, &thumbnail_st) == 0 &&
+          S_ISREG(thumbnail_st.st_mode) && thumbnail_st.st_size > 0) {
+        (void)close(fd);
+        fd = thumbnail_fd;
+        st = thumbnail_st;
+      } else if (thumbnail_fd >= 0) {
+        (void)close(thumbnail_fd);
+      }
+    }
+  }
+  return send_file_response(connection, fd, (uint64_t)st.st_size, "image/png",
+                            "public, max-age=86400, immutable");
+}
+
+static bool handle_index_page(struct MHD_Connection *connection) {
+  int fd = open(WEB_INDEX_FILE, O_RDONLY);
+  if (fd < 0) {
+    int status = errno != 0 ? errno : EIO;
+    if (status == ENOENT || status == ENOTDIR)
+      return send_embedded_index_response(connection);
+    return send_error_response(connection, operation_http_status(status),
+                               status, strerror(status));
+  }
+
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    int status = errno != 0 ? errno : EIO;
+    (void)close(fd);
+    return send_error_response(connection, operation_http_status(status),
+                               status, strerror(status));
+  }
+  if (!S_ISREG(st.st_mode) || st.st_size < 0) {
+    (void)close(fd);
+    return send_error_response(connection, 404, ENOENT,
+                               "web UI is not a regular file");
+  }
+  return send_file_response(connection, fd, (uint64_t)st.st_size,
+                            "text/html; charset=utf-8", "no-cache");
+}
+
+static int operation_http_status(int status) {
+  switch (status) {
+  case 0:
+    return 200;
+  case EINVAL:
+  case EISDIR:
+  case ENOTDIR:
+  case ENAMETOOLONG:
+  case ELOOP:
+    return 400;
+  case ENOENT:
+    return 404;
+  case EACCES:
+  case EPERM:
+  case EROFS:
+    return 403;
+  case EBUSY:
+  case EEXIST:
+  case ECANCELED:
+    return 409;
+  case ENOSPC:
+    return 507;
+  case ENOTSUP:
+    return 501;
+  default:
+    return 500;
+  }
+}
+
+static void handle_mount_operation(struct MHD_Connection *fd,
+                                   struct json_object *request,
+                                   bool mount) {
+  const char *title_id = get_title_id(request);
+  if (!title_id) {
+    send_error_response(fd, 400, EINVAL,
+                        "title_id must be a valid PS4 or PS5 title ID");
+    return;
+  }
+
+  sm_game_cache_snapshot_entry_t package;
+  if (find_installed_pkg_game(title_id, &package)) {
+    send_error_response(fd, 403, EPERM,
+                        "installed PKGs only support information and uninstall");
+    return;
+  }
+  if (errno != ENOENT) {
+    int status = errno != 0 ? errno : EIO;
+    send_error_response(fd, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+
+  bool mode_present = false;
+  bool mount_read_only = false;
+  if (mount &&
+      !get_mount_mode(request, &mode_present, &mount_read_only)) {
+    send_error_response(fd, 400, EINVAL,
+                        "mode must be ro, rw, r/o or r/w");
+    return;
+  }
+
+  const bool *mount_mode = mode_present ? &mount_read_only : NULL;
+  int status = mount ? sm_shellcore_mount_title_runtime(title_id, mount_mode)
+                     : sm_shellcore_unmount_title_runtime(title_id);
+  log_debug("  [API] HTTP %s game: title=%s mode=%s status=%d",
+            mount ? "mount" : "unmount", title_id,
+            !mount ? "n/a" : mode_present
+                                 ? (mount_read_only ? "ro" : "rw")
+                                 : "default",
+            status);
+  if (status != 0) {
+    send_error_response(fd, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+
+  struct json_object *response = new_status_response(0);
+  if (!response) {
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_string(response, "title_id", title_id) ||
+      !add_json_bool(response, "mounted", mount) ||
+      (mount &&
+       !add_json_string(response, "mode",
+                        mode_present ? (mount_read_only ? "ro" : "rw")
+                                     : "default"))) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+static const char *operation_error_message(int status, const char *reason) {
+  static const struct {
+    const char *reason;
+    const char *message;
+  } messages[] = {
+      {"rest_mode", "console is entering or in rest mode"},
+      {"game_active", "a game is active or awaiting exit; close the game and try again"},
+      {"install_pending", "game installation is pending; wait for it to finish"},
+      {"runtime_prepared", "a title has a prepared runtime mount; close or unmount it first"},
+      {"scanner_busy", "scanner or another storage operation is busy; try again when it finishes"},
+      {"runtime_busy", "title runtime is being prepared or released; try again when it finishes"},
+      {"title_unmount_busy", "title runtime could not be released; its mount or sandbox is still busy"},
+      {"image_unmount_busy", "backing image could not be released; its mount is still busy"},
+      {"unpack_mounted", "image runtime is already mounted or prepared; unmount it before unpacking"},
+      {"storage_busy", "a storage operation is already running; wait for it to finish"},
+      {"storage_unavailable", "storage service is stopping or unavailable"},
+  };
+  if (reason && reason[0] != '\0') {
+    for (size_t i = 0; i < sizeof(messages) / sizeof(messages[0]); ++i) {
+      if (strcmp(reason, messages[i].reason) == 0)
+        return messages[i].message;
+    }
+  }
+  return strerror(status);
+}
+
+static void send_operation_error_response(struct MHD_Connection *connection,
+                                           int status, const char *reason) {
+  struct json_object *response = new_status_response(status);
+  if (!response ||
+      !add_json_string(response, "error", operation_error_message(status, reason)) ||
+      !add_json_string(response, "error_reason", reason ? reason : "")) {
+    if (response)
+      json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, operation_http_status(status), response);
+  json_object_put(response);
+}
+
+static bool add_scan_queue_fields(struct json_object *response, bool queued) {
+  const char *reason = "";
+  if (queued) {
+    if (runtime_sleep_mode_active())
+      reason = "rest_mode";
+    else if (sm_game_lifecycle_has_active_game())
+      reason = "game_active";
+    else if (sm_shellcore_service_has_prepared_mount())
+      reason = "runtime_prepared";
+  }
+  return add_json_bool(response, "scan_queued", queued) &&
+         add_json_bool(response, "scan_deferred", reason[0] != '\0') &&
+         add_json_string(response, "scan_deferred_reason", reason);
+}
+
+static void handle_scan(struct MHD_Connection *fd,
+                        struct json_object *request) {
+  if (runtime_sleep_mode_active()) {
+    send_operation_error_response(fd, EBUSY, "rest_mode");
+    return;
+  }
+
+  bool reset_attempts = false;
+  if (!get_optional_bool(request, "reset_attempts", false,
+                         &reset_attempts)) {
+    send_error_response(fd, 400, EINVAL, "reset_attempts must be boolean");
+    return;
+  }
+
+  if (!request_scan_now_with_options("HTTP API request", reset_attempts)) {
+    send_operation_error_response(fd, EBUSY, "rest_mode");
+    return;
+  }
+
+  struct json_object *response = new_status_response(0);
+  if (!response) {
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_bool(response, "queued", true) ||
+      !add_scan_queue_fields(response, true) ||
+      !add_json_bool(response, "reset_attempts", reset_attempts)) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+typedef struct {
+  struct json_object *paths;
+  size_t count;
+  bool allocation_failed;
+} manual_list_json_ctx_t;
+
+static bool append_manual_list_path(const char *path, void *ctx_ptr) {
+  manual_list_json_ctx_t *ctx = ctx_ptr;
+  if (!append_json_string(ctx->paths, path)) {
+    ctx->allocation_failed = true;
+    return false;
+  }
+  ctx->count++;
+  return true;
+}
+
+static void handle_manual_list(struct MHD_Connection *fd) {
+  struct json_object *response = new_status_response(0);
+  struct json_object *paths = json_object_new_array();
+  if (!response || !paths) {
+    if (response)
+      json_object_put(response);
+    if (paths)
+      json_object_put(paths);
+    send_out_of_memory_response(fd);
+    return;
+  }
+
+  manual_list_json_ctx_t ctx = {
+      .paths = paths,
+  };
+  errno = 0;
+  bool completed = sm_manual_for_each_path(append_manual_list_path, &ctx);
+  if (ctx.allocation_failed) {
+    json_object_put(paths);
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!completed && errno != ENOENT) {
+    int status = errno != 0 ? errno : EIO;
+    json_object_put(paths);
+    json_object_put(response);
+    send_error_response(fd, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+
+  if (!add_json_int(response, "count", (int64_t)ctx.count)) {
+    json_object_put(paths);
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_value(response, "paths", paths)) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+static void handle_manual_update(struct MHD_Connection *fd,
+                                 struct json_object *request,
+                                 bool add) {
+  char path[MAX_PATH];
+  if (!get_manual_path(request, path)) {
+    send_error_response(fd, 400, EINVAL,
+                        "path must be a non-root absolute path");
+    return;
+  }
+
+  bool changed = false;
+  bool updated = add ? sm_manual_add_path(path, &changed)
+                     : sm_manual_remove_path(path, &changed);
+  if (!updated) {
+    int status = errno != 0 ? errno : EIO;
+    send_error_response(fd, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  if (changed)
+    request_scan_now(add ? "HTTP API manual source added"
+                         : "HTTP API manual source removed");
+
+  struct json_object *response = new_status_response(0);
+  if (!response) {
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_string(response, "path", path) ||
+      !add_json_bool(response, "present", add) ||
+      !add_json_bool(response, "changed", changed)) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+static bool get_required_bool(struct json_object *request, const char *key,
+                              bool *value_out) {
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, key, &value) ||
+      !json_object_is_type(value, json_type_boolean)) {
+    return false;
+  }
+  *value_out = json_object_get_boolean(value) != 0;
+  return true;
+}
+
+static bool get_log_max_bytes(struct MHD_Connection *connection,
+                              struct json_object *request,
+                              size_t *max_bytes_out) {
+  *max_bytes_out = SM_API_LOG_DEFAULT_BYTES;
+  struct json_object *value = NULL;
+  if (!json_object_object_get_ex(request, "max_bytes", &value))
+    return true;
+  if (!json_object_is_type(value, json_type_int)) {
+    send_error_response(connection, 400, EINVAL,
+                        "max_bytes must be an integer");
+    return false;
+  }
+  int64_t requested = json_object_get_int64(value);
+  if (requested < 4096 || requested > SM_API_LOG_MAX_BYTES) {
+    send_error_response(connection, 400, EINVAL,
+                        "max_bytes must be in range 4096..262144");
+    return false;
+  }
+  *max_bytes_out = (size_t)requested;
+  return true;
+}
+
+static void send_log_tail_response(struct MHD_Connection *connection,
+                                   char *content, size_t returned_bytes,
+                                   size_t total_bytes,
+                                   const char *total_bytes_key) {
+  struct json_object *response = new_status_response(0);
+  struct json_object *content_value =
+      json_object_new_string_len(content, (int)returned_bytes);
+  free(content);
+  if (!response || !content_value) {
+    if (content_value)
+      json_object_put(content_value);
+    if (response)
+      json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  if (!add_json_value(response, "content", content_value) ||
+      !add_json_int(response, total_bytes_key, (int64_t)total_bytes) ||
+      !add_json_int(response, "returned_bytes", (int64_t)returned_bytes) ||
+      !add_json_bool(response, "truncated", total_bytes > returned_bytes)) {
+    json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, 200, response);
+  json_object_put(response);
+}
+
+static void handle_settings(struct MHD_Connection *connection) {
+  runtime_config_t cfg = runtime_config();
+  struct json_object *response = new_status_response(0);
+  struct json_object *scan_paths = json_object_new_array();
+  if (!response || !scan_paths) {
+    if (response)
+      json_object_put(response);
+    if (scan_paths)
+      json_object_put(scan_paths);
+    send_out_of_memory_response(connection);
+    return;
+  }
+
+  size_t count = 0;
+  int custom_path_count = get_custom_scan_path_count();
+  for (int i = 0; i < custom_path_count; ++i) {
+    char path[MAX_PATH];
+    if (!get_custom_scan_path(i, path))
+      continue;
+    if (!append_json_string(scan_paths, path)) {
+      json_object_put(scan_paths);
+      json_object_put(response);
+      send_out_of_memory_response(connection);
+      return;
+    }
+    count++;
+  }
+
+  if (!add_json_value(response, "scan_paths", scan_paths) ||
+      !add_json_bool(response, "api_enabled", cfg.api_enabled) ||
+      !add_json_bool(response, "allow_lan_access",
+                     strcmp(cfg.api_bind_address,
+                            SM_API_DEFAULT_BIND_ADDRESS) != 0) ||
+      !add_json_bool(response, "debug", cfg.debug_enabled) ||
+      !add_json_bool(response, "quiet_mode", cfg.quiet_mode) ||
+      !add_json_bool(response, "update_emulators",
+                     cfg.update_emulators_enabled) ||
+      !add_json_string(response, "fakelib_default_mode",
+                       sm_config_fakelib_mode_name(cfg.fakelib_default_mode)) ||
+      !add_json_bool(response, "auto_update_ampr",
+                     cfg.auto_update_ampr_enabled) ||
+      !add_json_bool(response, "auto_remove_missing_games",
+                     cfg.auto_remove_missing_games) ||
+      !add_json_int(response, "auto_remove_missing_delay_seconds",
+                    cfg.auto_remove_missing_delay_seconds) ||
+      !add_json_int(response, "fan_target_temperature",
+                    cfg.fan_target_temperature_c) ||
+      !add_json_int(response, "scan_path_count", (int64_t)count)) {
+    json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, 200, response);
+  json_object_put(response);
+}
+
+static void handle_settings_update(struct MHD_Connection *connection,
+                                   struct json_object *request) {
+  runtime_config_t current_cfg = runtime_config();
+  bool debug_enabled = false;
+  bool quiet_mode = false;
+  bool update_emulators = false;
+  bool auto_update_ampr = current_cfg.auto_update_ampr_enabled;
+  bool auto_remove_missing_games = current_cfg.auto_remove_missing_games;
+  bool allow_lan_access = false;
+  sm_fakelib_mode_t fakelib_default_mode = current_cfg.fakelib_default_mode;
+  struct json_object *mode_value = NULL;
+  struct json_object *remove_delay_value = NULL;
+  struct json_object *fan_value = NULL;
+  struct json_object *paths_value = NULL;
+  if (!get_required_bool(request, "debug", &debug_enabled) ||
+      !get_required_bool(request, "quiet_mode", &quiet_mode) ||
+      !get_required_bool(request, "update_emulators", &update_emulators) ||
+      !get_optional_bool(request, "auto_update_ampr",
+                         current_cfg.auto_update_ampr_enabled,
+                         &auto_update_ampr) ||
+      !get_optional_bool(request, "auto_remove_missing_games",
+                         current_cfg.auto_remove_missing_games,
+                         &auto_remove_missing_games) ||
+      !get_required_bool(request, "allow_lan_access", &allow_lan_access) ||
+      !json_object_object_get_ex(request, "fan_target_temperature",
+                                 &fan_value) ||
+      !json_object_is_type(fan_value, json_type_int) ||
+      !json_object_object_get_ex(request, "scan_paths", &paths_value) ||
+      !json_object_is_type(paths_value, json_type_array)) {
+    send_error_response(connection, 400, EINVAL,
+                        "settings fields have invalid types");
+    return;
+  }
+
+  if (json_object_object_get_ex(request, "fakelib_default_mode", &mode_value) &&
+      (!json_object_is_type(mode_value, json_type_string) ||
+       !sm_config_parse_fakelib_mode(json_object_get_string(mode_value),
+                                    &fakelib_default_mode) ||
+       fakelib_default_mode == SM_FAKELIB_DEFAULT)) {
+    send_error_response(connection, 400, EINVAL,
+                        "fakelib_default_mode must be full, emulators or disabled");
+    return;
+  }
+
+  int64_t remove_delay_int = current_cfg.auto_remove_missing_delay_seconds;
+  if (json_object_object_get_ex(request,
+                                "auto_remove_missing_delay_seconds",
+                                &remove_delay_value)) {
+    if (!json_object_is_type(remove_delay_value, json_type_int)) {
+      send_error_response(connection, 400, EINVAL,
+                          "settings fields have invalid types");
+      return;
+    }
+    remove_delay_int = json_object_get_int64(remove_delay_value);
+  }
+  if (remove_delay_int < MIN_AUTO_REMOVE_MISSING_DELAY_SECONDS ||
+      remove_delay_int > MAX_AUTO_REMOVE_MISSING_DELAY_SECONDS) {
+    send_error_response(
+        connection, 400, EINVAL,
+        "auto_remove_missing_delay_seconds must be 1..86400");
+    return;
+  }
+
+  int64_t fan_value_int = json_object_get_int64(fan_value);
+  if (fan_value_int < 0 || fan_value_int > UINT32_MAX ||
+      (fan_value_int != FAN_TARGET_TEMPERATURE_SYSTEM &&
+       (fan_value_int < MIN_FAN_TARGET_TEMPERATURE_C ||
+        fan_value_int > MAX_FAN_TARGET_TEMPERATURE_C))) {
+    send_error_response(connection, 400, EINVAL,
+                        "fan_target_temperature must be 0 or 50..91");
+    return;
+  }
+
+  size_t path_count = json_object_array_length(paths_value);
+  if (path_count > MAX_SCAN_PATHS) {
+    send_error_response(connection, 400, EINVAL, "too many scan paths");
+    return;
+  }
+  const char **paths = path_count > 0 ? calloc(path_count, sizeof(*paths))
+                                      : NULL;
+  if (path_count > 0 && !paths) {
+    send_out_of_memory_response(connection);
+    return;
+  }
+  bool valid = true;
+  for (size_t i = 0; i < path_count; ++i) {
+    struct json_object *item = json_object_array_get_idx(paths_value, i);
+    if (!item || !json_object_is_type(item, json_type_string)) {
+      valid = false;
+      break;
+    }
+    paths[i] = json_object_get_string(item);
+  }
+  if (!valid || !sm_config_write_web_settings(
+                    debug_enabled, quiet_mode, update_emulators,
+                    auto_update_ampr, auto_remove_missing_games,
+                    (uint32_t)remove_delay_int,
+                    allow_lan_access,
+                    (uint32_t)fan_value_int, paths, path_count,
+                    fakelib_default_mode)) {
+    int status = valid && errno != 0 ? errno : EINVAL;
+    free(paths);
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  free(paths);
+
+  // The config vnode event reloads the new topology first and then schedules
+  // its full scan. Queuing an immediate scan here would race that reload and
+  // scan the previous (often default) roots once more.
+
+  struct json_object *response = new_status_response(0);
+  if (!response || !add_json_bool(response, "saved", true) ||
+      !add_json_bool(response, "reload_queued", true)) {
+    if (response)
+      json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, 200, response);
+  json_object_put(response);
+}
+
+static void handle_debug_log(struct MHD_Connection *connection,
+                             struct json_object *request) {
+  size_t max_bytes;
+  if (!get_log_max_bytes(connection, request, &max_bytes))
+    return;
+
+  int fd = open(LOG_FILE, O_RDONLY);
+  struct stat st;
+  if (fd < 0 && errno != ENOENT) {
+    int status = errno != 0 ? errno : EIO;
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  memset(&st, 0, sizeof(st));
+  if (fd >= 0 && (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode))) {
+    int status = errno != 0 ? errno : EIO;
+    (void)close(fd);
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  uint64_t file_size = st.st_size > 0 ? (uint64_t)st.st_size : 0;
+  size_t read_size = file_size > max_bytes ? max_bytes : (size_t)file_size;
+  char *content = malloc(read_size + 1u);
+  if (!content) {
+    if (fd >= 0)
+      (void)close(fd);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  size_t offset = 0;
+  int read_status = 0;
+  off_t file_offset = (off_t)(file_size - read_size);
+  while (fd >= 0 && offset < read_size) {
+    ssize_t count = pread(fd, content + offset, read_size - offset,
+                          file_offset + (off_t)offset);
+    if (count < 0 && errno == EINTR)
+      continue;
+    if (count < 0) {
+      read_status = errno != 0 ? errno : EIO;
+      break;
+    }
+    if (count == 0)
+      break;
+    offset += (size_t)count;
+  }
+  if (fd >= 0)
+    (void)close(fd);
+  if (read_status != 0) {
+    free(content);
+    send_error_response(connection, operation_http_status(read_status),
+                        read_status, strerror(read_status));
+    return;
+  }
+  if (file_size > read_size && offset > 0) {
+    char *newline = memchr(content, '\n', offset);
+    if (newline) {
+      size_t discard = (size_t)(newline - content) + 1u;
+      memmove(content, content + discard, offset - discard);
+      offset -= discard;
+    }
+  }
+  content[offset] = '\0';
+
+  send_log_tail_response(connection, content, offset, (size_t)file_size,
+                         "file_size");
+}
+
+static void handle_kernel_log(struct MHD_Connection *connection,
+                              struct json_object *request) {
+  size_t max_bytes;
+  if (!get_log_max_bytes(connection, request, &max_bytes))
+    return;
+
+  char *content = NULL;
+  size_t returned_bytes = 0;
+  size_t total_bytes = 0;
+  int status = sm_mdbg_get_log_tail(max_bytes, &content, &returned_bytes,
+                                    &total_bytes);
+  if (status != 0) {
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+
+  send_log_tail_response(connection, content, returned_bytes, total_bytes,
+                         "total_bytes");
+}
+
+static const char *runtime_mutation_block_reason(void) {
+  if (runtime_sleep_mode_active())
+    return "rest_mode";
+  if (sm_game_lifecycle_has_active_game())
+    return "game_active";
+  if (sm_install_has_pending_work())
+    return "install_pending";
+  return NULL;
+}
+
+static int resolve_storage_source(const char *title_id,
+                                   game_storage_operation_t operation,
+                                   game_source_info_t *source_info,
+                                   const char **error_out) {
+  *error_out = NULL;
+  sm_game_cache_snapshot_entry_t entry;
+  if (!find_game_snapshot_by_title(title_id, &entry))
+    return errno != 0 ? errno : ENOENT;
+  if (!resolve_game_source(&entry, source_info))
+    return ENOENT;
+
+  struct stat st;
+  if (lstat(source_info->physical_path, &st) == 0)
+    return 0;
+  int status = errno != 0 ? errno : EIO;
+  if (operation == GAME_STORAGE_DELETE &&
+      (status == ENOENT || status == ENOTDIR))
+    *error_out = "source_missing";
+  return status;
+}
+
+static int request_game_uninstall(const char *title_id,
+                                  const char **error_out,
+                                  bool *scan_queued_out) {
+  *scan_queued_out = false;
+  *error_out = runtime_mutation_block_reason();
+  if (*error_out)
+    return EBUSY;
+  sm_game_cache_snapshot_entry_t package;
+  bool installed_pkg = find_installed_pkg_game(title_id, &package);
+  if (!installed_pkg && errno != ENOENT)
+    return errno != 0 ? errno : EIO;
+  if (!installed_pkg && !is_installed(title_id))
+    return ENOENT;
+
+  bool title_prepared = sm_shellcore_service_title_is_prepared(title_id);
+  if (sm_shellcore_service_has_prepared_mount() && !title_prepared) {
+    *error_out = "runtime_prepared";
+    return EBUSY;
+  }
+  if (!installed_pkg && (title_prepared || is_data_mounted(title_id))) {
+    int release_status = sm_shellcore_unmount_title_runtime(title_id);
+    if (release_status != 0) {
+      if (release_status == EBUSY)
+        *error_out = "title_unmount_busy";
+      return release_status;
+    }
+  }
+
+  bool source_missing = false;
+  if (!installed_pkg) {
+    game_source_info_t info;
+    const char *source_error = NULL;
+    (void)resolve_storage_source(title_id, GAME_STORAGE_DELETE, &info,
+                                 &source_error);
+    source_missing = source_error && strcmp(source_error, "source_missing") == 0;
+  }
+
+  int platform_status = sceAppInstUtilAppUnInstall(title_id);
+  if (platform_status != 0) {
+    log_debug("  [API] uninstall request failed: title=%s code=0x%08X",
+              title_id, (uint32_t)platform_status);
+    return EIO;
+  }
+
+  invalidate_app_db_title_cache();
+  reset_title_attempts(title_id, NULL, NULL);
+  if (source_missing)
+    *scan_queued_out = request_scan_now("HTTP API missing source uninstall requested");
+  log_debug("  [API] uninstall requested: title=%s", title_id);
+  return 0;
+}
+
+static void handle_uninstall(struct MHD_Connection *fd,
+                             struct json_object *request) {
+  const char *title_id = get_title_id(request);
+  if (!title_id) {
+    send_error_response(fd, 400, EINVAL,
+                        "title_id must be a valid PS4 or PS5 title ID");
+    return;
+  }
+
+  if (!sm_scanner_try_begin_external_mutation()) {
+    send_operation_error_response(fd, EBUSY, "scanner_busy");
+    return;
+  }
+  if (!sm_shellcore_try_begin_external_mutation()) {
+    sm_scanner_end_external_mutation();
+    send_operation_error_response(fd, EBUSY, "runtime_busy");
+    return;
+  }
+  const char *error = NULL;
+  bool scan_queued = false;
+  int status = request_game_uninstall(title_id, &error, &scan_queued);
+  sm_shellcore_end_external_mutation();
+  sm_scanner_end_external_mutation();
+  if (status != 0) {
+    log_debug("  [API] uninstall blocked or failed: title=%s status=%d reason=%s",
+              title_id, status, operation_error_message(status, error));
+    send_operation_error_response(fd, status, error);
+    return;
+  }
+
+  struct json_object *response = new_status_response(0);
+  if (!response) {
+    send_out_of_memory_response(fd);
+    return;
+  }
+  if (!add_json_string(response, "title_id", title_id) ||
+      !add_scan_queue_fields(response, scan_queued) ||
+      !add_json_bool(response, "uninstall_requested", true)) {
+    json_object_put(response);
+    send_out_of_memory_response(fd);
+    return;
+  }
+  (void)send_json_object(fd, 200, response);
+  json_object_put(response);
+}
+
+static void handle_game_fakelib(struct MHD_Connection *connection,
+                                 struct json_object *request) {
+  const char *title_id = get_title_id(request);
+  sm_fakelib_mode_t mode;
+  struct json_object *mode_value = NULL;
+  bool valid_mode;
+  if (json_object_object_get_ex(request, "mode", &mode_value)) {
+    valid_mode = json_object_is_type(mode_value, json_type_string) &&
+                 sm_config_parse_fakelib_mode(
+                     json_object_get_string(mode_value), &mode);
+  } else {
+    bool enabled = false;
+    valid_mode = get_required_bool(request, "enabled", &enabled);
+    mode = enabled ? SM_FAKELIB_FULL : SM_FAKELIB_DISABLED;
+  }
+  if (!title_id || !valid_mode) {
+    send_error_response(connection, 400, EINVAL,
+                        "title_id and mode (default, full, emulators, disabled) are required");
+    return;
+  }
+  if (strncmp(title_id, "PPSA", 4u) != 0) {
+    sm_app_db_game_info_t *metadata = NULL;
+    size_t count = 0;
+    if (!app_db_game_info_snapshot(&metadata, &count)) {
+      int status = errno != 0 ? errno : EIO;
+      send_error_response(connection, operation_http_status(status), status,
+                          strerror(status));
+      return;
+    }
+    const sm_app_db_game_info_t *info = app_db_find_game_info(metadata, count,
+                                                            title_id);
+    bool ps5 = strcmp(game_platform_name(title_id, info), "ps5") == 0;
+    free(metadata);
+    if (!ps5) {
+      send_error_response(connection, 400, EINVAL,
+                          "fakelib settings are only available for PS5 games");
+      return;
+    }
+  }
+  sm_game_cache_snapshot_entry_t entry;
+  if (!find_game_snapshot_by_title(title_id, &entry) &&
+      (errno != ENOENT || !find_installed_pkg_game(title_id, &entry))) {
+    int status = errno != 0 ? errno : ENOENT;
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  if (!sm_config_set_title_fakelib_mode(title_id, mode)) {
+    int status = errno != 0 ? errno : EIO;
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+  const runtime_config_t cfg = runtime_config();
+  sm_fakelib_mode_t effective_mode = sm_config_title_fakelib_mode(&cfg, title_id);
+  bool enabled = effective_mode != SM_FAKELIB_DISABLED;
+  struct json_object *response = new_status_response(0);
+  if (!response || !add_json_string(response, "title_id", title_id) ||
+      !add_json_bool(response, "fakelib_enabled", enabled) ||
+      !add_json_string(response, "fakelib_mode",
+                       sm_config_fakelib_mode_name(effective_mode)) ||
+      !add_json_string(response, "fakelib_default_mode",
+                       sm_config_fakelib_mode_name(cfg.fakelib_default_mode)) ||
+      !add_json_string(response, "fakelib_mode_override",
+                       sm_config_fakelib_mode_name(mode)) ||
+      !add_json_bool(response, "fakelib_effective_enabled",
+                     enabled && cfg.backport_fakelib_enabled) ||
+      !add_json_bool(response, "saved", true) ||
+      !add_json_bool(response, "applies_on_next_launch", true)) {
+    if (response)
+      json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, 200, response);
+  json_object_put(response);
+}
+
+static void dispatch_request(struct MHD_Connection *connection,
+                             const char *route,
+                             struct json_object *json) {
+  if (strcmp(route, SM_API_ROUTE_VERSION) == 0) {
+    handle_version(connection);
+  } else if (strcmp(route, SM_API_ROUTE_STORAGE) == 0) {
+    handle_storage(connection);
+  } else if (strcmp(route, SM_API_ROUTE_IMAGES) == 0) {
+    handle_images(connection);
+  } else if (strcmp(route, SM_API_ROUTE_GAMES) == 0) {
+    handle_games(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_INFO) == 0) {
+    handle_game_info(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_FAKELIB) == 0) {
+    handle_game_fakelib(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_MOUNT) == 0) {
+    handle_mount_operation(connection, json, true);
+  } else if (strcmp(route, SM_API_ROUTE_UNMOUNT) == 0) {
+    handle_mount_operation(connection, json, false);
+  } else if (strcmp(route, SM_API_ROUTE_UNINSTALL) == 0) {
+    handle_uninstall(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_MOVE) == 0) {
+    handle_game_storage_operation(connection, json, GAME_STORAGE_MOVE);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_COPY) == 0) {
+    handle_game_storage_operation(connection, json, GAME_STORAGE_COPY);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_DELETE) == 0) {
+    handle_game_storage_operation(connection, json, GAME_STORAGE_DELETE);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_UNPACK) == 0) {
+    handle_game_storage_operation(connection, json, GAME_STORAGE_UNPACK);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_STORAGE_STATUS) == 0) {
+    handle_storage_job_status(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_GAME_STORAGE_CANCEL) == 0) {
+    handle_storage_job_cancel(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_MANUAL_LIST) == 0) {
+    handle_manual_list(connection);
+  } else if (strcmp(route, SM_API_ROUTE_MANUAL_ADD) == 0) {
+    handle_manual_update(connection, json, true);
+  } else if (strcmp(route, SM_API_ROUTE_MANUAL_REMOVE) == 0) {
+    handle_manual_update(connection, json, false);
+  } else if (strcmp(route, SM_API_ROUTE_SETTINGS) == 0) {
+    handle_settings(connection);
+  } else if (strcmp(route, SM_API_ROUTE_SETTINGS_UPDATE) == 0) {
+    handle_settings_update(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_DEBUG_LOG) == 0) {
+    handle_debug_log(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_KERNEL_LOG) == 0) {
+    handle_kernel_log(connection, json);
+  } else if (strcmp(route, SM_API_ROUTE_SCAN) == 0) {
+    handle_scan(connection, json);
+  } else {
+    send_error_response(connection, 404, ENOENT, "unknown API route");
+  }
+}
+
+static const char *game_storage_operation_name(
+    game_storage_operation_t operation) {
+  switch (operation) {
+  case GAME_STORAGE_MOVE:
+    return "move";
+  case GAME_STORAGE_COPY:
+    return "copy";
+  case GAME_STORAGE_DELETE:
+    return "delete";
+  case GAME_STORAGE_UNPACK:
+    return "unpack";
+  }
+  return "unknown";
+}
+
+static bool destination_is_managed(const char *destination) {
+  if (is_under_image_mount_base(destination) ||
+      path_matches_root_or_child(destination, APP_BASE) ||
+      path_matches_root_or_child(destination, APPMETA_BASE) ||
+      path_matches_root_or_child(destination, "/system_data")) {
+    return false;
+  }
+  if (is_usb_storage_path(destination) &&
+      !usb_storage_root_mounted(destination)) {
+    return false;
+  }
+  for (int i = 0; i < get_scan_path_count(); ++i) {
+    char scan_path[MAX_PATH];
+    if (!get_scan_path(i, scan_path))
+      continue;
+    if (!is_under_image_mount_base(scan_path) &&
+        path_matches_root_or_child(destination, scan_path)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static int build_storage_destination(const char *requested_dir,
+                                     const char *source,
+                                     char destination[MAX_PATH]) {
+  char resolved_dir[MAX_PATH];
+  if (!realpath(requested_dir, resolved_dir))
+    return errno != 0 ? errno : EINVAL;
+  struct stat st;
+  if (stat(resolved_dir, &st) != 0)
+    return errno != 0 ? errno : EIO;
+  if (!S_ISDIR(st.st_mode) || !destination_is_managed(resolved_dir))
+    return EINVAL;
+
+  const char *filename = get_filename_component(source);
+  if (!filename || filename[0] == '\0' || strcmp(filename, ".") == 0 ||
+      strcmp(filename, "..") == 0) {
+    return EINVAL;
+  }
+  int written = snprintf(destination, MAX_PATH, "%s/%s", resolved_dir,
+                         filename);
+  if (written < 0 || (size_t)written >= MAX_PATH)
+    return ENAMETOOLONG;
+  if (strcmp(source, destination) == 0 ||
+      path_matches_root_or_child(destination, source)) {
+    return EINVAL;
+  }
+  if (lstat(destination, &st) == 0)
+    return EEXIST;
+  return errno == ENOENT ? 0 : (errno != 0 ? errno : EIO);
+}
+
+static int build_unpack_destination(const char *requested_dir,
+                                    const char *title_id,
+                                    char destination[MAX_PATH]) {
+  char resolved_dir[MAX_PATH];
+  if (!realpath(requested_dir, resolved_dir))
+    return errno != 0 ? errno : EINVAL;
+  struct stat st;
+  if (stat(resolved_dir, &st) != 0)
+    return errno != 0 ? errno : EIO;
+  if (!S_ISDIR(st.st_mode) || !destination_is_managed(resolved_dir))
+    return EINVAL;
+  int written = snprintf(destination, MAX_PATH, "%s/%s", resolved_dir,
+                         title_id);
+  if (written < 0 || (size_t)written >= MAX_PATH)
+    return ENAMETOOLONG;
+  if (lstat(destination, &st) == 0)
+    return EEXIST;
+  return errno == ENOENT ? 0 : (errno != 0 ? errno : EIO);
+}
+
+static int count_titles_for_source(const char *physical_path,
+                                   size_t *count_out) {
+  *count_out = 0;
+  sm_game_cache_snapshot_entry_t *snapshot = NULL;
+  size_t count = 0;
+  if (!sm_game_cache_snapshot(&snapshot, &count))
+    return ENOMEM;
+  for (size_t i = 0; i < count; ++i) {
+    game_source_info_t info;
+    if (resolve_game_source(&snapshot[i], &info) &&
+        strcmp(info.physical_path, physical_path) == 0) {
+      (*count_out)++;
+    }
+  }
+  free(snapshot);
+  return *count_out > 0 ? 0 : ENOENT;
+}
+
+static int release_storage_source_runtime(const char *physical_path,
+                                          const char *title_id,
+                                          size_t *affected_out,
+                                          const char **error_out) {
+  *affected_out = 0;
+  *error_out = runtime_mutation_block_reason();
+  if (*error_out)
+    return EBUSY;
+  if (sm_shellcore_service_has_prepared_mount()) {
+    *error_out = "runtime_prepared";
+    return EBUSY;
+  }
+
+  sm_game_cache_snapshot_entry_t *snapshot = NULL;
+  size_t count = 0;
+  if (!sm_game_cache_snapshot(&snapshot, &count))
+    return ENOMEM;
+
+  int status = 0;
+  runtime_mount_state_lock();
+  for (size_t i = 0; i < count; ++i) {
+    game_source_info_t info;
+    if (!resolve_game_source(&snapshot[i], &info) ||
+        strcmp(info.physical_path, physical_path) != 0) {
+      continue;
+    }
+    (*affected_out)++;
+    if (is_data_mounted(snapshot[i].title_id) &&
+        !unmount_title_runtime_layers(snapshot[i].title_id)) {
+      status = errno == EBUSY ? EBUSY : EIO;
+      if (status == EBUSY)
+        *error_out = "title_unmount_busy";
+      break;
+    }
+  }
+  free(snapshot);
+  if (status != 0) {
+    runtime_mount_state_unlock();
+    return status;
+  }
+  if (*affected_out == 0) {
+    runtime_mount_state_unlock();
+    return ENOENT;
+  }
+
+  char image_chain[MAX_IMAGE_CHAIN_DEPTH][MAX_PATH];
+  size_t image_count = 0;
+  if (read_mount_image_chain(title_id, image_chain, &image_count)) {
+    for (size_t layer = image_count; layer > 0; --layer) {
+      if (!release_runtime_image_mount(image_chain[layer - 1u])) {
+        int status = errno == EBUSY ? EBUSY : EIO;
+        if (status == EBUSY)
+          *error_out = "image_unmount_busy";
+        runtime_mount_state_unlock();
+        return status;
+      }
+    }
+  }
+  runtime_mount_state_unlock();
+  return 0;
+}
+
+static void update_moved_source_links(const char *source,
+                                      const char *destination) {
+  sm_game_cache_snapshot_entry_t *snapshot = NULL;
+  size_t count = 0;
+  if (!sm_game_cache_snapshot(&snapshot, &count))
+    return;
+
+  for (size_t i = 0; i < count; ++i) {
+    char image_chain[MAX_IMAGE_CHAIN_DEPTH][MAX_PATH];
+    size_t image_count = 0;
+    if (read_mount_image_chain(snapshot[i].title_id, image_chain,
+                               &image_count)) {
+      bool changed = false;
+      for (size_t layer = 0; layer < image_count; ++layer) {
+        if (strcmp(image_chain[layer], source) == 0) {
+          (void)strlcpy(image_chain[layer], destination,
+                        sizeof(image_chain[layer]));
+          changed = true;
+        }
+      }
+      if (changed && !write_mount_image_chain(snapshot[i].title_id,
+                                               image_chain, image_count)) {
+        log_debug("  [API] failed to update moved image link: title=%s",
+                  snapshot[i].title_id);
+      }
+      continue;
+    }
+
+    char tracked_path[MAX_PATH];
+    if (read_mount_link(snapshot[i].title_id, tracked_path,
+                        sizeof(tracked_path)) &&
+        strcmp(tracked_path, source) == 0 &&
+        !write_mount_link(snapshot[i].title_id, destination)) {
+      log_debug("  [API] failed to update moved source link: title=%s",
+                snapshot[i].title_id);
+    }
+  }
+  free(snapshot);
+}
+
+static const char *storage_job_state_name(storage_job_state_t state) {
+  switch (state) {
+  case STORAGE_JOB_IDLE:
+    return "idle";
+  case STORAGE_JOB_PREPARING:
+    return "preparing";
+  case STORAGE_JOB_MEASURING:
+    return "measuring";
+  case STORAGE_JOB_TRANSFERRING:
+    return "transferring";
+  case STORAGE_JOB_DELETING:
+    return "deleting";
+  case STORAGE_JOB_FINALIZING:
+    return "finalizing";
+  case STORAGE_JOB_COMPLETED:
+    return "completed";
+  case STORAGE_JOB_FAILED:
+    return "failed";
+  case STORAGE_JOB_CANCELLED:
+    return "cancelled";
+  }
+  return "unknown";
+}
+
+static bool storage_job_is_cancellable(storage_job_state_t state) {
+  return state == STORAGE_JOB_PREPARING || state == STORAGE_JOB_MEASURING ||
+         state == STORAGE_JOB_TRANSFERRING;
+}
+
+static bool storage_job_is_active(storage_job_state_t state) {
+  return state == STORAGE_JOB_PREPARING || state == STORAGE_JOB_MEASURING ||
+         state == STORAGE_JOB_TRANSFERRING ||
+         state == STORAGE_JOB_DELETING || state == STORAGE_JOB_FINALIZING;
+}
+
+static void copy_storage_job_snapshot_locked(
+    storage_job_snapshot_t *snapshot) {
+  snapshot->active = storage_job_is_active(g_storage_job.state);
+  snapshot->cancel_requested = g_storage_job.cancel_requested;
+  snapshot->id = g_storage_job.id;
+  snapshot->operation = g_storage_job.operation;
+  snapshot->state = g_storage_job.state;
+  (void)strlcpy(snapshot->title_id, g_storage_job.title_id,
+                sizeof(snapshot->title_id));
+  (void)strlcpy(snapshot->source_type, g_storage_job.source_type,
+                sizeof(snapshot->source_type));
+  (void)strlcpy(snapshot->source, g_storage_job.source,
+                sizeof(snapshot->source));
+  (void)strlcpy(snapshot->runtime_source, g_storage_job.runtime_source,
+                sizeof(snapshot->runtime_source));
+  (void)strlcpy(snapshot->destination, g_storage_job.destination,
+                sizeof(snapshot->destination));
+  snapshot->delete_source = g_storage_job.delete_source;
+  snapshot->total_bytes = g_storage_job.total_bytes;
+  snapshot->processed_bytes = g_storage_job.processed_bytes;
+  snapshot->total_files = g_storage_job.total_files;
+  snapshot->processed_files = g_storage_job.processed_files;
+  snapshot->started_us = g_storage_job.started_us;
+  snapshot->transfer_started_us = g_storage_job.transfer_started_us;
+  snapshot->transfer_finished_us = g_storage_job.transfer_finished_us;
+  snapshot->finished_us = g_storage_job.finished_us;
+  snapshot->affected_titles = g_storage_job.affected_titles;
+  snapshot->result_status = g_storage_job.result_status;
+  (void)strlcpy(snapshot->result_error_reason, g_storage_job.result_error_reason,
+                sizeof(snapshot->result_error_reason));
+  snapshot->scan_queued = g_storage_job.scan_queued;
+}
+
+static bool get_storage_job_snapshot(uint64_t requested_id,
+                                     storage_job_snapshot_t *snapshot) {
+  pthread_mutex_lock(&g_storage_job.mutex);
+  bool found = requested_id == 0 || requested_id == g_storage_job.id;
+  if (found)
+    copy_storage_job_snapshot_locked(snapshot);
+  pthread_mutex_unlock(&g_storage_job.mutex);
+  return found;
+}
+
+static double storage_job_progress_percent(
+    const storage_job_snapshot_t *snapshot) {
+  if (snapshot->state == STORAGE_JOB_COMPLETED)
+    return 100.0;
+  if (snapshot->total_bytes > 0) {
+    double percent =
+        (double)snapshot->processed_bytes * 100.0 /
+        (double)snapshot->total_bytes;
+    return percent > 100.0 ? 100.0 : percent;
+  }
+  if (snapshot->total_files > 0) {
+    double percent =
+        (double)snapshot->processed_files * 100.0 /
+        (double)snapshot->total_files;
+    return percent > 100.0 ? 100.0 : percent;
+  }
+  return 0.0;
+}
+
+static uint64_t storage_job_elapsed_ms(
+    const storage_job_snapshot_t *snapshot, uint64_t now_us) {
+  if (snapshot->started_us == 0)
+    return 0;
+  uint64_t end_us = snapshot->finished_us != 0 ? snapshot->finished_us : now_us;
+  if (end_us < snapshot->started_us)
+    return 0;
+  return (end_us - snapshot->started_us) / 1000u;
+}
+
+static uint64_t storage_job_speed_bytes_per_second(
+    const storage_job_snapshot_t *snapshot, uint64_t now_us) {
+  if (snapshot->transfer_started_us == 0 || snapshot->processed_bytes == 0)
+    return 0;
+  uint64_t end_us = snapshot->transfer_finished_us != 0
+                        ? snapshot->transfer_finished_us
+                        : now_us;
+  if (end_us <= snapshot->transfer_started_us)
+    return 0;
+  uint64_t elapsed_us = end_us - snapshot->transfer_started_us;
+  double speed = (double)snapshot->processed_bytes * 1000000.0 /
+                 (double)elapsed_us;
+  return speed >= (double)INT64_MAX ? (uint64_t)INT64_MAX : (uint64_t)speed;
+}
+
+static bool add_storage_job_fields(struct json_object *response,
+                                   const storage_job_snapshot_t *snapshot) {
+  uint64_t now_us = monotonic_time_us();
+  return add_json_int(response, "job_id", (int64_t)snapshot->id) &&
+         add_json_string(response, "operation",
+                         snapshot->id == 0
+                             ? ""
+                             : game_storage_operation_name(
+                                   snapshot->operation)) &&
+         add_json_string(response, "state",
+                         storage_job_state_name(snapshot->state)) &&
+         add_json_bool(response, "active", snapshot->active) &&
+         add_json_bool(response, "cancellable",
+                       snapshot->active &&
+                           storage_job_is_cancellable(snapshot->state)) &&
+         add_json_bool(response, "cancel_requested",
+                       snapshot->cancel_requested) &&
+         add_json_string(response, "title_id", snapshot->title_id) &&
+         add_json_string(response, "source_type", snapshot->source_type) &&
+         add_json_string(response, "source", snapshot->source) &&
+         add_json_string(response, "runtime_source",
+                         snapshot->runtime_source) &&
+         add_json_string(response, "destination", snapshot->destination) &&
+         add_json_bool(response, "delete_source", snapshot->delete_source) &&
+         add_json_int(response, "total_bytes",
+                      (int64_t)snapshot->total_bytes) &&
+         add_json_int(response, "processed_bytes",
+                      (int64_t)snapshot->processed_bytes) &&
+         add_json_int(response, "total_files",
+                      (int64_t)snapshot->total_files) &&
+         add_json_int(response, "processed_files",
+                      (int64_t)snapshot->processed_files) &&
+         add_json_double(response, "progress_percent",
+                         storage_job_progress_percent(snapshot)) &&
+         add_json_int(response, "speed_bytes_per_second",
+                      (int64_t)storage_job_speed_bytes_per_second(snapshot,
+                                                                  now_us)) &&
+         add_json_int(response, "elapsed_ms",
+                      (int64_t)storage_job_elapsed_ms(snapshot, now_us)) &&
+         add_json_int(response, "affected_titles",
+                      (int64_t)snapshot->affected_titles) &&
+         add_json_int(response, "result_status", snapshot->result_status) &&
+         add_json_string(response, "result_error",
+                         snapshot->result_status == 0
+                             ? ""
+                             : operation_error_message(snapshot->result_status,
+                                                       snapshot->result_error_reason)) &&
+         add_json_string(response, "result_error_reason",
+                         snapshot->result_error_reason) &&
+         add_json_bool(response, "scan_queued", snapshot->scan_queued);
+}
+
+static void send_storage_job_response(
+    struct MHD_Connection *connection, int http_status,
+    const storage_job_snapshot_t *snapshot) {
+  struct json_object *response = new_status_response(0);
+  if (!response || !add_storage_job_fields(response, snapshot)) {
+    if (response)
+      json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  (void)send_json_object(connection, http_status, response);
+  json_object_put(response);
+}
+
+static bool storage_job_cancelled(void *ctx) {
+  uint64_t job_id = (uint64_t)(uintptr_t)ctx;
+  pthread_mutex_lock(&g_storage_job.mutex);
+  bool cancelled = g_storage_job.id != job_id ||
+                   g_storage_job.cancel_requested;
+  pthread_mutex_unlock(&g_storage_job.mutex);
+  return cancelled;
+}
+
+static void update_storage_job_progress(uint64_t bytes_delta,
+                                        uint64_t files_delta, void *ctx) {
+  uint64_t job_id = (uint64_t)(uintptr_t)ctx;
+  pthread_mutex_lock(&g_storage_job.mutex);
+  if (storage_job_is_active(g_storage_job.state) &&
+      g_storage_job.id == job_id) {
+    if (UINT64_MAX - g_storage_job.processed_bytes < bytes_delta)
+      g_storage_job.processed_bytes = UINT64_MAX;
+    else
+      g_storage_job.processed_bytes += bytes_delta;
+    if (UINT64_MAX - g_storage_job.processed_files < files_delta)
+      g_storage_job.processed_files = UINT64_MAX;
+    else
+      g_storage_job.processed_files += files_delta;
+  }
+  pthread_mutex_unlock(&g_storage_job.mutex);
+}
+
+static bool begin_storage_job_finalizing(void *ctx) {
+  uint64_t job_id = (uint64_t)(uintptr_t)ctx;
+  pthread_mutex_lock(&g_storage_job.mutex);
+  bool allowed = storage_job_is_active(g_storage_job.state) &&
+                 g_storage_job.id == job_id &&
+                 !g_storage_job.cancel_requested;
+  if (allowed) {
+    g_storage_job.state = STORAGE_JOB_FINALIZING;
+    g_storage_job.transfer_finished_us = monotonic_time_us();
+  }
+  pthread_mutex_unlock(&g_storage_job.mutex);
+  return allowed;
+}
+
+static void finish_storage_job(uint64_t job_id, int status,
+                               bool scan_queued, const char *error) {
+  pthread_mutex_lock(&g_storage_job.mutex);
+  if (g_storage_job.id == job_id) {
+    if (status == 0) {
+      g_storage_job.processed_bytes = g_storage_job.total_bytes;
+      g_storage_job.processed_files = g_storage_job.total_files;
+      g_storage_job.state = STORAGE_JOB_COMPLETED;
+    } else if (status == ECANCELED) {
+      g_storage_job.state = STORAGE_JOB_CANCELLED;
+    } else {
+      g_storage_job.state = STORAGE_JOB_FAILED;
+    }
+    g_storage_job.result_status = status;
+    (void)strlcpy(g_storage_job.result_error_reason,
+                  status == 0 || !error ? "" : error,
+                  sizeof(g_storage_job.result_error_reason));
+    g_storage_job.scan_queued = scan_queued;
+    g_storage_job.finished_us = monotonic_time_us();
+    pthread_cond_broadcast(&g_storage_job.cond);
+  }
+  pthread_mutex_unlock(&g_storage_job.mutex);
+}
+
+static int storage_operation_result_status(game_storage_operation_t operation,
+                                            const char *source, int result) {
+  if (result == 0)
+    return 0;
+  int status = errno != 0 ? errno : EIO;
+  if (operation == GAME_STORAGE_DELETE &&
+      (status == ENOENT || status == ENOTDIR)) {
+    struct stat st;
+    // FTP or disconnected storage may remove the root after preflight. Only
+    // an absent root is harmless; a missing child in an existing tree is not.
+    if (lstat(source, &st) != 0 && (errno == ENOENT || errno == ENOTDIR))
+      return 0;
+  }
+  return status;
+}
+
+static void *storage_job_thread_main(void *arg) {
+  uint64_t job_id = (uint64_t)(uintptr_t)arg;
+  char title_id[MAX_TITLE_ID];
+  char source[MAX_PATH];
+  char runtime_source[MAX_PATH];
+  char destination[MAX_PATH];
+  bool delete_source;
+  game_storage_operation_t operation;
+
+  pthread_mutex_lock(&g_storage_job.mutex);
+  (void)strlcpy(title_id, g_storage_job.title_id, sizeof(title_id));
+  (void)strlcpy(source, g_storage_job.source, sizeof(source));
+  (void)strlcpy(runtime_source, g_storage_job.runtime_source,
+                sizeof(runtime_source));
+  (void)strlcpy(destination, g_storage_job.destination,
+                sizeof(destination));
+  delete_source = g_storage_job.delete_source;
+  operation = g_storage_job.operation;
+  pthread_mutex_unlock(&g_storage_job.mutex);
+
+  uint64_t total_bytes = 0;
+  uint64_t total_files = 0;
+  int status = 0;
+  const char *error = NULL;
+  bool scanner_mutation = false;
+  bool shellcore_mutation = false;
+  bool unpack_mounted = false;
+  bool recovery_scan_needed = false;
+  void *job_ctx = (void *)(uintptr_t)job_id;
+
+  // pthread mutex ownership cannot be transferred from the HTTP request
+  // thread. The storage worker owns both mutation gates for the whole job.
+  if (storage_job_cancelled(job_ctx)) {
+    status = ECANCELED;
+  } else if (!sm_scanner_try_begin_external_mutation()) {
+    status = EBUSY;
+    error = "scanner_busy";
+  } else {
+    scanner_mutation = true;
+  }
+  if (status == 0 && operation == GAME_STORAGE_UNPACK) {
+    const bool read_only = true;
+    status = sm_shellcore_mount_title_runtime(title_id, &read_only);
+    if (status == 0) {
+      unpack_mounted = true;
+      recovery_scan_needed = true;
+    }
+  }
+  if (status == 0) {
+    if (!sm_shellcore_try_begin_external_mutation()) {
+      status = EBUSY;
+      error = "runtime_busy";
+    } else
+      shellcore_mutation = true;
+  }
+  if (status == 0 && storage_job_cancelled(job_ctx))
+    status = ECANCELED;
+
+  if (status == 0) {
+    pthread_mutex_lock(&g_storage_job.mutex);
+    if (g_storage_job.id != job_id || g_storage_job.cancel_requested)
+      status = ECANCELED;
+    else
+      g_storage_job.state = STORAGE_JOB_MEASURING;
+    pthread_mutex_unlock(&g_storage_job.mutex);
+  }
+
+  if (status == 0 && operation != GAME_STORAGE_UNPACK) {
+    size_t affected = 0;
+    recovery_scan_needed = true;
+    status = release_storage_source_runtime(source, title_id, &affected,
+                                             &error);
+    pthread_mutex_lock(&g_storage_job.mutex);
+    if (g_storage_job.id == job_id)
+      g_storage_job.affected_titles = affected;
+    pthread_mutex_unlock(&g_storage_job.mutex);
+  }
+
+  if (status == 0 && operation == GAME_STORAGE_UNPACK) {
+    size_t affected = 0;
+    status = count_titles_for_source(source, &affected);
+    if (status == 0 && delete_source && affected > 1u)
+      status = EBUSY;
+    pthread_mutex_lock(&g_storage_job.mutex);
+    if (g_storage_job.id == job_id)
+      g_storage_job.affected_titles = affected;
+    pthread_mutex_unlock(&g_storage_job.mutex);
+    if (status == 0 && !path_exists(runtime_source))
+      status = ENOENT;
+  }
+
+  if (status == 0) {
+    const char *measure_source = operation == GAME_STORAGE_UNPACK
+                                     ? runtime_source
+                                     : source;
+    int measure_result = operation == GAME_STORAGE_DELETE
+                             ? sm_storage_measure_delete_path_progress(
+                                   source, &total_bytes, &total_files,
+                                   storage_job_cancelled, job_ctx)
+                             : sm_storage_measure_path_progress(
+                                   measure_source, &total_bytes, &total_files,
+                                   storage_job_cancelled, job_ctx);
+    status = storage_operation_result_status(operation, source, measure_result);
+  }
+
+  if (status == 0) {
+    bool runtime_cancelled =
+        should_stop_requested() || runtime_sleep_mode_active();
+    pthread_mutex_lock(&g_storage_job.mutex);
+    if (operation == GAME_STORAGE_DELETE &&
+        (runtime_cancelled || g_storage_job.cancel_requested)) {
+      status = ECANCELED;
+    } else {
+      g_storage_job.total_bytes = total_bytes;
+      g_storage_job.total_files = total_files;
+      g_storage_job.transfer_started_us = monotonic_time_us();
+      g_storage_job.state = operation == GAME_STORAGE_DELETE
+                                ? STORAGE_JOB_DELETING
+                                : STORAGE_JOB_TRANSFERRING;
+    }
+    pthread_mutex_unlock(&g_storage_job.mutex);
+  }
+
+  if (status == 0) {
+    bool renamed = false;
+    const char *copy_source = operation == GAME_STORAGE_UNPACK
+                                  ? runtime_source
+                                  : source;
+    int result = operation == GAME_STORAGE_DELETE
+                     ? sm_storage_delete_path_progress(
+                           source, update_storage_job_progress, job_ctx)
+                 : operation == GAME_STORAGE_MOVE
+                     ? sm_storage_move_path_progress(
+                           source, destination, update_storage_job_progress,
+                           storage_job_cancelled,
+                           begin_storage_job_finalizing, job_ctx, &renamed)
+                     : sm_storage_copy_path_progress(
+                           copy_source, destination,
+                           update_storage_job_progress,
+                           storage_job_cancelled, job_ctx);
+    pthread_mutex_lock(&g_storage_job.mutex);
+    if (g_storage_job.transfer_finished_us == 0)
+      g_storage_job.transfer_finished_us = monotonic_time_us();
+    pthread_mutex_unlock(&g_storage_job.mutex);
+    status = storage_operation_result_status(operation, source, result);
+    if (status == 0) {
+      if (renamed) {
+        pthread_mutex_lock(&g_storage_job.mutex);
+        g_storage_job.processed_bytes = total_bytes;
+        g_storage_job.processed_files = total_files;
+        pthread_mutex_unlock(&g_storage_job.mutex);
+      }
+      if (operation == GAME_STORAGE_MOVE)
+        update_moved_source_links(source, destination);
+    }
+  }
+
+  if (status == 0 && operation == GAME_STORAGE_UNPACK &&
+      !begin_storage_job_finalizing(job_ctx)) {
+    status = ECANCELED;
+    if (sm_storage_delete_path(destination) != 0 && errno != ENOENT)
+      status = errno != 0 ? errno : EIO;
+  }
+
+  if (unpack_mounted) {
+    if (!sm_shellcore_release_title_runtime(title_id) && status == 0)
+      status = errno == EBUSY ? EBUSY : EIO;
+  }
+  if (status == 0 && operation == GAME_STORAGE_UNPACK && delete_source &&
+      sm_storage_delete_path(source) != 0) {
+    status = errno != 0 ? errno : EIO;
+  }
+
+  if (shellcore_mutation)
+    sm_shellcore_end_external_mutation();
+  if (scanner_mutation)
+    sm_scanner_end_external_mutation();
+
+  bool scan_queued = false;
+  if (recovery_scan_needed) {
+    scan_queued = request_scan_now(
+        status != 0
+            ? "HTTP API async storage operation recovery"
+            : operation == GAME_STORAGE_MOVE
+                  ? "HTTP API async game source moved"
+                  : operation == GAME_STORAGE_COPY
+                        ? "HTTP API async game source copied"
+                        : operation == GAME_STORAGE_UNPACK
+                              ? "HTTP API game image unpacked"
+                              : "HTTP API async game source deleted");
+  }
+  log_debug("  [API] async game source %s %s: job=%llu title=%s status=%d reason=%s",
+            game_storage_operation_name(operation),
+            status == 0 ? "complete" : "stopped",
+            (unsigned long long)job_id, title_id, status,
+            status == 0 ? "complete" : operation_error_message(status, error));
+  finish_storage_job(job_id, status, scan_queued, error);
+  return NULL;
+}
+
+static int start_storage_job(const char *title_id,
+                             const char *destination_dir,
+                             game_storage_operation_t operation,
+                             bool delete_source,
+                             storage_job_snapshot_t *accepted_out,
+                             const char **error_out) {
+  game_source_info_t source_info;
+  int status = resolve_storage_source(title_id, operation, &source_info,
+                                      error_out);
+  if (status != 0)
+    return status;
+  if (operation == GAME_STORAGE_UNPACK &&
+      (!source_info.image_backed || is_data_mounted(title_id) ||
+       sm_shellcore_service_title_is_prepared(title_id))) {
+    if (source_info.image_backed)
+      *error_out = "unpack_mounted";
+    return source_info.image_backed ? EBUSY : ENOTSUP;
+  }
+  char destination[MAX_PATH];
+  destination[0] = '\0';
+  if (operation != GAME_STORAGE_DELETE) {
+    int destination_status = operation == GAME_STORAGE_UNPACK
+                                 ? build_unpack_destination(
+                                       destination_dir, title_id, destination)
+                                 : build_storage_destination(
+                                       destination_dir,
+                                       source_info.physical_path, destination);
+    if (destination_status != 0)
+      return destination_status;
+  }
+
+  pthread_mutex_lock(&g_storage_job.mutex);
+  if (!g_storage_job.accepting || storage_job_is_active(g_storage_job.state)) {
+    *error_out = g_storage_job.accepting
+                     ? "storage_busy"
+                     : "storage_unavailable";
+    pthread_mutex_unlock(&g_storage_job.mutex);
+    return EBUSY;
+  }
+  uint64_t job_id = ++g_storage_job.next_id;
+  if (job_id == 0)
+    job_id = ++g_storage_job.next_id;
+  g_storage_job.cancel_requested = false;
+  g_storage_job.id = job_id;
+  g_storage_job.operation = operation;
+  g_storage_job.state = STORAGE_JOB_PREPARING;
+  (void)strlcpy(g_storage_job.title_id, title_id,
+                sizeof(g_storage_job.title_id));
+  (void)strlcpy(g_storage_job.source_type, source_info.source_type,
+                sizeof(g_storage_job.source_type));
+  (void)strlcpy(g_storage_job.source, source_info.physical_path,
+                sizeof(g_storage_job.source));
+  (void)strlcpy(g_storage_job.runtime_source, source_info.runtime_path,
+                sizeof(g_storage_job.runtime_source));
+  (void)strlcpy(g_storage_job.destination, destination,
+                sizeof(g_storage_job.destination));
+  g_storage_job.delete_source =
+      operation == GAME_STORAGE_UNPACK && delete_source;
+  g_storage_job.total_bytes = 0;
+  g_storage_job.processed_bytes = 0;
+  g_storage_job.total_files = 0;
+  g_storage_job.processed_files = 0;
+  g_storage_job.started_us = monotonic_time_us();
+  g_storage_job.transfer_started_us = 0;
+  g_storage_job.transfer_finished_us = 0;
+  g_storage_job.finished_us = 0;
+  g_storage_job.affected_titles = 0;
+  g_storage_job.result_status = 0;
+  g_storage_job.result_error_reason[0] = '\0';
+  g_storage_job.scan_queued = false;
+  copy_storage_job_snapshot_locked(accepted_out);
+  pthread_mutex_unlock(&g_storage_job.mutex);
+
+  pthread_attr_t attr;
+  int rc = pthread_attr_init(&attr);
+  bool attr_initialized = rc == 0;
+  if (attr_initialized)
+    rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  pthread_t thread;
+  if (rc == 0)
+    rc = pthread_create(&thread, &attr, storage_job_thread_main,
+                        (void *)(uintptr_t)job_id);
+  if (attr_initialized)
+    (void)pthread_attr_destroy(&attr);
+  if (rc != 0) {
+    finish_storage_job(job_id, rc, false, NULL);
+    return rc;
+  }
+  return 0;
+}
+
+static void handle_storage_job_status(struct MHD_Connection *connection,
+                                      struct json_object *request) {
+  uint64_t requested_id = 0;
+  if (!get_optional_job_id(request, false, &requested_id)) {
+    send_error_response(connection, 400, EINVAL,
+                        "job_id must be a positive integer");
+    return;
+  }
+  storage_job_snapshot_t snapshot;
+  memset(&snapshot, 0, sizeof(snapshot));
+  if (!get_storage_job_snapshot(requested_id, &snapshot)) {
+    send_error_response(connection, 404, ENOENT, "storage job not found");
+    return;
+  }
+  send_storage_job_response(connection, 200, &snapshot);
+}
+
+static void handle_storage_job_cancel(struct MHD_Connection *connection,
+                                      struct json_object *request) {
+  uint64_t job_id = 0;
+  if (!get_optional_job_id(request, true, &job_id)) {
+    send_error_response(connection, 400, EINVAL,
+                        "job_id must be a positive integer");
+    return;
+  }
+
+  pthread_mutex_lock(&g_storage_job.mutex);
+  if (g_storage_job.id != job_id) {
+    pthread_mutex_unlock(&g_storage_job.mutex);
+    send_error_response(connection, 404, ENOENT, "storage job not found");
+    return;
+  }
+  if (!storage_job_is_active(g_storage_job.state) ||
+      !storage_job_is_cancellable(g_storage_job.state)) {
+    pthread_mutex_unlock(&g_storage_job.mutex);
+    send_error_response(connection, 409, EBUSY,
+                        "storage job can no longer be cancelled");
+    return;
+  }
+  g_storage_job.cancel_requested = true;
+  storage_job_snapshot_t snapshot;
+  copy_storage_job_snapshot_locked(&snapshot);
+  pthread_mutex_unlock(&g_storage_job.mutex);
+  send_storage_job_response(connection, 200, &snapshot);
+}
+
+static void stop_storage_job(void) {
+  pthread_mutex_lock(&g_storage_job.mutex);
+  g_storage_job.accepting = false;
+  if (storage_job_is_active(g_storage_job.state) &&
+      storage_job_is_cancellable(g_storage_job.state)) {
+    g_storage_job.cancel_requested = true;
+  }
+  while (storage_job_is_active(g_storage_job.state)) {
+    struct timespec deadline;
+    int rc = clock_gettime(CLOCK_REALTIME, &deadline);
+    if (rc == 0) {
+      deadline.tv_sec += SM_API_STORAGE_STOP_LOG_SECONDS;
+      rc = pthread_cond_timedwait(&g_storage_job.cond,
+                                  &g_storage_job.mutex, &deadline);
+    } else {
+      rc = pthread_cond_wait(&g_storage_job.cond, &g_storage_job.mutex);
+    }
+    if (rc == ETIMEDOUT) {
+      log_debug("  [API] waiting for storage job during shutdown: "
+                "job=%llu state=%s bytes=%llu/%llu files=%llu/%llu",
+                (unsigned long long)g_storage_job.id,
+                storage_job_state_name(g_storage_job.state),
+                (unsigned long long)g_storage_job.processed_bytes,
+                (unsigned long long)g_storage_job.total_bytes,
+                (unsigned long long)g_storage_job.processed_files,
+                (unsigned long long)g_storage_job.total_files);
+    } else if (rc != 0) {
+      log_debug("  [API] storage job shutdown wait failed: %s",
+                strerror(rc));
+      pthread_mutex_unlock(&g_storage_job.mutex);
+      sceKernelUsleep(100000u);
+      pthread_mutex_lock(&g_storage_job.mutex);
+    }
+  }
+  pthread_mutex_unlock(&g_storage_job.mutex);
+}
+
+static void send_missing_source_response(struct MHD_Connection *connection,
+                                          const char *title_id) {
+  // Absence can also mean disconnected storage. Reconcile through the scanner
+  // when runtime is safe; do not unlink title state or uninstall here.
+  if (!request_scan_now("HTTP API missing game source reconciliation")) {
+    send_operation_error_response(connection, EBUSY, "rest_mode");
+    return;
+  }
+  struct json_object *response = new_status_response(0);
+  if (!response || !add_json_string(response, "title_id", title_id) ||
+      !add_json_bool(response, "source_missing", true) ||
+      !add_scan_queue_fields(response, true)) {
+    if (response)
+      json_object_put(response);
+    send_out_of_memory_response(connection);
+    return;
+  }
+  log_debug("  [API] source unavailable; reconciliation queued: title=%s",
+            title_id);
+  (void)send_json_object(connection, 200, response);
+  json_object_put(response);
+}
+
+static void handle_game_storage_operation(
+    struct MHD_Connection *connection, struct json_object *request,
+    game_storage_operation_t operation) {
+  const char *title_id = get_title_id(request);
+  if (!title_id) {
+    send_error_response(connection, 400, EINVAL,
+                        "title_id must be a valid PS4 or PS5 title ID");
+    return;
+  }
+
+  sm_game_cache_snapshot_entry_t package;
+  if (find_installed_pkg_game(title_id, &package)) {
+    send_error_response(connection, 403, EPERM,
+                        "installed PKG sources cannot be copied, moved or deleted");
+    return;
+  }
+  if (errno != ENOENT) {
+    int status = errno != 0 ? errno : EIO;
+    send_error_response(connection, operation_http_status(status), status,
+                        strerror(status));
+    return;
+  }
+
+  const char *destination_dir = NULL;
+  if (operation != GAME_STORAGE_DELETE) {
+    destination_dir = get_destination_dir(request);
+    if (!destination_dir) {
+      send_error_response(connection, 400, EINVAL,
+                          "destination_dir must be an absolute directory");
+      return;
+    }
+  } else {
+    bool confirmed = false;
+    if (!get_optional_bool(request, "confirm", false, &confirmed) ||
+        !confirmed) {
+      send_error_response(connection, 400, EINVAL,
+                          "delete requires confirm=true");
+      return;
+    }
+  }
+
+  bool delete_source = false;
+  if (operation == GAME_STORAGE_UNPACK &&
+      !get_optional_bool(request, "delete_source", false, &delete_source)) {
+    send_error_response(connection, 400, EINVAL,
+                        "delete_source must be a boolean");
+    return;
+  }
+
+  storage_job_snapshot_t accepted;
+  memset(&accepted, 0, sizeof(accepted));
+  const char *error = NULL;
+  int status = start_storage_job(title_id, destination_dir, operation,
+                                 delete_source, &accepted, &error);
+  if (status != 0) {
+    if (operation == GAME_STORAGE_DELETE && error &&
+        strcmp(error, "source_missing") == 0) {
+      send_missing_source_response(connection, title_id);
+      return;
+    }
+    log_debug("  [API] async game source %s start failed: title=%s "
+              "status=%d reason=%s",
+              game_storage_operation_name(operation), title_id, status,
+              operation_error_message(status, error));
+    send_operation_error_response(connection, status, error);
+    return;
+  }
+  log_debug("  [API] async game source %s accepted: job=%llu title=%s",
+            game_storage_operation_name(operation),
+            (unsigned long long)accepted.id, title_id);
+  send_storage_job_response(connection, 202, &accepted);
+}
+
+static enum MHD_Result finish_request_error(sm_http_request_t *request,
+                                            struct MHD_Connection *connection,
+                                            int http_status, int status,
+                                            const char *error) {
+  bool queued = send_error_response(connection, http_status, status, error);
+  request->response_queued = queued;
+  return queued ? MHD_YES : MHD_NO;
+}
+
+static enum MHD_Result handle_http_request(
+    void *cls, struct MHD_Connection *connection, const char *url,
+    const char *method, const char *version, const char *upload_data,
+    size_t *upload_data_size, void **con_cls) {
+  (void)cls;
+
+  sm_http_request_t *request = *con_cls;
+  if (!request) {
+    request = calloc(1, sizeof(*request));
+    if (!request)
+      return MHD_NO;
+    *con_cls = request;
+    return MHD_YES;
+  }
+  if (request->response_queued)
+    return MHD_YES;
+
+  if (!request->header_size_checked) {
+    request->header_size_checked = true;
+    if (!http_headers_fit(connection, url, method, version)) {
+      return finish_request_error(request, connection, 431, EPROTO,
+                                  "HTTP headers are too large");
+    }
+    if (strlen(url) >= SM_API_ROUTE_SIZE) {
+      return finish_request_error(request, connection, 400, EPROTO,
+                                  "HTTP route is too long");
+    }
+  }
+
+  if (strcmp(method, MHD_HTTP_METHOD_OPTIONS) == 0) {
+    request->response_queued = true;
+    return send_preflight_response(connection) ? MHD_YES : MHD_NO;
+  }
+  if (strcmp(method, MHD_HTTP_METHOD_GET) == 0) {
+    bool queued = false;
+    if (strcmp(url, SM_API_ROUTE_INDEX) == 0)
+      queued = handle_index_page(connection);
+    else if (strcmp(url, SM_API_ROUTE_GAME_ICON) == 0)
+      queued = handle_game_icon(connection);
+    else
+      queued = send_error_response(connection, 404, ENOENT,
+                                   "unknown API route");
+    request->response_queued = queued;
+    return queued ? MHD_YES : MHD_NO;
+  }
+  if (strcmp(method, MHD_HTTP_METHOD_POST) != 0) {
+    return finish_request_error(
+        request, connection, 405, EPROTO,
+        "only GET, POST and OPTIONS requests are supported");
+  }
+
+  if (!request->headers_validated) {
+    const char *transfer_encoding = MHD_lookup_connection_value(
+        connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_TRANSFER_ENCODING);
+    if (transfer_encoding) {
+      return finish_request_error(request, connection, 501, EPROTO,
+                                  "Transfer-Encoding is not supported");
+    }
+
+    const char *content_length = MHD_lookup_connection_value(
+        connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_CONTENT_LENGTH);
+    if (!content_length) {
+      return finish_request_error(request, connection, 411, EPROTO,
+                                  "Content-Length is required");
+    }
+    if (!parse_content_length(content_length,
+                              &request->expected_body_size)) {
+      return finish_request_error(request, connection, 400, EPROTO,
+                                  "invalid Content-Length header");
+    }
+    if (request->expected_body_size > SM_API_MAX_JSON_BODY_SIZE) {
+      return finish_request_error(request, connection, 413, EPROTO,
+                                  "JSON request body is too large");
+    }
+
+    const char *content_type = MHD_lookup_connection_value(
+        connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_CONTENT_TYPE);
+    if (!content_type || !is_json_content_type(content_type)) {
+      return finish_request_error(
+          request, connection, 415, EPROTO,
+          "Content-Type must be application/json");
+    }
+    request->headers_validated = true;
+  }
+
+  if (*upload_data_size > 0) {
+    if (*upload_data_size > request->expected_body_size - request->body_size) {
+      *upload_data_size = 0;
+      return finish_request_error(request, connection, 400, EPROTO,
+                                  "request body exceeds Content-Length");
+    }
+    memcpy(request->body + request->body_size, upload_data,
+           *upload_data_size);
+    request->body_size += *upload_data_size;
+    *upload_data_size = 0;
+    return MHD_YES;
+  }
+
+  if (request->body_size != request->expected_body_size) {
+    return finish_request_error(request, connection, 400, EPROTO,
+                                "incomplete JSON request body");
+  }
+  request->body[request->body_size] = '\0';
+  struct json_object *json = parse_request_json(request);
+  if (!json) {
+    return finish_request_error(
+        request, connection, 400, EINVAL,
+        "request body must be one valid JSON object");
+  }
+
+  dispatch_request(connection, url, json);
+  json_object_put(json);
+  request->response_queued = true;
+  return MHD_YES;
+}
+
+static void request_completed(void *cls, struct MHD_Connection *connection,
+                              void **con_cls,
+                              enum MHD_RequestTerminationCode termination) {
+  (void)cls;
+  (void)connection;
+  (void)termination;
+  free(*con_cls);
+  *con_cls = NULL;
+}
+
+static struct MHD_Daemon *start_http_daemon(const char *bind_address,
+                                            uint16_t port) {
+  struct sockaddr_in address;
+  memset(&address, 0, sizeof(address));
+  address.sin_len = sizeof(address);
+  address.sin_family = AF_INET;
+  address.sin_port = htons(port);
+  if (inet_pton(AF_INET, bind_address, &address.sin_addr) != 1) {
+    errno = EINVAL;
+    return NULL;
+  }
+
+  errno = 0;
+  struct MHD_Daemon *daemon = MHD_start_daemon(
+      MHD_USE_POLL_INTERNAL_THREAD | MHD_USE_ITC, port, NULL, NULL,
+      handle_http_request, NULL, MHD_OPTION_SOCK_ADDR_LEN,
+      (socklen_t)sizeof(address), (const struct sockaddr *)&address,
+      MHD_OPTION_THREAD_POOL_SIZE, (unsigned int)SM_API_WORKER_COUNT,
+      MHD_OPTION_CONNECTION_LIMIT, (unsigned int)SM_API_CONNECTION_LIMIT,
+      MHD_OPTION_CONNECTION_TIMEOUT,
+      (unsigned int)SM_API_CONNECTION_TIMEOUT_SECONDS,
+      MHD_OPTION_CONNECTION_MEMORY_LIMIT,
+      (size_t)SM_API_CONNECTION_MEMORY_LIMIT,
+      MHD_OPTION_LISTEN_BACKLOG_SIZE, (unsigned int)SM_API_LISTEN_BACKLOG,
+      MHD_OPTION_NOTIFY_COMPLETED, request_completed, NULL, MHD_OPTION_END);
+  if (!daemon && errno == 0)
+    errno = EIO;
+  return daemon;
+}
+
+static void *service_thread_main(void *arg) {
+  (void)arg;
+  pthread_mutex_lock(&g_api.mutex);
+  char bind_address[MAX_API_BIND_ADDRESS];
+  (void)strlcpy(bind_address, g_api.bind_address, sizeof(bind_address));
+  uint16_t port = g_api.port;
+  pthread_mutex_unlock(&g_api.mutex);
+
+  uint32_t retry_delay_ms = SM_API_RETRY_INITIAL_MS;
+  bool outage_logged = false;
+  while (wait_until_runtime_awake()) {
+    struct MHD_Daemon *daemon = start_http_daemon(bind_address, port);
+    if (!daemon) {
+      int start_error = errno != 0 ? errno : EIO;
+      if (!outage_logged) {
+        log_debug("  [API] HTTP listener unavailable at %s:%u: %s; "
+                  "recovery scheduled",
+                  bind_address, (unsigned int)port, strerror(start_error));
+        outage_logged = true;
+      }
+      if (!wait_before_listener_retry(retry_delay_ms))
+        break;
+      retry_delay_ms = next_retry_delay_ms(retry_delay_ms);
+      continue;
+    }
+
+    pthread_mutex_lock(&g_api.mutex);
+    if (g_api.stop_requested || runtime_sleep_mode_active()) {
+      bool stopping = g_api.stop_requested;
+      pthread_mutex_unlock(&g_api.mutex);
+      MHD_stop_daemon(daemon);
+      if (stopping)
+        break;
+      continue;
+    }
+    g_api.daemon = daemon;
+    pthread_mutex_unlock(&g_api.mutex);
+
+    if (outage_logged) {
+      log_debug("  [API] HTTP listener recovered: http://%s:%u/api/v1",
+                bind_address, (unsigned int)port);
+    } else {
+      log_debug("  [API] HTTP/JSON ready: http://%s:%u/api/v1 (v%u, "
+                "workers=%u, limit=%u)",
+                bind_address, (unsigned int)port, SM_API_VERSION,
+                SM_API_WORKER_COUNT, SM_API_CONNECTION_LIMIT);
+    }
+    outage_logged = false;
+    retry_delay_ms = SM_API_RETRY_INITIAL_MS;
+
+    pthread_mutex_lock(&g_api.mutex);
+    while (!g_api.stop_requested && !runtime_sleep_mode_active()) {
+      int rc = pthread_cond_wait(&g_api.cond, &g_api.mutex);
+      if (rc != 0) {
+        log_debug("  [API] service wait failed: %s", strerror(rc));
+        g_api.stop_requested = true;
+        break;
+      }
+    }
+    if (g_api.daemon == daemon)
+      g_api.daemon = NULL;
+    bool stopping = g_api.stop_requested;
+    pthread_mutex_unlock(&g_api.mutex);
+
+    MHD_stop_daemon(daemon);
+    if (stopping)
+      break;
+  }
+  return NULL;
+}
+
+bool sm_api_service_start(void) {
+  runtime_config_t cfg = runtime_config();
+  if (!cfg.api_enabled) {
+    pthread_mutex_lock(&g_storage_job.mutex);
+    g_storage_job.accepting = false;
+    pthread_mutex_unlock(&g_storage_job.mutex);
+    log_debug("  [API] HTTP API disabled by configuration");
+    return true;
+  }
+
+  char bind_address[MAX_API_BIND_ADDRESS];
+  (void)strlcpy(bind_address, cfg.api_bind_address, sizeof(bind_address));
+  uint16_t port = (uint16_t)cfg.api_port;
+
+  pthread_mutex_lock(&g_api.mutex);
+  if (g_api.started) {
+    pthread_mutex_unlock(&g_api.mutex);
+    return true;
+  }
+  g_api.daemon = NULL;
+  g_api.stop_requested = false;
+  (void)strlcpy(g_api.bind_address, bind_address,
+                sizeof(g_api.bind_address));
+  g_api.port = port;
+  pthread_mutex_lock(&g_storage_job.mutex);
+  g_storage_job.accepting = true;
+  pthread_mutex_unlock(&g_storage_job.mutex);
+  int rc = pthread_create(&g_api.thread, NULL, service_thread_main, NULL);
+  if (rc != 0) {
+    pthread_mutex_lock(&g_storage_job.mutex);
+    g_storage_job.accepting = false;
+    pthread_mutex_unlock(&g_storage_job.mutex);
+    pthread_mutex_unlock(&g_api.mutex);
+    errno = rc;
+    return false;
+  }
+  g_api.started = true;
+  pthread_mutex_unlock(&g_api.mutex);
+  return true;
+}
+
+static void stop_api_listener(void) {
+  pthread_mutex_lock(&g_api.mutex);
+  if (!g_api.started) {
+    pthread_mutex_unlock(&g_api.mutex);
+    return;
+  }
+  g_api.stop_requested = true;
+  pthread_cond_broadcast(&g_api.cond);
+  pthread_mutex_unlock(&g_api.mutex);
+
+  pthread_join(g_api.thread, NULL);
+
+  pthread_mutex_lock(&g_api.mutex);
+  g_api.started = false;
+  g_api.stop_requested = false;
+  g_api.daemon = NULL;
+  pthread_mutex_unlock(&g_api.mutex);
+}
+
+void sm_api_service_stop(void) {
+  stop_storage_job();
+  stop_api_listener();
+}
+
+bool sm_api_service_reconfigure(void) {
+  // Storage jobs are independent from the listener. Waiting for a slow USB
+  // operation here would make a bind/port config reload look hung.
+  pthread_mutex_lock(&g_storage_job.mutex);
+  g_storage_job.accepting = false;
+  pthread_mutex_unlock(&g_storage_job.mutex);
+  stop_api_listener();
+  return sm_api_service_start();
+}
+
+void sm_api_service_on_sleep_change(bool active) {
+  pthread_mutex_lock(&g_api.mutex);
+  if (!g_api.started) {
+    pthread_mutex_unlock(&g_api.mutex);
+    return;
+  }
+
+  (void)active;
+  pthread_cond_broadcast(&g_api.cond);
+  pthread_mutex_unlock(&g_api.mutex);
+}

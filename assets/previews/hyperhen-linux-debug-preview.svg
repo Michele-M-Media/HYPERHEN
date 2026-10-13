@@ -1,0 +1,79 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(390 260) rotate(28) scale(1050 760)">
+      <stop stop-color="#183C72"/>
+      <stop offset="0.44" stop-color="#08162F"/>
+      <stop offset="1" stop-color="#02050D"/>
+    </radialGradient>
+    <linearGradient id="focus" x1="430" y1="0" x2="1180" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#30E9FF" stop-opacity="0.28"/>
+      <stop offset="0.52" stop-color="#557AFF" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#D53EFF" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="430" y1="0" x2="1180" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#50F5FF"/>
+      <stop offset="0.55" stop-color="#7088FF"/>
+      <stop offset="1" stop-color="#E54BFF"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <circle cx="205" cy="330" r="170" fill="#2CEAFF" fill-opacity="0.11" filter="url(#glow)"/>
+  <image href="../logo.png" x="55" y="180" width="300" height="300" preserveAspectRatio="xMidYMid meet"/>
+  <text x="205" y="520" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="31" font-weight="800" letter-spacing="5">HYPERHEN</text>
+  <text x="205" y="552" text-anchor="middle" fill="#59EAFF" font-family="Arial, sans-serif" font-size="14" letter-spacing="3">v0.9.1-dev</text>
+
+  <text x="44" y="58" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="25" font-weight="600">Debug avanzato</text>
+  <text x="44" y="88" fill="#8EA7CA" font-family="Arial, sans-serif" font-size="14" letter-spacing="1.8">HYPERHEN TOOLBOX · LINUX BOOT MODE</text>
+
+  <g transform="translate(390 105)">
+    <rect width="850" height="560" rx="25" fill="#030A17" fill-opacity="0.63" stroke="#8EC8FF" stroke-opacity="0.14"/>
+    <text x="34" y="48" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="21" font-weight="700">DEBUG AVANZATO</text>
+    <text x="814" y="48" text-anchor="end" fill="#68EFFF" font-family="Arial, sans-serif" font-size="13" letter-spacing="1.2">HYPERCORE // ONLINE</text>
+    <path d="M34 68H816" stroke="#FFFFFF" stroke-opacity="0.1"/>
+
+    <g transform="translate(18 87)">
+      <rect width="814" height="92" rx="18" fill="url(#focus)" stroke="url(#edge)" stroke-width="1.6"/>
+      <image href="../../source/bootstrapper/assets/icon_xml_linux.png" x="14" y="14" width="64" height="64"/>
+      <text x="96" y="37" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22" font-weight="700">Avvia HyperLinux</text>
+      <text x="96" y="65" fill="#C0D0E8" font-family="Arial, sans-serif" font-size="15">Prepara il loader Linux integrato per il prossimo avvio pulito</text>
+      <path d="M771 35L787 46L771 57" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <g transform="translate(18 190)">
+      <image href="../../source/bootstrapper/assets/icon_xml_debug.png" x="14" y="10" width="54" height="54"/>
+      <text x="96" y="33" fill="#F5F8FF" font-family="Arial, sans-serif" font-size="19" font-weight="600">Livello di output del registro</text>
+      <text x="780" y="33" text-anchor="end" fill="#8FEFFF" font-family="Arial, sans-serif" font-size="16">Informazioni</text>
+      <text x="96" y="57" fill="#8194B2" font-family="Arial, sans-serif" font-size="14">Controlla il dettaglio del registro HyperHEN</text>
+    </g>
+    <path d="M114 266H814" stroke="#FFFFFF" stroke-opacity="0.07"/>
+
+    <g transform="translate(18 278)">
+      <image href="../../source/bootstrapper/assets/icon_xml_debug.png" x="14" y="10" width="54" height="54"/>
+      <text x="96" y="33" fill="#F5F8FF" font-family="Arial, sans-serif" font-size="19" font-weight="600">Dimensione massima registro</text>
+      <text x="780" y="33" text-anchor="end" fill="#8FEFFF" font-family="Arial, sans-serif" font-size="16">768 KiB</text>
+      <text x="96" y="57" fill="#8194B2" font-family="Arial, sans-serif" font-size="14">Tre copie di backup vengono conservate</text>
+    </g>
+    <path d="M114 354H814" stroke="#FFFFFF" stroke-opacity="0.07"/>
+
+    <g transform="translate(18 366)">
+      <image href="../../source/bootstrapper/assets/icon_xml_settings.png" x="14" y="10" width="54" height="54"/>
+      <text x="96" y="33" fill="#F5F8FF" font-family="Arial, sans-serif" font-size="19" font-weight="600">Abilita jailbreak app</text>
+      <rect x="732" y="18" width="58" height="30" rx="15" fill="#23DDF2" fill-opacity="0.28" stroke="#4EF2FF"/>
+      <circle cx="775" cy="33" r="11" fill="#DDFBFF"/>
+      <text x="96" y="57" fill="#8194B2" font-family="Arial, sans-serif" font-size="14">Ascolta le richieste dalle app approvate</text>
+    </g>
+    <path d="M114 442H814" stroke="#FFFFFF" stroke-opacity="0.07"/>
+
+    <g transform="translate(18 454)">
+      <image href="../../source/bootstrapper/assets/icon_xml_debug.png" x="14" y="10" width="54" height="54"/>
+      <text x="96" y="33" fill="#F5F8FF" font-family="Arial, sans-serif" font-size="19" font-weight="600">Ambiente NP</text>
+      <text x="780" y="33" text-anchor="end" fill="#8FEFFF" font-family="Arial, sans-serif" font-size="16">np</text>
+      <text x="96" y="57" fill="#8194B2" font-family="Arial, sans-serif" font-size="14">Stringa ambiente PlayStation Network</text>
+    </g>
+  </g>
+
+  <text x="44" y="688" fill="#6E86A8" font-family="Arial, sans-serif" font-size="12" letter-spacing="1.2">ANTEPRIMA · IL MENU REALE USA TRANSIZIONI, FOCUS E TYPOGRAPHY DI SISTEMA</text>
+</svg>

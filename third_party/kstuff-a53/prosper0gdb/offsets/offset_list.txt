@@ -1,0 +1,99 @@
+// TODO(FW_PORT): this is the required symbol/gadget inventory for every new
+// firmware table in this directory.  Resolve functions/data by xrefs and
+// control-flow comparison with a supported kernel.  Resolve instruction
+// gadgets by exact disassembly semantics, not by copying an adjacent delta;
+// byte-search all executable segments, inspect the full containing basic
+// block, and verify registers, stack adjustment, and epilogue.  In particular
+// mov_rax_cr0 must begin with "mov rax, cr0" (0f 20 c0), and cpu_switch must
+// be the function whose tail
+// restores DR0/1/2/3/6/7.  Add any new common symbol here, then populate it in
+// every firmware header because this file also defines struct offset_table.
+KDATA_OFFSET(allproc)
+KDATA_OFFSET(idt)
+KDATA_OFFSET(gdt_array)
+KDATA_OFFSET(tss_array)
+KDATA_OFFSET(pcpu_array)
+KDATA_OFFSET(doreti_iret)
+KDATA_OFFSET(add_rsp_iret)
+KDATA_OFFSET(swapgs_add_rsp_iret)
+KDATA_OFFSET(rep_movsb_pop_rbp_ret)
+KDATA_OFFSET(rdmsr_start)
+KDATA_OFFSET(wrmsr_ret)
+KDATA_OFFSET(dr2gpr_start)
+KDATA_OFFSET(gpr2dr_1_start)
+KDATA_OFFSET(gpr2dr_2_start)
+KDATA_OFFSET(mov_cr3_rax_mov_ds)
+KDATA_OFFSET(mov_rax_cr3)
+KDATA_OFFSET(nop_ret)
+KDATA_OFFSET(cpu_switch)
+KDATA_OFFSET(mprotect_fix_start)
+KDATA_OFFSET(mprotect_fix_end)
+KDATA_OFFSET(aslr_fix_start)
+KDATA_OFFSET(aslr_fix_end)
+KDATA_OFFSET(sysents)
+KDATA_OFFSET(sysents_ps4)
+KDATA_OFFSET(sysentvec)
+KDATA_OFFSET(sysentvec_ps4)
+KDATA_OFFSET(sceSblServiceMailbox)
+KDATA_OFFSET(sceSblAuthMgrSmIsLoadable2)
+KDATA_OFFSET(syscall_before)
+KDATA_OFFSET(syscall_after)
+KDATA_OFFSET(malloc)
+KDATA_OFFSET(M_something)
+KDATA_OFFSET(loadSelfSegment_epilogue)
+KDATA_OFFSET(loadSelfSegment_watchpoint)
+KDATA_OFFSET(loadSelfSegment_watchpoint_lr)
+//KDATA_OFFSET(decryptSelfBlock_watchpoint)
+KDATA_OFFSET(decryptSelfBlock_watchpoint_lr)
+KDATA_OFFSET(decryptSelfBlock_epilogue)
+KDATA_OFFSET(decryptMultipleSelfBlocks_epilogue)
+KDATA_OFFSET(decryptMultipleSelfBlocks_watchpoint_lr)
+KDATA_OFFSET(sceSblServiceMailbox_lr_verifyHeader)
+KDATA_OFFSET(sceSblServiceMailbox_lr_loadSelfSegment)
+KDATA_OFFSET(sceSblServiceMailbox_lr_decryptSelfBlock)
+KDATA_OFFSET(sceSblServiceMailbox_lr_decryptMultipleSelfBlocks)
+KDATA_OFFSET(sceSblServiceMailbox_lr_sceSblAuthMgrSmFinalize)
+KDATA_OFFSET(sceSblServiceMailbox_lr_verifySuperBlock)
+KDATA_OFFSET(sceSblServiceMailbox_lr_sceSblPfsClearKey_1)
+KDATA_OFFSET(sceSblServiceMailbox_lr_sceSblPfsClearKey_2)
+KDATA_OFFSET(sceSblServiceMailbox_lr_npdrm_cmd_5)
+KDATA_OFFSET(sceSblServiceMailbox_lr_npdrm_cmd_6)
+KDATA_OFFSET(sceSblPfsSetKeys)
+KDATA_OFFSET(sceSblServiceCryptAsync)
+KDATA_OFFSET(sceSblServiceCryptAsync_deref_singleton)
+KDATA_OFFSET(copyin)
+KDATA_OFFSET(copyout)
+KDATA_OFFSET(crypt_message_resolve)
+KDATA_OFFSET(justreturn)
+KDATA_OFFSET(justreturn_pop)
+KDATA_OFFSET(mini_syscore_header)
+KDATA_OFFSET(pop_all_iret)
+KDATA_OFFSET(pop_all_except_rdi_iret)
+KDATA_OFFSET(push_pop_all_iret)
+KDATA_OFFSET(kernel_pmap_store)
+KDATA_OFFSET(crypt_singleton_array)
+KDATA_OFFSET(mov_rax_cr0)
+// 1.xx kernels do not contain the compatible load/clear pair used by the fast
+// CR0 chain.  Keep those two components optional; mov_rax_cr0 + cr0_write_ret
+// provide the checked legacy transition.  store_rax_rdi remains required by
+// the KELF's general pokeq chains independently of this optimization.
+OPTIONAL_KDATA_OFFSET(cr0_load)
+OPTIONAL_KDATA_OFFSET(cr0_clear_store)
+KDATA_OFFSET(cr0_write_ret)
+KDATA_OFFSET(store_rax_rdi)
+// On 2.xx+ this is a CFI-table thunk which jumps to INT3.  The 1.xx syscall
+// dispatcher has no CFI table, so its exact retail table stores a raw RX INT3
+// target in this legacy-named common field.
+KDATA_OFFSET(syscall_cfi_table_jmp_int3)
+
+ABSOLUTE_OFFSET(p_sysent)
+
+// Optional PPR/fPKG porting inventory.
+OPTIONAL_KDATA_OFFSET(ppr_pfs_get_xts_index)
+OPTIONAL_KDATA_OFFSET(ppr_pfs_get_cmac_index)
+OPTIONAL_KDATA_OFFSET(ppr_pfs_get_xts_return)
+OPTIONAL_KDATA_OFFSET(ppr_pfs_get_cmac_return)
+OPTIONAL_KDATA_OFFSET(ppr_pfs_cleanup_keys)
+OPTIONAL_KDATA_OFFSET(ppr_pfs_clear_key_missing)
+OPTIONAL_KDATA_OFFSET(sceSblServiceMailbox_lr_verifyImage)
+OPTIONAL_KDATA_OFFSET(ppr_pfs_verify_image_no_key_success)
