@@ -113,11 +113,16 @@ jobs:
             "https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/${tag}/ps5-payload-dev.tar.gz"
           mkdir -p "${tmp}/out"
           tar -xzf "${tmp}/pacbrew.tar.gz" -C "${tmp}/out" \
-            opt/ps5-payload-sdk/target/user/homebrew
+            opt/ps5-payload-sdk/target/user/homebrew \
+            opt/ps5-payload-sdk/src/sce_stubs
           rm -rf "${PS5_PAYLOAD_SDK}/target/user/homebrew"
           mkdir -p "${PS5_PAYLOAD_SDK}/target/user"
           cp -a "${tmp}/out/opt/ps5-payload-sdk/target/user/homebrew" \
             "${PS5_PAYLOAD_SDK}/target/user/"
+          rm -rf "${PS5_PAYLOAD_SDK}/src/sce_stubs"
+          mkdir -p "${PS5_PAYLOAD_SDK}/src"
+          cp -a "${tmp}/out/opt/ps5-payload-sdk/src/sce_stubs" \
+            "${PS5_PAYLOAD_SDK}/src/"
           rm -rf "${tmp}"
           root="${PS5_PAYLOAD_SDK}/target/user/homebrew"
           test -f "${root}/include/curl/curl.h"
@@ -128,6 +133,7 @@ jobs:
           test -f "${root}/lib/libzstd.a"
           test -f "${root}/lib/libz.a"
           test -f "${root}/etc/ca-bundle.crt"
+          test -f "${PS5_PAYLOAD_SDK}/src/sce_stubs/libkernel_sys.c"
 
       - name: Build HyperHEN v0.9.2
         run: |
