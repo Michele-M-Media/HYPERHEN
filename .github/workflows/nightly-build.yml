@@ -98,6 +98,43 @@ jobs:
           rm -rf "${tmp}"
           test -x "${PS5_PAYLOAD_SDK}/bin/prospero-cmake"
 
+      - name: Install PS5 homebrew libraries
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$(curl -fsSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/ps5-payload-dev/pacbrew-repo/releases/latest \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+          tmp="$(mktemp -d)"
+          curl -fsSL --retry 3 -o "${tmp}/pacbrew.tar.gz" \
+            "https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/${tag}/ps5-payload-dev.tar.gz"
+          mkdir -p "${tmp}/out"
+          tar -xzf "${tmp}/pacbrew.tar.gz" -C "${tmp}/out" \
+            opt/ps5-payload-sdk/target/user/homebrew
+          rm -rf "${PS5_PAYLOAD_SDK}/target/user/homebrew"
+          mkdir -p "${PS5_PAYLOAD_SDK}/target/user"
+          cp -a "${tmp}/out/opt/ps5-payload-sdk/target/user/homebrew" \
+            "${PS5_PAYLOAD_SDK}/target/user/"
+          rm -rf "${PS5_PAYLOAD_SDK}/src/sce_stubs"
+          mkdir -p "${PS5_PAYLOAD_SDK}/src/sce_stubs"
+          curl -fsSL --retry 3 \
+            -o "${PS5_PAYLOAD_SDK}/src/sce_stubs/libkernel_sys.c" \
+            "https://raw.githubusercontent.com/ps5-payload-dev/sdk/${{ steps.sdk.outputs.tag }}/sce_stubs/libkernel_sys.c"
+          rm -rf "${tmp}"
+          root="${PS5_PAYLOAD_SDK}/target/user/homebrew"
+          test -f "${root}/include/curl/curl.h"
+          test -f "${root}/lib/libcurl.a"
+          test -f "${root}/lib/libpsl.a"
+          test -f "${root}/lib/libssl.a"
+          test -f "${root}/lib/libcrypto.a"
+          test -f "${root}/lib/libzstd.a"
+          test -f "${root}/lib/libz.a"
+          test -f "${root}/etc/ca-bundle.crt"
+          test -f "${PS5_PAYLOAD_SDK}/src/sce_stubs/libkernel_sys.c"
+
       - name: Build HyperHEN
         run: |
           set -euo pipefail
