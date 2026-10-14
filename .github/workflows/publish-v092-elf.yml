@@ -138,7 +138,10 @@ jobs:
             echo '```text' >> "${GITHUB_STEP_SUMMARY}"
             tail -80 hyperhen-build.log >> "${GITHUB_STEP_SUMMARY}"
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            diagnostic="$(tail -12 hyperhen-build.log | base64 -w0)"
+            diagnostic="$({
+              rg -i -C 3 'error:|fatal:|undefined reference|no such file|cannot find|not found|subcommand failed' hyperhen-build.log || true
+              tail -12 hyperhen-build.log
+            } | tail -c 24000 | base64 -w0)"
             echo "::error title=HyperHEN build tail (base64)::${diagnostic}"
             exit 1
           fi
