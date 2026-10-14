@@ -107,11 +107,8 @@ jobs:
             echo '```text' >> "${GITHUB_STEP_SUMMARY}"
             tail -80 hyperhen-build.log >> "${GITHUB_STEP_SUMMARY}"
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            while IFS= read -r line; do
-              line="${line//'%'/'%25'}"
-              line="${line//$'\r'/'%0D'}"
-              echo "::error title=HyperHEN build::${line}"
-            done < <(tail -30 hyperhen-build.log)
+            diagnostic="$(tail -60 hyperhen-build.log | base64 -w0)"
+            echo "::error title=HyperHEN build tail (base64)::${diagnostic}"
             exit 1
           fi
 
