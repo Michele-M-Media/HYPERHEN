@@ -16,6 +16,23 @@ engineering, and project maintenance are by **MICHELE MEDIA**.
 The project is based on public PS5 homebrew and reverse-engineering work. All
 vendored upstream notices and licenses remain authoritative for their files.
 
+## v0.9.2 integration summary
+
+Version 0.9.2 consolidates the previously separate firmware engines behind one
+exact-profile router and makes their completion contracts explicit. It adds or
+stabilizes the legacy 1.xx-4.51 route, the dedicated 5.xx hypervisor route, the
+A53/PPR and no-PPR HyperCore routes, and the 13.xx Rest Mode hypervisor route.
+Automount/backport ownership is restored as a required common stage wherever a
+complete HEN route exists, while incomplete profiles remain deliberately
+limited or unsupported.
+
+The same release integrates the HyperHEN-branded Toolbox and native Settings
+assets, plugin/container and title-targeted SPRX management, HyperDPI,
+HyperLinux clean-boot handoff, the optional startup voice, and three switchable
+debug services. Readiness markers, independent capability probes, longer A53
+timeouts, Rest Mode state tracking, and explicit no-PPR gating prevent later
+services from starting on an engine that has not actually become ready.
+
 ## Release architecture
 
 The distributed `HyperHEN.elf` is a wrapper around a compressed bootstrapper.
@@ -37,11 +54,14 @@ external exploit host + elfldr:9021
                  +--> exact firmware engine
                  |      |- legacy HEN: 1.xx-4.51
                  |      |- 5.xx Byepervisor -> HyperCore
-                 |      |- 13.xx Byepervisor -> Rest Mode -> HyperCore
-                 |      `- A53/PPR -> HyperCore on the remaining profiled route
+                 |      |- 13.00/13.20/13.60 Byepervisor -> Rest Mode -> HyperCore
+                 |      |- A53/PPR -> HyperCore on exact 6.00-11.40 profiles
+                 |      |- no-PPR HyperCore compatibility: exact 11.60-12.70 profiles
+                 |      `- utility-only: 13.40/13.42
                  |
                  +--> HyperHEN Automount
                  +--> daemon + utility + ShellUI Toolbox
+                 +--> debug tools, plugins, payloads, when enabled and supported
                  `--> HyperDPI, when enabled and supported
 ```
 
@@ -60,8 +80,10 @@ as automatic support for every version inside that range.
 | --- | --- | --- | --- |
 | Legacy HEN | 1.00, 1.01, 1.02, 1.05, 1.10, 1.11, 1.12, 1.13, 1.14, 2.00, 2.20, 2.25, 2.26, 2.30, 2.50, 2.70, 3.00, 3.10, 3.20, 3.21, 4.00, 4.02, 4.03, 4.50, 4.51 | The embedded `ps5-hen` engine must publish its completion marker. HyperCore and the newer daemon route are not started on this branch. | HyperHEN Automount; legacy-ready notification |
 | Byepervisor 5.xx | 5.00, 5.02, 5.10, 5.50 | The embedded 5.xx stage must complete and publish its readiness marker before HyperCore starts. | HyperCore, Automount, daemon, utility, Toolbox, HyperDPI |
-| HyperCore A53/PPR | Profiles with complete source tables outside the legacy and dedicated hypervisor routes | The A53/PPR loader prepares the required environment and starts the source-built kstuff core. Missing required profile data fails closed. | Automount, daemon, utility, Toolbox, HyperDPI |
+| HyperCore A53/PPR | 6.00, 6.02, 6.50, 7.00, 7.01, 7.20, 7.40, 7.60, 7.61, 8.00, 8.20, 8.40, 8.60, 9.00, 9.05, 9.20, 9.40, 9.60, 10.00, 10.01, 10.20, 10.40, 10.60, 11.00, 11.20, 11.40 | The A53/PPR loader prepares the required environment and starts the source-built kstuff core. HyperCore publishes readiness only after its ShellCore transaction completes, and the bootstrapper independently verifies the `mprotect` capability. Missing required profile data fails closed. | Automount, daemon, utility, Toolbox, HyperDPI |
+| HyperCore compatibility, no PPR | 11.60, 12.00, 12.02, 12.20, 12.40, 12.60, 12.70 | The loader deliberately skips PPR installation and disables PPR-dependent runtime hooks. Automount and later services start only after the HyperCore completion marker and independent `mprotect` post-check both succeed. | HyperCore, Automount, daemon, utility, Toolbox, HyperDPI; no PPR-dependent features |
 | Byepervisor Reborn | 13.00, 13.20, 13.60 | The stage arms the Rest Mode path, waits for resume, and must publish readiness before HyperCore continues. | HyperCore, Automount, daemon, utility, Toolbox, HyperDPI |
+| Limited userland | 13.40, 13.42 | No complete Hypervisor or PPR prerequisite is present. The route does not claim a kernel-core readiness state. | Utility only; no HyperCore, Automount, daemon/Toolbox, HyperDPI, plugins, or payload auto-start |
 
 The source-built HyperCore contains ShellCore tables for 1.00, 1.01, 1.02,
 1.12, 1.14, 2.00, 2.20, 2.25, 2.26, 2.30, 2.50, 2.70, 3.00, 3.10, 3.20,
@@ -70,7 +92,9 @@ The source-built HyperCore contains ShellCore tables for 1.00, 1.01, 1.02,
 9.05, 9.20, 9.40, 9.60, 10.00, 10.01, 10.20, 10.40, 10.60, 11.00, 11.20,
 11.40, 11.60, 12.00, 12.02, 12.20, 12.40, 12.60, 12.70, 13.00, 13.20,
 13.40, 13.42, and 13.60. These tables are compatibility data, not a claim
-that the complete HyperHEN stack was tested on every listed firmware.
+that the complete HyperHEN stack was tested on every listed firmware. In
+particular, a ShellCore table does not supply the missing Hypervisor/PPR
+prerequisite for 13.40 or 13.42.
 
 The combined HyperCore path has console-log validation on firmware 5.00.
 Additional profiles require hardware testing. Unsupported, incomplete, or
@@ -98,7 +122,9 @@ nearby release.
 | pLinux5-NG | Supplied source archive, SHA-256 `316e25ecd25d021ba0318768ca623c2d3891a78c73c4cd7ecd038c259f1ebb64` | Built into HyperLinux | High-firmware Linux boot route and hypervisor handoff |
 | [ps5-linux-loader 2.5](https://github.com/ps5-linux/ps5-linux-loader) | Supplied archive, SHA-256 `610fa2e1da7e131b4365c2a6e06961b79dc208da89ad6102f706777386911ecb` | Built into HyperLinux | Linux kernel/initrd loader and upstream penguin artwork |
 | [PS5 Payload SDK](https://github.com/ps5-payload-dev/sdk) | Build dependency | External toolchain | Prospero compiler, headers, runtime, and CMake integration |
-| [elfldr](https://github.com/ps5-payload-dev/elfldr) | Runtime dependency | External; not shipped | Initial payload transport on port 9021 |
+| [elfldr](https://github.com/ps5-payload-dev/elfldr) | `02cfe91eb3f9697787460ad77d73ff951f801f50`; John Törnblom | External first hop; retained loader source is adapted for internal builds | Initial transport on 9021, private HyperHEN loader on 9020, and separately isolated debug-LAN loader on 9025 |
+| [klogsrv](https://github.com/ps5-payload-dev/klogsrv) | `c1b64bd3d3b069a09b1a173a82858cba97a5656f`; John Törnblom, with port/quiet argument contribution by Al-Azif | Verified upstream PS5 ELF embedded unchanged | Switchable Toolbox kernel-log server on TCP 3232 |
+| [ftpsrv](https://github.com/ps5-payload-dev/ftpsrv) | `23737c4738d15b9b9b036665bbf008d8fd6d82d2`; John Törnblom, with current-tree contributions from EchoStretch, Al-Azif, Matthew Vanek, and Gezine | Verified upstream PS5 ELF embedded unchanged | Switchable Toolbox FTP server on TCP 2121 |
 
 The exact snapshot notes and local integration boundaries are kept in each
 component's `third_party/*/HYPERHEN_VENDOR_LOCK.md` file. Supplied reference
@@ -170,6 +196,22 @@ network services, account tools, cooling, mount options, and the one-shot Linux
 handoff. Runtime settings use one versioned INI schema shared by the UI and
 services.
 
+### Built-in debug services
+
+Advanced Debug exposes separate on/off controls for `klogsrv`, `ftpsrv`, and a
+LAN ELF loader. The first two payloads are verified against their recorded
+SHA-256 values before they are embedded and are materialized under
+`/data/HyperHEN/tools`. The LAN loader is source-built as
+`hyperhen_debug_elfldr.elf`. All three start through the private 9020 loader,
+and HyperHEN stores each returned PID plus process identity before allowing a
+stop operation. The LAN loader uses separate state files and TCP 9025, so it
+cannot collide with the private 9020 loader or the external 9021 first hop.
+
+These services are reachable from the network and have no HyperHEN
+authentication layer. They are disabled until selected in the Toolbox and
+should be exposed only on a trusted LAN. They are available only on firmware
+routes that reach the modern daemon/Toolbox stage.
+
 ### Plugin runtime
 
 Standalone plugin ELFs and compatible descriptor-bearing containers live in
@@ -202,6 +244,7 @@ Exact HyperLinux profiles are 3.00, 3.10, 3.20, 3.21, 4.00, 4.02, 4.03, 4.50,
 | `/user/data/HyperHEN/config.ini` | User-data configuration mirror |
 | `/data/HyperHEN/plugins/` | Standalone plugin ELFs and compatible containers |
 | `/data/HyperHEN/payloads/` | User-supplied payload ELFs |
+| `/data/HyperHEN/tools/` | Materialized embedded debug-service payloads |
 | `/data/HyperHEN/cheats/` | JSON, SHN, MC4, and ShnExt cheat sources |
 | `/data/HyperHEN/sprx/catalog.ini` | Title-targeted PRX/SPRX catalog |
 | `/data/HyperHEN/HyperHEN.log` | Main runtime log |
@@ -209,6 +252,9 @@ Exact HyperLinux profiles are 3.00, 3.10, 3.20, 3.21, 4.00, 4.02, 4.03, 4.50,
 | `/system_tmp/hyperhen/ipc/plugin_service` | Plugin-service IPC endpoint |
 | TCP `9021` | External first-hop loader supplied by the exploit environment |
 | TCP `9020` | Private HyperHEN loader used after bootstrap |
+| TCP `9025` | Toolbox-controlled LAN ELF loader |
+| TCP `3232` | Toolbox-controlled kernel-log server |
+| TCP `2121` | Toolbox-controlled FTP server |
 | TCP `12800` | Default HyperDPI WebUI port when explicitly enabled |
 
 ## Build and reproducibility

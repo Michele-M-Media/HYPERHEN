@@ -11,6 +11,12 @@
 
 extern uint8_t sicon_start[];
 extern const unsigned int sicon_size;
+extern uint8_t klogsrv_start[];
+extern const unsigned int klogsrv_size;
+extern uint8_t ftpsrv_start[];
+extern const unsigned int ftpsrv_size;
+extern uint8_t debug_elfldr_start[];
+extern const unsigned int debug_elfldr_size;
 
 #define ONION_ICON(name)                                                       \
   extern uint8_t name##_start[];                                               \
@@ -33,6 +39,7 @@ static const EmbeddedIcon kEmbeddedIcons[] = {
 bool bootstrap_assets_write(void) {
   mkdir("/data/HyperHEN", 0777);
   mkdir("/data/HyperHEN/assets", 0777);
+  mkdir("/data/HyperHEN/tools", 0777);
   mkdir("/user/data", 0777);
   mkdir("/user/data/HyperHEN", 0777);
 
@@ -47,6 +54,14 @@ bool bootstrap_assets_write(void) {
     (void)write_file_atomic(path, kEmbeddedIcons[i].data,
                             *kEmbeddedIcons[i].size);
   }
+
+  /* Fixed paths make the toolbox toggles independent of USB storage. */
+  (void)write_file_atomic("/data/HyperHEN/tools/klogsrv.elf",
+                          klogsrv_start, klogsrv_size);
+  (void)write_file_atomic("/data/HyperHEN/tools/ftpsrv.elf",
+                          ftpsrv_start, ftpsrv_size);
+  (void)write_file_atomic("/data/HyperHEN/tools/hyperhen_debug_elfldr.elf",
+                          debug_elfldr_start, debug_elfldr_size);
 
   mkdir("/system_ex/vsh_asset", 0777);
   (void)write_file_atomic("/system_ex/vsh_asset/hyperhen.png", sicon_start,

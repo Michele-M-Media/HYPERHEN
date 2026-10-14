@@ -69,6 +69,9 @@ add_custom_command(
 	COMMAND "${HYPERHEN_ROOT}/scripts/build_hypercore.sh"
 		"${HYPERHEN_CORE_SOURCE_DIR}" "${HYPERHEN_CORE_ELF}"
 	DEPENDS "${HYPERHEN_ROOT}/scripts/build_hypercore.sh"
+		"${HYPERHEN_ROOT}/source/include/onion/firmware_capabilities.h"
+		"${HYPERHEN_ROOT}/source/include/onion/ready.h"
+		"${HYPERHEN_ROOT}/source/include/onion/system_tmp.h"
 		${HYPERHEN_CORE_INPUTS}
 	COMMENT "Building embedded HyperCore from vendored kstuff-a53 source"
 	VERBATIM

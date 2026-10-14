@@ -110,6 +110,30 @@ static int test_process_instance_rejects_plain_marker_value(void) {
   return 0;
 }
 
+static int test_hypercore_result_markers(void) {
+  onion_ready_clear(ONION_READY_KSTUFF_STARTING);
+  onion_ready_clear(ONION_READY_KSTUFF);
+  onion_ready_clear(ONION_READY_KSTUFF_FAILED);
+
+  TEST_ASSERT_TRUE(
+      onion_ready_signal_pid(ONION_READY_KSTUFF_STARTING, getpid()));
+  TEST_ASSERT_TRUE(
+      onion_ready_matches_pid(ONION_READY_KSTUFF_STARTING, getpid()));
+  TEST_ASSERT_TRUE(onion_ready_clear(ONION_READY_KSTUFF_STARTING));
+
+  TEST_ASSERT_TRUE(onion_ready_signal(ONION_READY_KSTUFF_FAILED));
+  TEST_ASSERT_TRUE(onion_ready_is_set(ONION_READY_KSTUFF_FAILED));
+  TEST_ASSERT_TRUE(!onion_ready_is_set(ONION_READY_KSTUFF));
+
+  TEST_ASSERT_TRUE(onion_ready_clear(ONION_READY_KSTUFF_FAILED));
+  TEST_ASSERT_TRUE(onion_ready_signal(ONION_READY_KSTUFF));
+  TEST_ASSERT_TRUE(onion_ready_is_set(ONION_READY_KSTUFF));
+  TEST_ASSERT_TRUE(!onion_ready_is_set(ONION_READY_KSTUFF_FAILED));
+
+  onion_ready_clear(ONION_READY_KSTUFF);
+  return 0;
+}
+
 int test_ready_suite(void) {
   int failures = 0;
   failures += onion_test_run("ready_signal_wait_clear", test_ready_signal_wait_clear);
@@ -124,5 +148,7 @@ int test_ready_suite(void) {
                              test_process_instance_marker);
   failures += onion_test_run("ready_process_plain_marker_value",
                              test_process_instance_rejects_plain_marker_value);
+  failures += onion_test_run("ready_hypercore_result_markers",
+                             test_hypercore_result_markers);
   return failures;
 }

@@ -3,6 +3,11 @@ PAYLOAD_OPT ?= -O0
 UELF_OPT ?= -O3
 UELF_ARCH ?= -march=znver2 -mtune=znver2
 KSTUFF_OBS ?= 0
+HYPERHEN_INCLUDE_DIR ?= ../../../source/include
+HYPERHEN_HEADERS := \
+	$(HYPERHEN_INCLUDE_DIR)/onion/ready.h \
+	$(HYPERHEN_INCLUDE_DIR)/onion/system_tmp.h
+HYPERHEN_CPPFLAGS := -I$(HYPERHEN_INCLUDE_DIR)
 
 ALL_TARGETS := payload.bin
 BUILD_CONFIG := .build-config
@@ -25,6 +30,7 @@ FORCE:
 $(BUILD_CONFIG): FORCE
 	@tmp="$@.tmp"; \
 	printf 'KSTUFF_OBS=%s\n' "$(KSTUFF_OBS)" > "$$tmp"; \
+	printf 'HYPERHEN_INCLUDE_DIR=%s\n' "$(HYPERHEN_INCLUDE_DIR)" >> "$$tmp"; \
 	printf 'EXTRA_CFLAGS=%s\n' "$(EXTRA_CFLAGS)" >> "$$tmp"; \
 	printf 'PAYLOAD_OPT=%s\n' "$(PAYLOAD_OPT)" >> "$$tmp"; \
 	printf 'UELF_OPT=%s\n' "$(UELF_OPT)" >> "$$tmp"; \
@@ -34,14 +40,15 @@ $(BUILD_CONFIG): FORCE
 ../lib/lib-elf-ps5.a: FORCE
 	cd ../lib; $(MAKE)
 
-../prosper0gdb/prosper0gdb.o: FORCE
-	cd ../prosper0gdb; $(MAKE) PROSPER0GDB_OPT="$(PROSPER0GDB_OPT)"
+../prosper0gdb/prosper0gdb.o: ../lib/lib-elf-ps5.a FORCE
+	cd ../prosper0gdb; $(MAKE) prosper0gdb.o \
+		PROSPER0GDB_OPT="$(PROSPER0GDB_OPT)"
 
 structs.inc: structs-ps5.inc
 	cp structs-ps5.inc structs.inc
 
-payload.elf: ../lib/lib-elf-ps5.a ../lib/shellcore-imports.h ../prosper0gdb/prosper0gdb.o main.c kelf uelf/uelf.bin shellcore_hook/ppr_mount_940_blob.o $(BUILD_CONFIG) shellcore_patches/*
-	gcc $(PAYLOAD_OPT) -isystem ../freebsd-headers -nostdinc -nostdlib -fno-stack-protector -static ../lib/lib-elf-ps5.a ../prosper0gdb/prosper0gdb.o shellcore_hook/ppr_mount_940_blob.o $(EXTRA_CFLAGS) -DKSTUFF_OBS=$(KSTUFF_OBS) main.c -DPS5KEK ../prosper0gdb/dbg.c -Wl,-gc-sections -o payload.elf -fPIE -ffreestanding -no-pie -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
+payload.elf: ../lib/lib-elf-ps5.a ../lib/shellcore-imports.h ../prosper0gdb/prosper0gdb.o main.c kelf uelf/uelf.bin shellcore_hook/ppr_mount_940_blob.o $(BUILD_CONFIG) $(HYPERHEN_HEADERS) shellcore_patches/*
+	gcc $(PAYLOAD_OPT) $(HYPERHEN_CPPFLAGS) -isystem ../freebsd-headers -nostdinc -nostdlib -fno-stack-protector -static ../lib/lib-elf-ps5.a ../prosper0gdb/prosper0gdb.o shellcore_hook/ppr_mount_940_blob.o $(EXTRA_CFLAGS) -DKSTUFF_OBS=$(KSTUFF_OBS) main.c -DPS5KEK ../prosper0gdb/dbg.c -Wl,-gc-sections -o payload.elf -fPIE -ffreestanding -no-pie -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 
 payloa%.bin: payloa%.elf
 	objcopy $< --only-section .text --only-section .data --only-section .bss --only-section .rodata -O binary $@

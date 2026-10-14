@@ -37,6 +37,7 @@
 #include "toolbox_helpers.hpp"
 #include "overlay_metrics.hpp"
 #include "toolbox_route.hpp"
+#include "debug_tools.hpp"
 
 #include <onion/payload_identity.h>
 
@@ -880,6 +881,16 @@ void append_toolbox_preferences_group(ps5ui::Group& g) {
 }
 
 void append_toolbox_debug_group(ps5ui::Group& g) {
+  g.label("id_debug_services_header", toolbox_i18n::tr("debug.services"),
+          ps5ui::Style::Center);
+  size_t tool_count = 0;
+  const auto* tools = onion::shellui::debug_tools::all(&tool_count);
+  for (size_t i = 0; i < tool_count; ++i) {
+    g.toggle(tools[i].control_id, toolbox_i18n::tr(tools[i].title_key),
+             toolbox_on(tools[i].control_id),
+             toolbox_i18n::tr(tools[i].description_key));
+  }
+
   g.button("id_linux_loader", toolbox_i18n::tr("linux.loader"),
            toolbox_i18n::tr("linux.loader.sub"), std::nullopt, kIconLinux,
            ps5ui::Style::None, toolbox_i18n::tr("linux.loader.confirm"),

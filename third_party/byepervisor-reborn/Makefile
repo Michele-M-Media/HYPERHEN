@@ -32,10 +32,10 @@ CFLAGS := -Wall -Werror -Wno-unused-function -g -I./include
 
 all: $(ELF)
 
-$(PAYLOAD_HDR): $(PAYLOAD_DIR)/break_hv.c $(PAYLOAD_DIR)/entry.S $(PAYLOAD_DIR)/link.ld
+$(PAYLOAD_HDR): $(PAYLOAD_DIR)/break_hv.c $(PAYLOAD_DIR)/hypervisor_protocol.h $(PAYLOAD_DIR)/entry.S $(PAYLOAD_DIR)/link.ld
 	sh $(PAYLOAD_DIR)/build.sh
 
-$(ELF): $(PAYLOAD_HDR) main.c kdlsym.c khook.c paging.c util.c hyperhen_integration.c
+$(ELF): $(PAYLOAD_HDR) $(PAYLOAD_DIR)/hypervisor_protocol.h main.c kdlsym.c khook.c paging.c util.c hyperhen_integration.c
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 clean:

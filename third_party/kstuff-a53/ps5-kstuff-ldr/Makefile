@@ -24,9 +24,15 @@ else
 endif
 
 LOADER_OPT ?= -O2
+KSTUFF_OBS ?= 0
 HOMEBREW_ROOT := $(PS5_PAYLOAD_SDK)/target/user/homebrew
+HYPERHEN_INCLUDE_DIR ?= ../../../source/include
+HYPERHEN_HEADERS := \
+  $(HYPERHEN_INCLUDE_DIR)/onion/firmware_capabilities.h \
+  $(HYPERHEN_INCLUDE_DIR)/onion/ready.h \
+  $(HYPERHEN_INCLUDE_DIR)/onion/system_tmp.h
 CFLAGS += -Wall -Werror
-CPPFLAGS += -Iinclude -I$(HOMEBREW_ROOT)/include
+CPPFLAGS += -Iinclude -I$(HOMEBREW_ROOT)/include -I$(HYPERHEN_INCLUDE_DIR)
 
 LDFLAGS += -L$(HOMEBREW_ROOT)/lib \
            -lz \
@@ -47,9 +53,10 @@ all: kstuff.elf
 .FORCE:
 
 ../ps5-kstuff/payload.bin: .FORCE
-	$(MAKE) -C ../ps5-kstuff/
+	$(MAKE) -C ../ps5-kstuff/ KSTUFF_OBS="$(KSTUFF_OBS)" \
+		HYPERHEN_INCLUDE_DIR="$(HYPERHEN_INCLUDE_DIR)"
 
-kstuff.elf: ../ps5-kstuff/payload.bin $(SRC) include/shellcore_dynlib_abi.h ../lib/r0gdb-bootstrap.h ../lib/shellcore-imports.h
+kstuff.elf: ../ps5-kstuff/payload.bin $(SRC) $(HYPERHEN_HEADERS) include/shellcore_dynlib_abi.h ../lib/r0gdb-bootstrap.h ../lib/shellcore-imports.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LOADER_OPT) $(SRC) -o $@ $(LDFLAGS)
 
 clean:

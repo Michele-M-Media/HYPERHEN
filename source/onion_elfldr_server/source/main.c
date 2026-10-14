@@ -2,8 +2,10 @@
  *
  * HyperHEN private ELF loader service.
  *
- * This intentionally listens on 127.0.0.1:9020, leaving the historical
- * ps5-payload-dev elfldr port 9021 untouched for user-provided loaders.
+ * The private runtime target listens on 127.0.0.1:9020.  The same source is
+ * also built as an opt-in debug service on 0.0.0.0:9025; keeping the two
+ * instances separate prevents a toolbox stop action from taking down the
+ * loader used by HyperHEN itself.
  */
 
 #include <onion/log.h>
@@ -49,7 +51,25 @@
 
 #define PTRACE_AUTHID 0x4800000000010003
 
+#ifdef HYPERHEN_ELFLDR_DEBUG_SERVICE
+#define HYPERHEN_ELFLDR_STATE                                                \
+  ONION_SYSTEM_TMP_ROOT "/debug_elfldr.state"
+#define HYPERHEN_ELFLDR_BUSY                                                 \
+  ONION_SYSTEM_TMP_ROOT "/debug_elfldr.busy"
+#define HYPERHEN_ELFLDR_PORT 9025
+#define HYPERHEN_ELFLDR_ADDRESS INADDR_ANY
+#define HYPERHEN_ELFLDR_ADDRESS_TEXT "0.0.0.0"
+#define HYPERHEN_ELFLDR_PROCESS_NAME "hyperhen_debug_elfldr"
+#define HYPERHEN_ELFLDR_PONG "OK hyperhen_debug_elfldr 9025\n"
+#else
 #define HYPERHEN_ELFLDR_STATE ONION_SYSTEM_TMP_ELFLDR_STATE
+#define HYPERHEN_ELFLDR_BUSY ONION_SYSTEM_TMP_ELFLDR_BUSY
+#define HYPERHEN_ELFLDR_PORT ONION_ELFLDR_PORT
+#define HYPERHEN_ELFLDR_ADDRESS INADDR_LOOPBACK
+#define HYPERHEN_ELFLDR_ADDRESS_TEXT "127.0.0.1"
+#define HYPERHEN_ELFLDR_PROCESS_NAME "hyperhen_elfldr.elf"
+#define HYPERHEN_ELFLDR_PONG ONION_ELFLDR_PONG
+#endif
 
 static void write_state_file(void) {
   mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
@@ -68,13 +88,13 @@ static void write_state_file(void) {
 
 static void set_launch_busy(bool busy) {
   if(!busy) {
-    unlink(ONION_SYSTEM_TMP_ELFLDR_BUSY);
+    unlink(HYPERHEN_ELFLDR_BUSY);
     return;
   }
 
   mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
   mkdir(ONION_SYSTEM_TMP_PID_ROOT, 0777);
-  int fd = open(ONION_SYSTEM_TMP_ELFLDR_BUSY,
+  int fd = open(HYPERHEN_ELFLDR_BUSY,
                 O_WRONLY | O_CREAT | O_TRUNC, 0666);
   if(fd < 0) {
     return;
@@ -394,7 +414,7 @@ static void on_connection(int fd) {
   if(magic == PAYLOAD_MAGIC_ONION) {
     if(payload_readuri(fd, uri, sizeof(uri)) == 0 &&
        strcmp(uri, ONION_ELFLDR_PING) == 0) {
-      send_text(fd, ONION_ELFLDR_PONG);
+      send_text(fd, HYPERHEN_ELFLDR_PONG);
     } else {
       send_text(fd, "ERR unknown onion command\n");
     }
@@ -468,12 +488,13 @@ static int serve_elfldr(uint16_t port) {
 
   memset(&srvaddr, 0, sizeof(srvaddr));
   srvaddr.sin_family = AF_INET;
-  srvaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  srvaddr.sin_addr.s_addr = htonl(HYPERHEN_ELFLDR_ADDRESS);
   srvaddr.sin_port = htons(port);
 
   if(bind(srvfd, (struct sockaddr*)&srvaddr, sizeof(srvaddr)) != 0) {
     int err = errno;
-    LOG_ERROR("bind 127.0.0.1:%u failed: %s", port, strerror(err));
+    LOG_ERROR("bind %s:%u failed: %s", HYPERHEN_ELFLDR_ADDRESS_TEXT, port,
+              strerror(err));
     close(srvfd);
     return err == EADDRINUSE ? -2 : -1;
   }
@@ -484,7 +505,7 @@ static int serve_elfldr(uint16_t port) {
     return -1;
   }
 
-  LOG_DEBUG("serving on 127.0.0.1:%u", port);
+  LOG_DEBUG("serving on %s:%u", HYPERHEN_ELFLDR_ADDRESS_TEXT, port);
   write_state_file();
 
   while(1) {
@@ -524,15 +545,15 @@ static int serve_elfldr(uint16_t port) {
 
   close(srvfd);
   unlink(HYPERHEN_ELFLDR_STATE);
-  unlink(ONION_SYSTEM_TMP_ELFLDR_BUSY);
+  unlink(HYPERHEN_ELFLDR_BUSY);
   return -1;
 }
 
 int main(void) {
   signal(SIGCHLD, SIG_IGN);
   signal(SIGPIPE, SIG_IGN);
-  syscall(SYS_thr_set_name, -1, "hyperhen_elfldr.elf");
-  unlink(ONION_SYSTEM_TMP_ELFLDR_BUSY);
+  syscall(SYS_thr_set_name, -1, HYPERHEN_ELFLDR_PROCESS_NAME);
+  unlink(HYPERHEN_ELFLDR_BUSY);
 
   if(chdir("/") != 0) {
     LOG_ERROR("chdir failed: %s", strerror(errno));
@@ -547,7 +568,7 @@ int main(void) {
   }
 
   while(1) {
-    int rc = serve_elfldr(ONION_ELFLDR_PORT);
+    int rc = serve_elfldr(HYPERHEN_ELFLDR_PORT);
     if(rc == -2) {
       return 0;
     }

@@ -43,6 +43,7 @@ along with this program; see the file COPYING. If not, see
 #include <ps5/payload.h>
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
+#include <onion/ready.h>
 
 #include "image.h"
 #include "ufs_mount.h"
@@ -75,6 +76,52 @@ int sceKernelSetProcessName(const char *name);
 
 #define IOVEC_ENTRY(x) { (void*)(x), (x) ? strlen(x) + 1 : 0 }
 #define IOVEC_SIZE(x)  (sizeof(x) / sizeof(struct iovec))
+
+#define HYPERCORE_READY_PATH ONION_READY_ROOT "/" ONION_READY_KSTUFF
+#define HYPERCORE_STARTING_PATH \
+    ONION_READY_ROOT "/" ONION_READY_KSTUFF_STARTING
+#define HYPERCORE_FAILED_PATH ONION_READY_ROOT "/" ONION_READY_KSTUFF_FAILED
+
+static int publish_hypercore_loader_starting(void) {
+    mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
+    mkdir(ONION_READY_ROOT, 0777);
+    unlink(HYPERCORE_READY_PATH);
+    unlink(HYPERCORE_FAILED_PATH);
+    int fd = open(HYPERCORE_STARTING_PATH,
+                  O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return -1;
+    char value[32];
+    int length = snprintf(value, sizeof(value), "%d\n", (int)getpid());
+    bool valid = length > 0 && (size_t)length < sizeof(value);
+    ssize_t written = valid ? write(fd, value, (size_t)length) : -1;
+    int close_result = close(fd);
+    return valid && written == (ssize_t)length && close_result == 0 ? 0 : -1;
+}
+
+static int publish_hypercore_loader_state(bool ready) {
+    const char *path = ready ? HYPERCORE_READY_PATH : HYPERCORE_FAILED_PATH;
+    const char *stale = ready ? HYPERCORE_FAILED_PATH : HYPERCORE_READY_PATH;
+    mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
+    mkdir(ONION_READY_ROOT, 0777);
+    unlink(stale);
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return -1;
+    const char value = '1';
+    ssize_t written = write(fd, &value, sizeof(value));
+    int close_result = close(fd);
+    int result =
+        written == (ssize_t)sizeof(value) && close_result == 0 ? 0 : -1;
+    if (result == 0)
+        unlink(HYPERCORE_STARTING_PATH);
+    return result;
+}
+
+static int hypercore_loader_failure(void) {
+    publish_hypercore_loader_state(false);
+    return EXIT_FAILURE;
+}
 
 static int automount_disabled(void) {
     return access("/data/.kstuff_noautomount", F_OK) == 0;
@@ -575,8 +622,12 @@ int main(void) {
     uint64_t startup_ms = loader_now_ms();
     uint64_t stage_ms = startup_ms;
     loader_stage("start", startup_ms);
+    if (publish_hypercore_loader_starting() != 0) {
+        klog_printf("[HyperCore] startup marker publish failed\n");
+        return hypercore_loader_failure();
+    }
     if (run_ppr_install() != 0)
-        return EXIT_FAILURE;
+        return hypercore_loader_failure();
     loader_stage("A53/PPR and loader", stage_ms);
     stage_ms = loader_now_ms();
     sceKernelSetProcessName("kstuff.elf");
@@ -602,7 +653,7 @@ int main(void) {
     if((base=mmap(base, base_size, PROT_READ | PROT_WRITE,
                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED) {
         perror("mmap");
-        return EXIT_FAILURE;
+        return hypercore_loader_failure();
     }
 
     for(int i=0; i<ehdr->e_phnum; i++) {
@@ -620,14 +671,14 @@ int main(void) {
         if(mprotect(base + phdr[i].p_vaddr, ROUND_PG(phdr[i].p_memsz),
                     PFLAGS(phdr[i].p_flags))) {
             perror("mprotect");
-            return EXIT_FAILURE;
+            return hypercore_loader_failure();
         }
     }
 
-    void (*entry)(payload_args_t*, uint64_t,
-                  intptr_t (*)(int, uint32_t, const char*),
-                  int (*)(int, const char*, uint32_t*),
-                  kstuff_shellcore_imports_fn) =
+    int (*entry)(payload_args_t*, uint64_t,
+                 intptr_t (*)(int, uint32_t, const char*),
+                 int (*)(int, const char*, uint32_t*),
+                 kstuff_shellcore_imports_fn) =
         base + ehdr->e_entry;
     payload_args_t* args = payload_get_args();
 
@@ -641,17 +692,18 @@ int main(void) {
 
     loader_stage("prepare HyperCore", stage_ms);
     stage_ms = loader_now_ms();
-    entry(args, KSTUFF_DYNLIB_RESOLVER_MAGIC,
-          kernel_dynlib_resolve, kernel_dynlib_handle,
-          shellcore_import_got);
+    int entry_result = entry(args, KSTUFF_DYNLIB_RESOLVER_MAGIC,
+                             kernel_dynlib_resolve, kernel_dynlib_handle,
+                             shellcore_import_got);
     loader_stage("HyperCore entry", stage_ms);
     stage_ms = loader_now_ms();
+    if (entry_result != 0 || access(HYPERCORE_FAILED_PATH, F_OK) == 0)
+        return hypercore_loader_failure();
     if(*args->payloadout == 0) {
         puts("patching app.db");
         *args->payloadout = patch_app_db();
     }
     loader_stage("app.db", stage_ms);
-    loader_stage("total to HyperCore ready", startup_ms);
     if (ppr_resume_start() != 0)
         klog_printf("[PPR] resume: power monitor unavailable\n");
     start_shellui_patch_thread();
@@ -665,6 +717,12 @@ int main(void) {
         pthread_detach(backpork_thread);
     else
         klog_printf("[BP] monitor start failed: %d\n", bp_error);
+
+    if (publish_hypercore_loader_state(true) != 0) {
+        klog_printf("[HyperCore] readiness marker publish failed\n");
+        return hypercore_loader_failure();
+    }
+    loader_stage("total to HyperCore ready", startup_ms);
 
     monitor_usb_changes();
 

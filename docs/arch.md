@@ -30,12 +30,12 @@ HyperHEN 是 PS5 的 All-in-One Homebrew Enabler，提供提权、后台服务�
         │  2. remount /system、/system_ex
         │  3. unmount /update（阻止系统更新）
         │  4. 经 9021 启动内嵌 hyperhen_elfldr.elf（监听 9020）
-        │  5. 将内嵌 ELF 字节经 9020 顺序启动：util → HyperCore → daemon
+        │  5. 按精确固件能力矩阵经 9020 启动可用的内嵌 ELF
         │  6. 扫描并启动 /data/HyperHEN/plugins/ 下带 descriptor 的 .elf
         ▼
 ┌───────────────┬────────────────┬──────────────────┐
 │  util.elf     │  HyperCore     │  daemon.elf      │
-│  工具服务守护 │  kstuff+A53/PPR│  核心守护进程    │
+│  工具服务守护 │  分固件 HyperCore│  核心守护进程  │
 │  Cheats      │  BackPork/mount│  ShellUI 注入    │
 └───────┬───────┴───────┬────────┴────────┬─────────┘
         │               │                 │
@@ -48,10 +48,11 @@ HyperHEN 是 PS5 的 All-in-One Homebrew Enabler，提供提权、后台服务�
   Unix IPC                       ShellUI monitor bar
 ```
 
-**启动顺序串行：** util → HyperCore → daemon。
+**启动顺序串行：** util → 固件前置阶段 → HyperCore → Automount → daemon。
 
 - util 先提供网络/IPC 等服务
-- HyperCore 需先验证 A53/PPR 并启动 kstuff
+- 6.00–11.40 的精确配置先验证 A53/PPR；11.60–12.70 的精确配置显式禁用 PPR 相关功能，并在 kstuff 通过运行时检查后才继续
+- 13.00、13.20、13.60 先验证 Byepervisor 完成标记；13.40、13.42 仅启动 util，不启动 HyperCore、Automount、daemon/Toolbox、HyperDPI、插件或 Payload 自动启动
 - daemon 启动插件管理器，发现并管理 `/data/HyperHEN/plugins/` 中的外部插件
 - daemon 再注入 Toolbox
 
@@ -133,7 +134,7 @@ HyperHEN/
 
 1. 检查 `127.0.0.1:9021` 上的外部 elfldr（首跳必需）
 2. 启动内置 `hyperhen_elfldr.elf`，并通过握手确认 `127.0.0.1:9020`
-3. 顺序发送内部 ELF 字节：util → HyperCore → daemon；9020 是正常路径，9021 仅承担引导/恢复职责
+3. 按集中式固件能力矩阵顺序发送内部 ELF；9020 是正常路径，9021 仅承担引导/恢复职责
 4. 各子 ELF 启动后把主线程名设为稳定进程名（`hyperhen_util.elf` / `kstuff.elf` / `hyperhen_daemon.elf`）
 5. 仅在 9020 健康时加载 `/data/HyperHEN/payloads/` 下带 `.auto_start` 的用户 `.elf`；插件由
    `libonion_plugin_manager` 扫描 `/data/HyperHEN/plugins/`，校验 `.onion_plugin`
@@ -251,7 +252,8 @@ RAM 与 IP。采样实现参考 [PHU Games Tools](https://github.com/ArkSama)（
 | 标记名 | 发布方 | 等待方 / 用途 |
 |--------|--------|----------------|
 | `util` | util 在 IPC 线程启动后，内容为自身 PID | bootstrapper、runtime supervisor 与关栈流程识别内置 util 实例 |
-| `kstuff` | bootstrapper 在 mprotect 成功后 | daemon 注入 toolbox 前 |
+| `kstuff` | HyperCore 在 ShellCore 事务完成后 | bootstrapper；还必须独立通过 mprotect 检查，随后才允许 automount/daemon/toolbox |
+| `kstuff_failed` | HyperCore 初始化或 ShellCore 事务失败时 | bootstrapper 立即停止后续服务 |
 | `daemon` | daemon 在 IPC 线程启动后，内容为自身 PID | bootstrapper 识别内置 daemon 实例 |
 | `toolbox` | shellui 注入完成后，内容为自身 PID | daemon 按当前 SceShellUI PID 判断跳过或重注入 |
 | `fps_overlay` | 启动时 clear | ABI 占位标记；实时 FPS 状态发布在 `/system_tmp/hyperhen/fps_sample` |
@@ -387,7 +389,7 @@ struct IPCMessage {
 
 - 提权与分区 remount
 - 阻止系统更新（unmount `/update`）
-- **HyperCore**：source-built kstuff + A53/PPR + BackPork；组合路径仅在 FW 5.00 有运行日志验证
+- **HyperCore**：source-built kstuff + A53/PPR + BackPork；组合路径仅在 FW 5.00 有运行日志验证。11.60–12.70 使用不含 PPR 功能的兼容路径，13.40/13.42 仅启用 util
 - App jailbreak（按设置启停；SceSysCore 生命周期事件触发 Running Big App 补扫，再跟沙盒 vnode 与白名单 TID。EXEC 身份未就绪或 NOTE_TRACK 跟丢时短重试，无沙盒常驻扫描）
 - 休息后 Toolbox 恢复（kstuff-lite：新 ShellUI PID + trophy sprx，再按 `rest_mode.resume_reinject_delay_seconds` 等待）
 - 休息后监听套接字重绑（ps5-payload-manager：IPC / TCP `accept` 失败自愈）

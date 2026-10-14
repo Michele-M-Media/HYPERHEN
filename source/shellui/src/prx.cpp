@@ -25,6 +25,7 @@ along with this program; see the file COPYING. If not, see
 #include "plugin_ui_bridge_client.hpp"
 #include "proc.h"
 #include "ps5/kernel.h"
+#include "startup_audio.h"
 #include "toolbox_i18n.hpp"
 #include "ucred.h"
 #include "webserver.hpp"
@@ -313,7 +314,6 @@ bool resolve_mono_symbols(pid_t pid) {
   KERNEL_DLSYM(libmono, mono_class_vtable);
   KERNEL_DLSYM(libmono, mono_domain_unload);
   KERNEL_DLSYM(libmono, mono_string_to_utf8);
-
   const bool ok =
       mono_object_to_string && mono_get_root_domain && mono_property_get_get_method &&
       mono_property_get_set_method && mono_class_get_property_from_name &&
@@ -830,6 +830,8 @@ int main(int argc, char const* argv[]) {
    */
   shellui_request_home_reload();
   hooked = true;
+  if (g_settings.hype_voice && !shellui_play_startup_voice())
+    LOG_WARN("Startup voice unavailable from the SceShellUI audio context");
   run_keep_alive();
   return 0;
 }

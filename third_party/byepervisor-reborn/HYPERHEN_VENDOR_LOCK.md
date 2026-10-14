@@ -6,10 +6,13 @@ comment identifies commit:
 `ea04f7132b837087f552c57261cb800481a3a910`
 
 HyperHEN builds the payload from source and embeds it in the bootstrapper. The
-exploit primitives, offsets, paging implementation, hook engine, and supervisor
-payload remain upstream code. The local integration overlay adds HyperHEN
-branding, process/readiness markers, fail-closed unsupported-firmware handling,
-and removes the upstream demonstration write to kernel text.
+exploit primitives and firmware offset maps remain upstream code. The local
+integration overlay adds HyperHEN branding, process/readiness markers,
+fail-closed unsupported-firmware handling, and removes the upstream
+demonstration write to kernel text. It also hardens the Rest Mode handoff:
+page-table walks reject absent entries, every mapping change is read-back
+verified, and completion is published only after all discovered VMCBs confirm
+that nested paging is disabled.
 
 The supplied offsets fully cover firmware 13.00, 13.20, and 13.60 only. No
 unsupported firmware is routed into this stage.

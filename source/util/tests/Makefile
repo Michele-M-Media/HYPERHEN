@@ -132,6 +132,7 @@ TEST_C_SRCS := \
 	test_platform_notify.c \
 	test_util_language.c \
 	test_hijack_retry.c \
+	test_firmware_capabilities.c \
 	test_hyperlinux_profiles.c \
 	stubs/host_stubs.c
 

@@ -89,6 +89,9 @@ uint64_t find_pml4e(uint64_t pmap, uint64_t va, uint64_t *out_pml4e)
 
   // Copy pml4e out and return address of it
   *out_pml4e = kread64(pml4e_addr);
+  if (!PDE_FIELD(*out_pml4e, PRESENT)) {
+    return 0xFFFFFFFFFFFFFFFFull;
+  }
   // printf("find_pml4e(0x%lx): pml4e addr = 0x%lx, pml4e = 0x%lx (rw: 0x%lx, nx: 0x%lx, user: 0x%lx, xo: 0x%lx)\n",
   //   va, pml4e_addr, *out_pml4e, PDE_FIELD(*out_pml4e, RW), PDE_FIELD(*out_pml4e, EXECUTE_DISABLE), PDE_FIELD(*out_pml4e, USER), PDE_FIELD(*out_pml4e, XOTEXT));
   return pml4e_addr;
@@ -111,6 +114,9 @@ uint64_t find_pdpe(uint64_t pmap, uint64_t va, uint64_t *out_pdpe)
 
   // Copy pdpe out and return address of it
   *out_pdpe = kread64(pdpe_addr);
+  if (!PDE_FIELD(*out_pdpe, PRESENT)) {
+    return 0xFFFFFFFFFFFFFFFFull;
+  }
   // printf("find_pdpe(0x%lx): pdpe addr = 0x%lx, pdpe = 0x%lx (rw: 0x%lx, nx: 0x%lx, user: 0x%lx, xo: 0x%lx)\n",
   //    va, pdpe_addr, *out_pdpe, PDE_FIELD(*out_pdpe, RW), PDE_FIELD(*out_pdpe, EXECUTE_DISABLE), PDE_FIELD(*out_pdpe, USER), PDE_FIELD(*out_pdpe, XOTEXT));
   return pdpe_addr;
@@ -126,6 +132,9 @@ uint64_t find_pde(uint64_t pmap, uint64_t va, uint64_t *out_pde)
   if (find_pdpe(pmap, va, &pd_table_pdp_entry) == 0xFFFFFFFFFFFFFFFFull) {
     return 0xFFFFFFFFFFFFFFFFull;
   }
+  if (PDE_FIELD(pd_table_pdp_entry, PS)) {
+    return 0xFFFFFFFFFFFFFFFFull;
+  }
 
   // Calculate pd entry via index encoded in virtual addr
   pd_table_dmap_addr      = kdldmap(PDE_ADDR(pd_table_pdp_entry));
@@ -133,6 +142,9 @@ uint64_t find_pde(uint64_t pmap, uint64_t va, uint64_t *out_pde)
 
   // Copy pde out and return address of it
   *out_pde = kread64(pde_addr);
+  if (!PDE_FIELD(*out_pde, PRESENT)) {
+    return 0xFFFFFFFFFFFFFFFFull;
+  }
   // printf("find_pde(0x%lx): pde addr = 0x%lx, pde = 0x%lx (rw: 0x%lx, nx: 0x%lx, user: 0x%lx, xo: 0x%lx, s: 0x%lx)\n",
   //   va, pde_addr, *out_pde, PDE_FIELD(*out_pde, RW), PDE_FIELD(*out_pde, EXECUTE_DISABLE), PDE_FIELD(*out_pde, USER), PDE_FIELD(*out_pde, XOTEXT), PDE_FIELD(*out_pde, PS));
   return pde_addr;
@@ -148,6 +160,9 @@ uint64_t find_pte(uint64_t pmap, uint64_t va, uint64_t *out_pte)
   if (find_pde(pmap, va, &page_table_pde_entry) == 0xFFFFFFFFFFFFFFFFull) {
     return 0xFFFFFFFFFFFFFFFFull;
   }
+  if (PDE_FIELD(page_table_pde_entry, PS)) {
+    return 0xFFFFFFFFFFFFFFFFull;
+  }
 
   // Calculate pt entry via index encoded in virtual addr
   page_table_dmap_addr    = kdldmap(PDE_ADDR(page_table_pde_entry));
@@ -155,6 +170,9 @@ uint64_t find_pte(uint64_t pmap, uint64_t va, uint64_t *out_pte)
 
   // Copy pte out and return address of it
   *out_pte = kread64(pte_addr);
+  if (!PDE_FIELD(*out_pte, PRESENT)) {
+    return 0xFFFFFFFFFFFFFFFFull;
+  }
   // printf("find_pte(0x%lx): pte addr = 0x%lx, pte = 0x%lx (rw: 0x%lx, nx: 0x%lx, user: 0x%lx, xo: 0x%lx)\n",
   //   va, pte_addr, *out_pte, PDE_FIELD(*out_pte, RW), PDE_FIELD(*out_pte, EXECUTE_DISABLE), PDE_FIELD(*out_pte, USER), PDE_FIELD(*out_pte, XOTEXT));
   return pte_addr;

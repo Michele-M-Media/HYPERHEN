@@ -4,24 +4,11 @@ endif()
 
 find_program(GIT_EXECUTABLE git)
 
-set(_git_clean FALSE)
 set(_git_tag "")
 set(_git_sha "unknown")
 set(_tag_result 1)
 
 if(GIT_EXECUTABLE)
-  execute_process(
-    COMMAND "${GIT_EXECUTABLE}" -C "${REPO_ROOT}" status --porcelain
-            --untracked-files=normal
-    RESULT_VARIABLE _status_result
-    OUTPUT_VARIABLE _status_output
-    ERROR_QUIET
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-  if(_status_result EQUAL 0 AND _status_output STREQUAL "")
-    set(_git_clean TRUE)
-  endif()
-
   execute_process(
     COMMAND "${GIT_EXECUTABLE}" -C "${REPO_ROOT}" describe --tags
             --exact-match HEAD
@@ -42,22 +29,31 @@ if(GIT_EXECUTABLE)
   endif()
 endif()
 
-if(_git_clean AND _tag_result EQUAL 0 AND NOT _git_tag STREQUAL "")
-  if(_git_tag MATCHES "^[vV]")
-    set(_version "${_git_tag}")
-  else()
-    set(_version "v${_git_tag}")
-  endif()
-elseif(_git_sha STREQUAL "unknown" AND EXISTS "${REPO_ROOT}/VERSION")
+set(_snapshot_version "")
+if(EXISTS "${REPO_ROOT}/VERSION")
   file(STRINGS "${REPO_ROOT}/VERSION" _snapshot_version LIMIT_COUNT 1)
   string(STRIP "${_snapshot_version}" _snapshot_version)
+endif()
+
+# VERSION is the public product version and must stay stable in notifications
+# and Toolbox pages even while a release is assembled from a dirty worktree.
+# Git metadata belongs in build logs, not in the user-facing brand string.
+if(NOT _snapshot_version STREQUAL "")
   if(_snapshot_version MATCHES "^[vV]")
     set(_version "${_snapshot_version}")
   else()
     set(_version "v${_snapshot_version}")
   endif()
+elseif(_tag_result EQUAL 0 AND NOT _git_tag STREQUAL "")
+  if(_git_tag MATCHES "^[vV]")
+    set(_version "${_git_tag}")
+  else()
+    set(_version "v${_git_tag}")
+  endif()
+elseif(NOT _git_sha STREQUAL "unknown")
+  set(_version "dev-${_git_sha}")
 else()
-  set(_version "dirty-${_git_sha}")
+  set(_version "dev")
 endif()
 
 # Keep the generated value safe inside both a C string and notification JSON.
@@ -67,7 +63,7 @@ string(CONCAT _contents
     "#pragma once\n\n"
     "/* Generated at build time. Do not edit. */\n"
     "#define HYPERHEN_VERSION \"${_version}\"\n"
-    "#define HYPERHEN_AUTHOR \"麒麟/0xp0co\"\n")
+    "#define HYPERHEN_AUTHOR \"MICHELE MEDIA\"\n")
 
 get_filename_component(_output_dir "${OUTPUT_FILE}" DIRECTORY)
 file(MAKE_DIRECTORY "${_output_dir}")

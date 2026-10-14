@@ -11,6 +11,7 @@
 #include "toolbox_i18n.hpp"
 #include "dynamic_ui_runtime.hpp"
 #include "plugin_sprx_pages.hpp"
+#include "debug_tools.hpp"
 
 #include <onion/platform.h>
 #include <onion/ipc_client.hpp>
@@ -24,6 +25,12 @@ namespace {
 
 std::string bool_str(bool v) { return v ? "1" : "0"; }
 std::string int_str(int v) { return std::to_string(v); }
+
+std::string debug_tool_value(const char *control_id) {
+  const auto *tool = onion::shellui::debug_tools::find(control_id);
+  return bool_str(tool &&
+                  onion::shellui::debug_tools::running_pid(*tool) > 1);
+}
 
 struct ExactValueEntry {
   const char *id;
@@ -139,6 +146,18 @@ const ExactValueEntry kExactValues[] = {
     /* Exact list id only — not id_toolbox_shortcut_N list_items. */
     {"id_toolbox_shortcut",
      +[]() -> std::string { return int_str(g_settings.toolbox_shortcut_opt); }},
+    {"id_debug_service_klog",
+     +[]() -> std::string {
+       return debug_tool_value("id_debug_service_klog");
+     }},
+    {"id_debug_service_ftp",
+     +[]() -> std::string {
+       return debug_tool_value("id_debug_service_ftp");
+     }},
+    {"id_debug_service_elfldr",
+     +[]() -> std::string {
+       return debug_tool_value("id_debug_service_elfldr");
+     }},
 };
 
 bool try_exact_value(const std::string &id, std::string &out) {

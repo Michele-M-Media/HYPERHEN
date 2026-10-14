@@ -541,7 +541,6 @@ extern MonoClass* (*mono_object_get_class)(MonoObject* obj);
 extern MonoString *(*mono_object_to_string)(MonoObject *obj, MonoObject **exc);
 extern void (*mono_raise_exception)(MonoObject *exception);
 
-
 extern int (*sceShellUIUtilInitialize)(void);
 extern int (*sceShellUIUtilLaunchByUri)(const char* uri, SceShellUIUtilLaunchByUriParam* Param);
 

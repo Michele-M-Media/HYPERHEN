@@ -3,9 +3,73 @@
 #include "account_activator.h"
 #include "progress_dialog.hpp"
 #include "onion_cjson.hpp"
+#include "debug_tools.hpp"
+
+#include <onion/payload_identity.h>
 
 #include <cstring>
+#include <pthread.h>
+#include <string>
 #include <unistd.h>
+
+namespace {
+
+struct DebugToolLaunch {
+  const onion::shellui::debug_tools::Tool *tool;
+  std::string key;
+};
+
+void *launch_debug_tool_thread(void *opaque) {
+  auto *launch = static_cast<DebugToolLaunch *>(opaque);
+  const auto *tool = launch->tool;
+  notify("notify.payload.loading", tool->path);
+  if (IPC_Client::getInstance(true).LaunchPayload(tool->path, launch->key) !=
+      IPC_Ret::NO_ERROR) {
+    notify("notify.payload.launch_failed", tool->path, launch->key.c_str());
+  }
+  delete launch;
+  return nullptr;
+}
+
+OnPressResult toggle_debug_tool(OnPressContext &ctx) {
+  ctx.dirty = false;
+  const auto *tool = onion::shellui::debug_tools::find(ctx.id);
+  if (!tool)
+    return OnPressResult::NotMine;
+
+  char key[ONION_PAYLOAD_IDENTITY_SIZE] = {};
+  if (!onion::shellui::debug_tools::identity(*tool, key, sizeof(key))) {
+    notify("notify.payload.launch_failed", tool->path, "invalid_identity");
+    return OnPressResult::Consumed;
+  }
+
+  char pid_path[256] = {};
+  const pid_t pid = onion::shellui::debug_tools::running_pid(
+      *tool, pid_path, sizeof(pid_path));
+  if (!value_as_int(ctx)) {
+    if (pid > 1) {
+      IPC_Client::getInstance(false).ForceKillPID(static_cast<int>(pid));
+      unlink(pid_path);
+      notify("notify.process.killed", tool->display_name);
+    }
+    return OnPressResult::Consumed;
+  }
+
+  if (pid > 1)
+    return OnPressResult::Consumed;
+
+  auto *launch = new DebugToolLaunch{tool, key};
+  pthread_t thread;
+  if (pthread_create(&thread, nullptr, launch_debug_tool_thread, launch) == 0) {
+    pthread_detach(thread);
+  } else {
+    delete launch;
+    notify("notify.payload.launch_failed", tool->path, key);
+  }
+  return OnPressResult::Consumed;
+}
+
+} // namespace
 
 OnPressResult onpress_kstuff_autoload(OnPressContext &ctx) {
   const bool enabled = value_as_int(ctx);
@@ -86,6 +150,9 @@ static const OnPressExactEntry kRootExact[] = {
     {"id_download_cheats", id_download_cheats},
     {"id_lm_test", id_lm_test},
     {"id_hyperhen_credits", id_hyperhen_credits},
+    {"id_debug_service_klog", toggle_debug_tool},
+    {"id_debug_service_ftp", toggle_debug_tool},
+    {"id_debug_service_elfldr", toggle_debug_tool},
 };
 
 const OnPressExactEntry *onpress_misc_root_exact(size_t *count) {

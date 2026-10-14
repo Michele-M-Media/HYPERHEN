@@ -8,6 +8,8 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <onion/firmware_capabilities.h>
+#include <onion/ready.h>
 #include <ps5/kernel.h>
 #include <ps5/klog.h>
 
@@ -28,19 +30,22 @@ static void startup_stage(const char *name, uint64_t began_ms) {
 }
 
 static int hyperhen_hypervisor_route_ready(uint32_t system_fw) {
-    switch (system_fw) {
-    case 0x13000000U:
-    case 0x13200000U:
-    case 0x13600000U:
-        return access("/system_tmp/hyperhen/ready/hypervisor", F_OK) == 0;
-    case 0x05000000U:
-    case 0x05020000U:
-    case 0x05100000U:
-    case 0x05500000U:
-        return access("/system_tmp/hyperhen/ready/hypervisor_5xx", F_OK) == 0;
+    switch (onion_firmware_route(system_fw)) {
+    case ONION_FIRMWARE_ROUTE_HYPERVISOR_13XX:
+        return access(ONION_READY_ROOT "/" ONION_READY_HYPERVISOR, F_OK) == 0;
+    case ONION_FIRMWARE_ROUTE_HYPERVISOR_5XX:
+        return access(ONION_READY_ROOT "/" ONION_READY_HYPERVISOR_5XX,
+                      F_OK) == 0;
     default:
         return 0;
     }
+}
+
+static int hyperhen_no_ppr_route_ready(uint32_t system_fw) {
+    return onion_firmware_route(system_fw) ==
+               ONION_FIRMWARE_ROUTE_HYPERCORE_NO_PPR &&
+           access(ONION_READY_ROOT "/" ONION_READY_HYPERCORE_NO_PPR,
+                  F_OK) == 0;
 }
 
 static int run_ppr_install_impl(int resumed) {
@@ -60,6 +65,17 @@ static int run_ppr_install_impl(int resumed) {
     char version[160];
     uint32_t system_fw = kernel_get_fw_version() & 0xffff0000U;
     ppr_printf("[PPR] System FW: 0x%08x\n", system_fw);
+    /*
+     * The bootstrapper publishes this marker only for exact firmwares with a
+     * complete HyperCore/ShellCore table but no exact PPR installer profile.
+     * The firmware check above prevents a stale or manually-created marker
+     * from enabling this path on an unrelated release.
+     */
+    if (hyperhen_no_ppr_route_ready(system_fw)) {
+        ppr_printf("[PPR] HyperCore compatibility route ready; PPR install disabled\n");
+        startup_stage("HyperCore no-PPR route", total_ms);
+        return 0;
+    }
     /* Byepervisor Reborn supplies the supported 13.x route. Its offsets do
        not overlap the supplied exact A53/PPR profiles, so once its readiness
        marker is present we continue into kstuff without pretending PPR ran. */
@@ -75,14 +91,16 @@ static int run_ppr_install_impl(int resumed) {
     startup_stage("A53 init", stage_ms);
     stage_ms = startup_now_ms();
     /* Use the upstream phase5 accelerator only after its exact kernel clock
-       pair has been located and verified. Fail closed if validation fails. */
+       pair has been located and verified.  The accelerator is optional: the
+       verified pair-only fast transport is also an upstream-supported install
+       path and does not write the global clock. */
     if (!resumed) {
         if (a53_transport_enable_time_acceleration() != 0) {
-            ppr_puts("[PPR] Verified time acceleration unavailable; refusing fast install");
-            klog_printf("[TIME] A53 clock validation failed; HyperCore not started\n");
-            goto done;
+            ppr_puts("[PPR] Time acceleration unavailable; continuing with verified transport");
+            klog_printf("[TIME] A53 clock acceleration skipped; using verified transport\n");
+        } else {
+            startup_stage("A53 clock scan", stage_ms);
         }
-        startup_stage("A53 clock scan", stage_ms);
     }
     stage_ms = startup_now_ms();
     if (a53_transport_get_version(version, sizeof(version)) != 0) {

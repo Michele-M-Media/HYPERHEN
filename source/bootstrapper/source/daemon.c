@@ -28,6 +28,15 @@
 #ifndef HYPERHEN_LINUX_ELF
 #define HYPERHEN_LINUX_ELF "../assets/hyperlinux.elf"
 #endif
+#ifndef HYPERHEN_KLOGSRV_ELF
+#define HYPERHEN_KLOGSRV_ELF "../../../third_party/debug-tools/klogsrv-ps5.elf"
+#endif
+#ifndef HYPERHEN_FTPSRV_ELF
+#define HYPERHEN_FTPSRV_ELF "../../../third_party/debug-tools/ftpsrv-ps5.elf"
+#endif
+#ifndef HYPERHEN_DEBUG_ELFLDR_ELF
+#define HYPERHEN_DEBUG_ELFLDR_ELF "../../bin/hyperhen_debug_elfldr.elf"
+#endif
 #ifndef HYPERHEN_ICON_ASSET_DIR
 #define HYPERHEN_ICON_ASSET_DIR "../assets"
 #endif
@@ -169,5 +178,41 @@ __asm__(".intel_syntax noprefix\n"
         ".align  4\n"
         "hyperlinux_size:\n"
         ".int    hyperlinux_end - hyperlinux_start\n"
+
+        ".global klogsrv_start\n"
+        ".type   klogsrv_start, @object\n"
+        ".align  16\n"
+        "klogsrv_start:\n"
+        ".incbin \"" HYPERHEN_KLOGSRV_ELF "\"\n"
+        "klogsrv_end:\n"
+        ".global klogsrv_size\n"
+        ".type   klogsrv_size, @object\n"
+        ".align  4\n"
+        "klogsrv_size:\n"
+        ".int    klogsrv_end - klogsrv_start\n"
+
+        ".global ftpsrv_start\n"
+        ".type   ftpsrv_start, @object\n"
+        ".align  16\n"
+        "ftpsrv_start:\n"
+        ".incbin \"" HYPERHEN_FTPSRV_ELF "\"\n"
+        "ftpsrv_end:\n"
+        ".global ftpsrv_size\n"
+        ".type   ftpsrv_size, @object\n"
+        ".align  4\n"
+        "ftpsrv_size:\n"
+        ".int    ftpsrv_end - ftpsrv_start\n"
+
+        ".global debug_elfldr_start\n"
+        ".type   debug_elfldr_start, @object\n"
+        ".align  16\n"
+        "debug_elfldr_start:\n"
+        ".incbin \"" HYPERHEN_DEBUG_ELFLDR_ELF "\"\n"
+        "debug_elfldr_end:\n"
+        ".global debug_elfldr_size\n"
+        ".type   debug_elfldr_size, @object\n"
+        ".align  4\n"
+        "debug_elfldr_size:\n"
+        ".int    debug_elfldr_end - debug_elfldr_start\n"
 
 );

@@ -8,7 +8,16 @@
 extern "C" {
 #endif
 
-/** Launch the owned util, kstuff and daemon dependency chain. */
+typedef enum BootstrapLaunchResult {
+  BOOTSTRAP_LAUNCH_FULL = 0,
+  BOOTSTRAP_LAUNCH_USERLAND_ONLY = 1,
+} BootstrapLaunchResult;
+
+/**
+ * Launch the firmware-appropriate owned service chain. Negative values are
+ * failures; non-negative BootstrapLaunchResult values describe the active
+ * capability level.
+ */
 int bootstrap_launch_services(uint32_t firmware_version, bool kstuff_autoload);
 
 /**

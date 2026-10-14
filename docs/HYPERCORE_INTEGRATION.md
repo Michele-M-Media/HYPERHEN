@@ -54,8 +54,12 @@ firmware offsets — 13.00, 13.20, and 13.60 — HyperHEN launches it before
 HyperCore, waits for its Rest Mode/resume completion marker, then starts
 kstuff and BackPork. Those versions have no exact A53/PPR profile in the
 supplied core, so the Hypervisor completion marker is the gate that permits
-the kstuff route. On other firmwares, the Hypervisor stage stays dormant and
-HyperCore uses its normal exact A53/PPR path.
+the kstuff route. The initial resume-hook cookie is not accepted as readiness:
+the supervisor payload publishes a distinct completion cookie only after every
+discovered VMCB reports nested paging disabled. Other firmwares follow the
+centralized capability matrix:
+exact 6.00–11.40 profiles use A53/PPR, exact 11.60–12.70 profiles use the
+reduced no-PPR route, and 13.40/13.42 do not start HyperCore.
 
 The supplied ps5-hen snapshot is built as the internal HEN route for its
 25 exact profiles from 1.00 through 4.51. The supplied Byepervisor 5.xx source
@@ -74,15 +78,21 @@ first-hop elfldr :9021
        modern: embedded util.elf
          -> FW 5.00/5.02/5.10/5.50: embedded Byepervisor 5.xx -> completion marker
          -> FW 13.00/13.20/13.60: embedded Hypervisor -> Rest Mode -> resume marker
+         -> FW 11.60/12.00/12.02/12.20/12.40/12.60/12.70: explicit no-PPR marker
          -> embedded HyperCore
-       1. verify/install A53/PPR on profiled firmware, or validate Hypervisor marker on supported 13.x
+       1. verify/install A53/PPR, validate a Hypervisor marker, or validate the exact no-PPR route marker
        2. start kstuff
-       3. patch app.db and start rest-mode monitor
-       4. keep native BackPork/USB mount providers paused under automount ownership
+       3. apply ShellCore patches transactionally, verify each write, and publish success only after completion
+       4. require both the HyperCore completion marker and an independent userland mprotect post-check
+       5. patch app.db and start the rest-mode monitor where supported
+       6. keep native BackPork/USB mount providers paused under automount ownership
   -> embedded HyperHEN Automount -> readiness marker
   -> modern branch: embedded daemon.elf -> Toolbox
     -> embedded HyperDPI client -> dynamic Toolbox page (listeners off by default)
 ```
+
+FW 13.40/13.42 stop after `util.elf`: no core readiness is published and no
+Automount, daemon/Toolbox, HyperDPI, plugin, or payload-autostart stage runs.
 
 ## Exclusivity
 
@@ -138,8 +148,15 @@ and 5.50. ShadowMountPlus supplies 62 exact optional SceShellCore profiles from
 end-to-end console validation. Legacy revisions without an exact ShellCore
 profile use the offset-free pre-exec fallback for backport preparation; this
 does not turn them into exact ShellCore-hook profiles.
-HyperCore requires either an exact A53/PPR profile or the matching successful
-Hypervisor readiness marker before it starts kstuff.
+HyperCore requires an exact A53/PPR profile, the matching successful
+Hypervisor readiness marker, or the explicit exact no-PPR compatibility marker
+for 11.60–12.70. Every HyperCore route must publish its completion marker and
+pass the independent runtime `mprotect` post-check before dependent components
+start. ShellCore writes are range-checked, read back, and rolled back if a
+later static-patch or package-hook stage fails. The no-PPR route disables the
+integrated plaintext/PPR hooks. FW 13.40 and 13.42 are utility-only because
+neither a complete
+Hypervisor nor a complete PPR prerequisite is available.
 
 No claim of universal firmware support should be made until each firmware,
 boot path, title set, and rest-mode cycle has reproducible console logs.

@@ -6,6 +6,7 @@
 #include "kstuff_probe.h"
 
 #include <elfldr_remote.h>
+#include <onion/firmware_capabilities.h>
 #include <onion/log.h>
 #include <onion/hyperlinux_profiles.h>
 #include <onion/payload.h>
@@ -43,7 +44,6 @@ extern uint8_t hyperlinux_start[];
 extern const unsigned int hyperlinux_size;
 
 int sceKernelGetProcessName(int pid, char *name);
-int sceKernelMprotect(void *addr, size_t len, int prot);
 
 typedef struct LaunchContext {
   uint16_t loader_port;
@@ -222,59 +222,18 @@ static bool launch_blob(LaunchContext *context, const uint8_t *elf, size_t size,
 }
 
 static bool firmware_uses_hypervisor(uint32_t firmware_version) {
-  switch (firmware_version & 0xffff0000U) {
-  case 0x13000000U:
-  case 0x13200000U:
-  case 0x13600000U:
-    return true;
-  default:
-    return false;
-  }
+  return onion_firmware_route(firmware_version) ==
+         ONION_FIRMWARE_ROUTE_HYPERVISOR_13XX;
 }
 
 static bool firmware_uses_hypervisor_5xx(uint32_t firmware_version) {
-  switch (firmware_version & 0xffff0000U) {
-  case 0x05000000U:
-  case 0x05020000U:
-  case 0x05100000U:
-  case 0x05500000U:
-    return true;
-  default:
-    return false;
-  }
+  return onion_firmware_route(firmware_version) ==
+         ONION_FIRMWARE_ROUTE_HYPERVISOR_5XX;
 }
 
 static bool firmware_uses_legacy_hen(uint32_t firmware_version) {
-  switch (firmware_version & 0xffff0000U) {
-  case 0x01000000U:
-  case 0x01010000U:
-  case 0x01020000U:
-  case 0x01050000U:
-  case 0x01100000U:
-  case 0x01110000U:
-  case 0x01120000U:
-  case 0x01130000U:
-  case 0x01140000U:
-  case 0x02000000U:
-  case 0x02200000U:
-  case 0x02250000U:
-  case 0x02260000U:
-  case 0x02300000U:
-  case 0x02500000U:
-  case 0x02700000U:
-  case 0x03000000U:
-  case 0x03100000U:
-  case 0x03200000U:
-  case 0x03210000U:
-  case 0x04000000U:
-  case 0x04020000U:
-  case 0x04030000U:
-  case 0x04500000U:
-  case 0x04510000U:
-    return true;
-  default:
-    return false;
-  }
+  return onion_firmware_route(firmware_version) ==
+         ONION_FIRMWARE_ROUTE_LEGACY_HEN;
 }
 
 static void prepare_hypervisor_markers(void) {
@@ -346,6 +305,80 @@ static bool wait_for_stage_ready(const char *ready_marker,
   }
 
   return onion_ready_is_set(ready_marker);
+}
+
+static int hypercore_ready_timeout_ms(uint32_t firmware_version) {
+  /*
+   * The exact A53/PPR path performs a mailbox discovery handshake followed by
+   * verified DECI5S transactions.  A valid slow retry can exceed the old
+   * fixed one-minute window, especially on 10.xx.  Other routes do not run
+   * that installer and keep a shorter ceiling.
+   */
+  return onion_firmware_route(firmware_version) ==
+                 ONION_FIRMWARE_ROUTE_A53_PPR
+             ? 600000
+             : 180000;
+}
+
+static bool wait_for_hypercore_ready(uint32_t firmware_version) {
+  const int poll_ms = 200;
+  const int timeout_ms = hypercore_ready_timeout_ms(firmware_version);
+  bool starting_seen = false;
+  bool marker_loss_logged = false;
+
+  for (int waited = 0; waited < timeout_ms; waited += poll_ms) {
+    /*
+     * Preserve the release build's capability probe as the authoritative
+     * compatibility fallback.  Older/slow loaders can activate the kernel
+     * patches before publishing the newer lifecycle markers; blocking on the
+     * marker alone prevents the common Automount/Backport stage from ever
+     * being reached even though HyperCore is already usable.
+     */
+    if ((waited % 1000) == 0 && kstuff_already_running()) {
+      onion_ready_clear(ONION_READY_KSTUFF_FAILED);
+      if (!onion_ready_signal(ONION_READY_KSTUFF))
+        LOG_WARN("HyperCore capability is active but readiness publication "
+                 "failed");
+      LOG_DEBUG("HyperCore capability probe passed after %d ms", waited);
+      return true;
+    }
+
+    if (onion_ready_is_set(ONION_READY_KSTUFF_FAILED)) {
+      if (kstuff_already_running()) {
+        onion_ready_clear(ONION_READY_KSTUFF_FAILED);
+        onion_ready_signal(ONION_READY_KSTUFF);
+        LOG_WARN("HyperCore failure marker superseded by a successful "
+                 "capability probe");
+        return true;
+      }
+      return false;
+    }
+
+    pid_t starting_pid = -1;
+    if (onion_ready_read_pid(ONION_READY_KSTUFF_STARTING, &starting_pid)) {
+      starting_seen = true;
+      if (!onion_proc_is_alive(starting_pid)) {
+        if (kstuff_already_running()) {
+          onion_ready_signal(ONION_READY_KSTUFF);
+          return true;
+        }
+        LOG_ERROR("HyperCore startup process pid=%d exited before readiness",
+                  (int)starting_pid);
+        return false;
+      }
+    } else if (starting_seen && !marker_loss_logged) {
+      /* Continue with the published mprotect probe instead of suppressing the
+       * shared Automount/Backport stage because a transient marker vanished. */
+      LOG_WARN("HyperCore startup marker disappeared; continuing capability "
+               "probe");
+      marker_loss_logged = true;
+    }
+
+    usleep((useconds_t)poll_ms * 1000U);
+  }
+
+  LOG_ERROR("HyperCore startup exceeded its firmware-route timeout");
+  return onion_ready_is_set(ONION_READY_KSTUFF);
 }
 
 static bool launch_hypervisor_5xx(LaunchContext *context) {
@@ -445,7 +478,8 @@ static void prepare_service_markers(void) {
   stop_owned_service(ONION_READY_DAEMON, "hyperhen_daemon.elf");
   stop_owned_service(ONION_READY_UTIL, "hyperhen_util.elf");
   prepare_automount_markers();
-  onion_ready_clear(ONION_READY_KSTUFF);
+  onion_ready_clear(ONION_READY_KSTUFF_STARTING);
+  onion_ready_clear(ONION_READY_HYPERCORE_NO_PPR);
   prepare_hypervisor_markers();
   onion_ready_clear(ONION_FLAG_UTIL_BOOTED);
   onion_ready_clear(ONION_FLAG_FPS_OVERLAY);
@@ -457,53 +491,83 @@ static bool launch_util(LaunchContext *context) {
     bootstrap_notify("notify.elfldr.launch_util");
     return false;
   }
-  if (!onion_ready_wait(ONION_READY_UTIL, 15000, 200))
-    LOG_WARN("util ready timeout -- continuing (process may still be starting)");
+  if (!onion_ready_wait(ONION_READY_UTIL, 15000, 200)) {
+    LOG_ERROR("util did not publish readiness before timeout");
+    bootstrap_notify("HyperHEN utility stopped before initialization completed");
+    return false;
+  }
   return true;
 }
 
 static bool launch_hypercore(LaunchContext *context,
                              uint32_t firmware_version, bool autoload) {
-  char probe[100] = {0};
   const bool disabled_by_usb = if_exists("/mnt/usb0/no_kstuff");
   if (disabled_by_usb || !autoload) {
     LOG_DEBUG("kstuff disabled (%s)",
               disabled_by_usb ? "usb no_kstuff" : "kstuff.autoload=false");
-    onion_ready_signal(ONION_READY_KSTUFF);
     return false;
   }
 
   if (firmware_version < 0x3000000) {
-    onion_ready_signal(ONION_READY_KSTUFF);
     return false;
   }
 
   if (kstuff_already_running()) {
-    LOG_WARN("kstuff already running / mprotect OK -- skip launch");
+    LOG_WARN("HyperCore capability already active; restoring runtime "
+             "readiness and continuing to Automount/Backport");
+    onion_ready_clear(ONION_READY_KSTUFF_FAILED);
     onion_ready_signal(ONION_READY_KSTUFF);
     return true;
   }
 
+  onion_ready_clear(ONION_READY_KSTUFF);
+  onion_ready_clear(ONION_READY_KSTUFF_FAILED);
+  onion_ready_clear(ONION_READY_KSTUFF_STARTING);
+
   LOG_DEBUG("Loading embedded HyperCore via %u (before daemon/toolbox) ...",
             context->loader_port);
   const bool sent = launch_blob(context, kstuff_start, (size_t)kstuff_size,
-                                "HyperCore", "kstuff.elf");
+                                "HyperCore", NULL);
   if (!sent) {
     bootstrap_notify("notify.kstuff.load_elfldr_failed");
     return false;
   }
 
-  for (int waited = 0; waited <= 15; ++waited) {
-    if (sceKernelMprotect(probe, sizeof(probe), 0x7) == 0) {
-      LOG_DEBUG("kstuff mprotect OK -- signal ready");
-      onion_ready_signal(ONION_READY_KSTUFF);
-      sleep(1);
-      return true;
-    }
-    sleep(1);
+  if (!wait_for_hypercore_ready(firmware_version)) {
+    bootstrap_notify("HyperCore stopped before completing its ShellCore "
+                     "initialization");
+    return false;
   }
-  bootstrap_notify("notify.kstuff.load_failed");
-  return false;
+
+  if (!kstuff_already_running()) {
+    LOG_ERROR("HyperCore published readiness without the mprotect capability");
+    onion_ready_clear(ONION_READY_KSTUFF);
+    onion_ready_signal(ONION_READY_KSTUFF_FAILED);
+    bootstrap_notify("HyperCore readiness verification failed");
+    return false;
+  }
+
+  LOG_DEBUG("HyperCore readiness marker and mprotect probe verified");
+  return true;
+}
+
+static bool prepare_hypercore_mode(uint32_t firmware_version) {
+  onion_ready_clear(ONION_READY_HYPERCORE_NO_PPR);
+  if (onion_firmware_route(firmware_version) !=
+      ONION_FIRMWARE_ROUTE_HYPERCORE_NO_PPR) {
+    return true;
+  }
+
+  if (!onion_ready_signal(ONION_READY_HYPERCORE_NO_PPR)) {
+    LOG_ERROR("Cannot publish HyperCore no-PPR compatibility marker");
+    bootstrap_notify("HyperHEN compatibility mode could not be prepared");
+    return false;
+  }
+
+  LOG_WARN("FW 0x%08x uses HyperCore compatibility mode; PPR features are "
+           "disabled",
+           firmware_version & 0xffff0000U);
+  return true;
 }
 
 static bool launch_daemon(LaunchContext *context) {
@@ -514,8 +578,11 @@ static bool launch_daemon(LaunchContext *context) {
     bootstrap_notify("notify.elfldr.launch_daemon");
     return false;
   }
-  if (!onion_ready_wait(ONION_READY_DAEMON, 20000, 200))
-    LOG_WARN("daemon ready timeout -- continuing");
+  if (!onion_ready_wait(ONION_READY_DAEMON, 20000, 200)) {
+    LOG_ERROR("daemon did not publish readiness before timeout");
+    bootstrap_notify("HyperHEN daemon stopped before initialization completed");
+    return false;
+  }
   return true;
 }
 
@@ -530,6 +597,18 @@ static bool launch_hyperdpi(LaunchContext *context) {
 }
 
 int bootstrap_launch_services(uint32_t firmware_version, bool kstuff_autoload) {
+  const OnionFirmwareRoute route = onion_firmware_route(firmware_version);
+  const uint32_t capabilities = onion_firmware_capabilities(route);
+  const uint32_t mount_stack_capabilities =
+      ONION_FIRMWARE_CAP_AUTOMOUNT | ONION_FIRMWARE_CAP_BACKPORT;
+
+  if (route == ONION_FIRMWARE_ROUTE_UNSUPPORTED) {
+    LOG_ERROR("No exact HyperHEN route for firmware 0x%08x",
+              firmware_version & 0xffff0000U);
+    bootstrap_notify("HyperHEN has no exact profile for this firmware");
+    return -3;
+  }
+
   if (!elfldr_remote_available()) {
     LOG_DEBUG("FATAL: no elfldr on 127.0.0.1:9021");
     bootstrap_notify("notify.elfldr.need_9021");
@@ -546,6 +625,24 @@ int bootstrap_launch_services(uint32_t firmware_version, bool kstuff_autoload) {
   sleep(3);
 
   prepare_service_markers();
+  if (route == ONION_FIRMWARE_ROUTE_USERLAND_ONLY) {
+    if (!launch_util(&context))
+      return -2;
+    LOG_WARN("FW 0x%08x has no complete HyperCore prerequisite route; "
+             "running userland-only",
+             firmware_version & 0xffff0000U);
+    bootstrap_notify("HyperHEN userland mode active\nHyperCore unavailable "
+                     "for this firmware");
+    return BOOTSTRAP_LAUNCH_USERLAND_ONLY;
+  }
+
+  if ((capabilities & mount_stack_capabilities) !=
+      mount_stack_capabilities) {
+    LOG_ERROR("Firmware route lacks the required Automount/Backport stack");
+    bootstrap_notify("HyperHEN profile is missing Automount/Backport support");
+    return -3;
+  }
+
   if (!claim_automount_ownership(&context)) {
     bootstrap_notify("HyperHEN Automount could not claim mount ownership");
     return -2;
@@ -577,10 +674,19 @@ int bootstrap_launch_services(uint32_t firmware_version, bool kstuff_autoload) {
     release_automount_ownership(&context);
     return -2;
   }
+  if (!prepare_hypercore_mode(firmware_version)) {
+    release_automount_ownership(&context);
+    return -2;
+  }
   if (!launch_hypercore(&context, firmware_version, kstuff_autoload)) {
+    onion_ready_clear(ONION_READY_HYPERCORE_NO_PPR);
     release_automount_ownership(&context);
     bootstrap_notify("HyperHEN Automount requires an active HyperCore");
     return -2;
+  }
+  if (route == ONION_FIRMWARE_ROUTE_HYPERCORE_NO_PPR) {
+    bootstrap_notify("HyperHEN compatibility mode active\nPPR features are "
+                     "disabled");
   }
   if (!launch_automount(&context)) {
     release_automount_ownership(&context);

@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#include "hypervisor_protocol.h"
+
 #define VMCB_NESTED_CTRL    0x90
 #define VMCB_CLEAN          0xC0
 
@@ -12,8 +14,8 @@ void vmcb_disable_np(uint64_t *param)
   uint64_t dmap        = param[1];
   uint64_t hv_heap_off = param[4];
   uint64_t pcpus       = param[5];
-
-  write64(param[2], 0xcafedead00001337ULL);
+  unsigned int discovered = 0;
+  unsigned int completed = 0;
 
   uint64_t heap = read64(dmap + hv_heap_off);
 
@@ -26,11 +28,19 @@ void vmcb_disable_np(uint64_t *param)
     if (!vmcb) {
       continue;
     }
+    discovered++;
 
     uint64_t vpa = vmcb - heap;
     uint64_t old = read64(dmap + vpa + VMCB_NESTED_CTRL);
 
     write64(dmap + vpa + VMCB_NESTED_CTRL, old & ~1);               // disable nested paging
     write32(dmap + vpa + VMCB_CLEAN, 0);                            // force reload on next VMRUN
+    if ((read64(dmap + vpa + VMCB_NESTED_CTRL) & 1) == 0) {
+      completed++;
+    }
+  }
+
+  if (discovered && completed == discovered) {
+    write64(param[2], HV_SUCCESS_COOKIE);
   }
 }

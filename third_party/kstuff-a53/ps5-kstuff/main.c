@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdbool.h>
+#include <onion/ready.h>
 #include "../prosper0gdb/r0gdb.h"
 #include "../prosper0gdb/offsets.h"
 #include "../gdb_stub/dbg.h"
@@ -19,7 +20,27 @@
 
 void* dlsym(void*, const char*);
 void* memcpy(void * __restrict, const void * __restrict, size_t);
-int (*snprintf)(char * restrict str, size_t size, const char * restrict format, ...);
+static int (*hyper_snprintf)(char * restrict str, size_t size,
+                             const char * restrict format, ...);
+
+#define HYPERCORE_READY_PATH ONION_READY_ROOT "/" ONION_READY_KSTUFF
+#define HYPERCORE_FAILED_PATH ONION_READY_ROOT "/" ONION_READY_KSTUFF_FAILED
+
+static int publish_hypercore_state(int ready)
+{
+    const char* path = ready ? HYPERCORE_READY_PATH : HYPERCORE_FAILED_PATH;
+    const char* stale = ready ? HYPERCORE_FAILED_PATH : HYPERCORE_READY_PATH;
+    mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
+    mkdir(ONION_READY_ROOT, 0777);
+    unlink(stale);
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if(fd < 0)
+        return -1;
+    const char value = '1';
+    ssize_t written = write(fd, &value, sizeof(value));
+    int close_result = close(fd);
+    return written == (ssize_t)sizeof(value) && close_result == 0 ? 0 : -1;
+}
 
 void notify(const char* s)
 {
@@ -52,6 +73,7 @@ void die(int line)
         q /= 10;
     }
     notify(buf);
+    publish_hypercore_state(0);
     r0gdb_cleanup();
     asm volatile("ud2");
 }
@@ -1264,27 +1286,109 @@ static int patch_shellcore(const struct shellcore_patch* patches, size_t n_patch
     || mod_info.segments[0].size >= 0x0000800000000000ull
                                   - shellcore_base))
         return shellcore_ppr_fail("fpkg scope: invalid ShellCore text segment");
-    uint64_t text_end = mod_info.segments[0].addr
-                      + mod_info.segments[0].size;
+    uint64_t text_size = mod_info.segments[0].size;
+    uint64_t text_end = mod_info.segments[0].addr + text_size;
     uint64_t cr3, dmap;
     if(get_proc_cr3(pid, &cr3, &dmap))
         return -1;
 
     struct shellcore_locked_pages locked = {0};
 
+    size_t backup_size = 0;
     for(size_t i = 0; i < n_patches; i++)
     {
-        if(lock_shellcore_range(pid, shellcore_base + patches[i].offset,
-                                patches[i].sz, &locked))
-            return -1;
-        if(phys_copyin(shellcore_base + patches[i].offset, patches[i].data, patches[i].sz, dmap, cr3))
-            return -1;
+        if(!patches[i].data || !patches[i].sz
+        || patches[i].offset >= text_size
+        || patches[i].sz > text_size - patches[i].offset
+        || backup_size > (size_t)-1 - patches[i].sz)
+            return shellcore_ppr_fail("ShellCore patch range is invalid");
+        uint64_t patch_end = patches[i].offset + patches[i].sz;
+        for(size_t previous = 0; previous < i; previous++)
+        {
+            uint64_t previous_end = patches[previous].offset
+                                  + patches[previous].sz;
+            if(patches[i].offset < previous_end
+            && patches[previous].offset < patch_end
+            && (patches[i].offset != patches[previous].offset
+             || patches[i].sz != patches[previous].sz
+             || !shellcore_bytes_equal(
+                    (const unsigned char*)patches[i].data,
+                    (const unsigned char*)patches[previous].data,
+                    patches[i].sz)))
+                return shellcore_ppr_fail(
+                    "ShellCore patch ranges overlap inconsistently");
+        }
+        backup_size += patches[i].sz;
+    }
+
+    unsigned char* original = 0;
+    if(backup_size)
+    {
+        original = mmap(0, backup_size, PROT_READ | PROT_WRITE,
+                        MAP_PRIVATE | MAP_ANON, -1, 0);
+        if(original == MAP_FAILED)
+            return shellcore_ppr_fail("ShellCore patch backup allocation failed");
+    }
+
+    size_t backup_offset = 0;
+    for(size_t i = 0; i < n_patches; i++)
+    {
+        uint64_t address = shellcore_base + patches[i].offset;
+        if(lock_shellcore_range(pid, address, patches[i].sz, &locked)
+        || phys_copyout(original + backup_offset, address, patches[i].sz,
+                        dmap, cr3))
+        {
+            munmap(original, backup_size);
+            return shellcore_ppr_fail("ShellCore patch preflight failed");
+        }
+        backup_offset += patches[i].sz;
+    }
+
+    size_t applied = 0;
+    const char* failure_reason = 0;
+    for(size_t i = 0; i < n_patches; i++)
+    {
+        uint64_t address = shellcore_base + patches[i].offset;
+        applied = i + 1;
+        if(phys_copyin(address, patches[i].data, patches[i].sz, dmap, cr3)
+        || verify_shellcore_blob(address,
+                                 (const unsigned char*)patches[i].data,
+                                 patches[i].sz, dmap, cr3))
+        {
+            failure_reason = "ShellCore patch write verification failed";
+            goto rollback;
+        }
     }
     if(install_fpkg_hook
     && install_shellcore_ppr_hook(pid, shellcore_base, text_end,
                                   dmap, cr3, &locked))
-        return -1;
+    {
+        failure_reason = shellcore_patch_failure
+                       ? shellcore_patch_failure
+                       : "ShellCore package hook installation failed";
+        goto rollback;
+    }
+    if(original)
+        munmap(original, backup_size);
     return 0;
+
+rollback:
+    backup_offset = 0;
+    int rollback_failed = 0;
+    for(size_t i = 0; i < applied; i++)
+    {
+        uint64_t address = shellcore_base + patches[i].offset;
+        if(phys_copyin(address, original + backup_offset, patches[i].sz,
+                       dmap, cr3)
+        || verify_shellcore_blob(address, original + backup_offset,
+                                 patches[i].sz, dmap, cr3))
+            rollback_failed = 1;
+        backup_offset += patches[i].sz;
+    }
+    if(original)
+        munmap(original, backup_size);
+    return shellcore_ppr_fail(
+        rollback_failed ? "ShellCore patch rollback failed" : failure_reason);
 }
 
 #ifndef DEBUG
@@ -1317,12 +1421,13 @@ uint64_t bench(void)
 
 int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
 {
-    snprintf = dlsym((void*)0x2, "snprintf");
+    hyper_snprintf = dlsym((void*)0x2, "snprintf");
 
     if(r0gdb_init(ds, a, b, c, d))
     {
 #ifndef FIRMWARE_PORTING
         notify("your firmware is not supported (prosper0gdb)");
+        publish_hypercore_state(0);
         return 1;
 #endif
     }
@@ -1348,6 +1453,7 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
         n_shellcore_patches = 0;
 #else
         notify("your firmware is not supported (shellcore)");
+        publish_hypercore_state(0);
         return 1;
 #endif
     }
@@ -1394,7 +1500,7 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
         if (!is_kit) {
             int64_t syscall_cfi_table_jmp_int3_offset = offsets.syscall_cfi_table_jmp_int3 - kdata_base;
             char log[128];
-            snprintf(log, sizeof(log), "syscall_cfi_table_jmp_int3 offset missing.\nPlease contribute this offset: %s0x%llx", (offsets.syscall_cfi_table_jmp_int3 > kdata_base) ? "+" : "-", (syscall_cfi_table_jmp_int3_offset > 0) ? syscall_cfi_table_jmp_int3_offset : -syscall_cfi_table_jmp_int3_offset);
+            hyper_snprintf(log, sizeof(log), "syscall_cfi_table_jmp_int3 offset missing.\nPlease contribute this offset: %s0x%llx", (offsets.syscall_cfi_table_jmp_int3 > kdata_base) ? "+" : "-", (syscall_cfi_table_jmp_int3_offset > 0) ? syscall_cfi_table_jmp_int3_offset : -syscall_cfi_table_jmp_int3_offset);
             notify(log);
         }
     }
@@ -1694,6 +1800,8 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
         {
             notify(shellcore_patch_failure ? shellcore_patch_failure
                                            : "failed to patch shellcore");
+            publish_hypercore_state(0);
+            return 1;
         }
     }
 
@@ -1705,8 +1813,8 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
                                "Retail";
 
     char msg[128];
-    snprintf(msg, sizeof(msg), "HyperHEN HyperCore active\nPlayStation 5 FW: %x.%02x (%s)",
-             fwver >> 8, fwver & 0xFF, console_type);
+    hyper_snprintf(msg, sizeof(msg), "HyperHEN HyperCore active\nPlayStation 5 FW: %x.%02x (%s)",
+                   fwver >> 8, fwver & 0xFF, console_type);
     notify(msg);
 	
     return 0;

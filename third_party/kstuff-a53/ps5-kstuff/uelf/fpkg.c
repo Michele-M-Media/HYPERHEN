@@ -98,8 +98,9 @@ struct ppr_profile
 static const struct ppr_profile* get_ppr_profile(void)
 {
     /* Keep the newer profiles and offsets available for later work, but do
-     * not arm plaintext PPR interception above 11.60. */
-    if(FWVER > 0x1160)
+     * not arm plaintext PPR interception where the integrated installer has
+     * no exact profile.  11.60 is the first no-PPR compatibility route. */
+    if(FWVER >= 0x1160)
         return NULL;
 
     static const struct ppr_profile fw1_early = {

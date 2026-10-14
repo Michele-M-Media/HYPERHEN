@@ -16,7 +16,6 @@ along with this program; see the file COPYING. If not, see
 */
 
 #include "bootstrap_assets.h"
-#include "bootstrap_audio.h"
 #include "bootstrap_config.h"
 #include "bootstrap_filesystem.h"
 #include "bootstrap_notify.h"
@@ -72,15 +71,18 @@ int main(void) {
 
   const int launch_result = bootstrap_launch_services(
       config.firmware_version, config.kstuff_autoload);
-  if (launch_result != 0)
+  if (launch_result < 0)
     return launch_result;
 
-  if (config.hype_voice && !bootstrap_audio_play_hype_voice()) {
-    LOG_WARN("Startup voice unavailable; using notification fallback");
-    bootstrap_notify("HyperHEN START!");
-  }
+  if (config.hype_voice)
+    LOG_DEBUG("Startup voice delegated to the SceShellUI audio context");
 
-  bootstrap_payload_autostart();
+  if (launch_result == BOOTSTRAP_LAUNCH_FULL) {
+    bootstrap_payload_autostart();
+  } else {
+    LOG_WARN("Firmware is running in userland-only compatibility mode; "
+             "payload autostart is disabled");
+  }
   LOG_DEBUG("============== Spawner (Bootstrapper) Finished =================");
   return 0;
 }

@@ -37,9 +37,12 @@
   payloads, and background services.
 </p>
 
-The v0.5 visual system uses native Settings XML, a unified 64 px icon family,
-and a progressive APNG HyperCore emblem. Firmware image decoders that do not
-play APNG display its complete first frame, so animation never gates the UI.
+HyperHEN v0.9.2 combines exact firmware routing, the source-built HyperCore,
+one common automount owner, firmware-gated Toolbox services, and a fully
+HyperHEN-branded native Settings interface. The visual system uses a unified
+64 px icon family and a progressive APNG HyperCore emblem. Firmware image
+decoders that do not play APNG display its complete first frame, so animation
+never gates the UI.
 
 <br>
 
@@ -49,8 +52,21 @@ HyperHEN is a practical homebrew stack for jailbroken PS5 consoles.
 
 The combined HyperCore has console-log validation on firmware **5.00**. Its
 additional firmware profiles are compatibility data, not proof of runtime
-validation; unsupported or non-exact A53/PPR profiles fail closed before
-kstuff starts.
+validation. Exact modern profiles from 6.00 through 11.40 use A53/PPR; 11.60
+and the listed 12.xx profiles use a reduced HyperCore route with PPR-dependent
+behavior disabled. Unsupported or non-exact profiles fail closed.
+
+| Firmware profile | What HyperHEN starts |
+| --- | --- |
+| 1.00–4.51 exact legacy profiles | Legacy HEN, then HyperHEN Automount and the legacy-ready notification; the modern daemon/Toolbox route is not started |
+| 5.00, 5.02, 5.10, 5.50 | Byepervisor 5.xx, HyperCore, Automount, daemon/utility, Toolbox, then optional services |
+| 6.00–11.40 exact profiles | A53/PPR preparation, HyperCore readiness plus an independent capability check, Automount, daemon/utility, Toolbox, then optional services |
+| 11.60–12.70 exact profiles | HyperCore with PPR-dependent hooks disabled, readiness plus capability check, Automount, daemon/utility, Toolbox, then optional services |
+| 13.00, 13.20, 13.60 | Byepervisor Reborn, required Rest Mode/resume completion, HyperCore, Automount, daemon/utility, Toolbox, then optional services |
+| 13.40, 13.42 | Utility/userland layer only; no HyperCore, Automount, Toolbox, plugins, payload auto-start, or HyperDPI |
+
+The complete exact profile list and each startup gate are documented in the
+[technical overview](docs/COMPONENTS_AND_TECHNICAL_OVERVIEW.md#firmware-routing).
 
 - **ShellUI Toolbox** — a settings page injected into the PS5 ShellUI
 - **System preparation** — raise privileges, remount filesystems, and block the update partition
@@ -58,8 +74,10 @@ kstuff starts.
 - **Hypervisor route** — source-built Byepervisor Reborn stage embedded for FW 13.00, 13.20, and 13.60; it completes through Rest Mode before HyperCore continues
 - **Legacy HEN route** — source-built internal engine with exact profiles for 1.00–4.51; selected automatically before the common automount stage
 - **5.xx Hypervisor route** — source-built Byepervisor stage for 5.00, 5.02, 5.10, and 5.50; selected automatically before HyperCore
+- **11.60/12.xx compatibility route** — exact 11.60, 12.00, 12.02, 12.20, 12.40, 12.60, and 12.70 profiles start HyperCore without PPR, then require the runtime core check before Automount, Toolbox, plugins, or HyperDPI can continue
+- **Limited 13.xx route** — 13.40 and 13.42 start only the utility/userland layer; HyperCore, Automount, daemon/Toolbox, HyperDPI, plugins, and payload auto-start remain disabled
 - **Plugin runtime** — discovers, validates, starts, stops, and removes descriptor-bearing plugin ELFs
-- **PS5 FTP server** — available as the optional external `onionHEN-ftpsrv-plugin`
+- **Built-in debug services** — Toolbox switches for `klogsrv` (3232), `ftpsrv` (2121), and the LAN ELF loader (9025), with process-aware start/stop handling
 - **HyperHEN Automount** — source-built ShadowMountPlus engine embedded as a common post-HEN stage for image, title, USB, and fakelib mount lifecycle
 - **Remote Play pairing** — enable the native PS5 Remote Play service, generate a pairing PIN, and register a client from the Network section
 - **User payload manager** — start and stop user-provided `.elf` payloads, with optional auto-start
@@ -105,8 +123,8 @@ fail closed.
 
 1. Run the kernel exploit and start the external `elfldr` service.
 2. Send `HyperHEN.elf` through the loader your exploit host provides.
-3. HyperHEN selects the exact internal firmware engine automatically. On FW 13.00, 13.20, or 13.60, follow the HyperHEN Hypervisor notification: enter Rest Mode once and resume. Then wait for HyperCore and the main daemon.
-4. Open PS5 Settings and enter the HyperHEN Toolbox.
+3. HyperHEN selects the exact internal firmware engine automatically. On FW 13.00, 13.20, or 13.60, follow the HyperHEN Hypervisor notification: enter Rest Mode once and resume. On the listed exact 11.60/12.xx profiles, wait for the compatibility-mode notification and the HyperCore runtime check.
+4. Open PS5 Settings and enter the HyperHEN Toolbox where the selected route provides it. FW 13.40 and 13.42 intentionally run utility-only and do not inject the Toolbox.
 
 Startup is sequential. After the first hop, HyperHEN uses its own
 `hyperhen_elfldr.elf` on port **9020** and keeps **9021** only as a fallback.
@@ -136,12 +154,18 @@ third-party plugin API.
 
 ### FTP server
 
-FTP is provided by the separate
-[`onionHEN-ftpsrv-plugin`](https://github.com/OnionBuddies/onionHEN-ftpsrv-plugin).
-Install it as `/data/HyperHEN/plugins/FTPS00001.elf`; HyperHEN discovers and
-starts the plugin, and its dynamic settings page provides enable, port, and
-restart controls. The plugin retains upstream `ftpsrv` commands such as
-`KILL`, `SELF`, `SCHK`, `MTRW`, and `AUTHID` where supported.
+**Advanced Debug** includes three independent switches: the kernel-log server
+on TCP 3232, the FTP server on TCP 2121, and the LAN ELF loader on TCP 9025.
+HyperHEN installs the two verified upstream payload images under
+`/data/HyperHEN/tools`, builds the LAN loader from source, launches each through
+its private loader, and records the returned process identity so the same
+switch can stop only the service it started. These unauthenticated development
+services must be used only on a trusted local network.
+
+The separate
+[`onionHEN-ftpsrv-plugin`](https://github.com/OnionBuddies/onionHEN-ftpsrv-plugin)
+remains supported as an optional plugin when a separately configurable FTP
+instance is preferred. Do not enable two FTP listeners on the same port.
 
 ### Mount integration
 
@@ -406,7 +430,7 @@ status.
 
 1. Before loading HyperHEN, make sure the external `elfldr` is reachable on port **9021**.
 2. Make sure the payload was built for this firmware with a complete PS5 Payload SDK.
-3. If the Toolbox does not appear, wait for `util → HyperCore → daemon` to finish and check the logs.
+3. If the selected route provides the Toolbox and it does not appear, wait for `util → HyperCore → Automount → daemon` to finish and check the logs. FW 13.40/13.42 intentionally have no Toolbox.
 4. If HyperCore does not build, run `./scripts/sync_dependencies.sh`; it reports the exact missing vendored source.
 5. When you report a problem, include firmware, exploit host, SDK version, build type, logs, and steps to reproduce.
 
@@ -449,7 +473,9 @@ engineering, and project maintenance: **MICHELE MEDIA**.
 ### Used or embedded
 
 - [PS5 Payload SDK](https://github.com/ps5-payload-dev/sdk) — Prospero toolchain and headers
-- [elfldr](https://github.com/ps5-payload-dev/elfldr) — first-hop loader on port 9021; not shipped in the payload
+- [elfldr](https://github.com/ps5-payload-dev/elfldr) — John Törnblom; external first-hop loader on port 9021. HyperHEN also builds isolated private (9020) and debug-LAN (9025) loader variants from its retained in-tree loader source
+- [klogsrv](https://github.com/ps5-payload-dev/klogsrv) — John Törnblom, with current port/quiet argument work by Al-Azif; the verified upstream PS5 ELF is embedded for the Toolbox log-server switch
+- [ftpsrv](https://github.com/ps5-payload-dev/ftpsrv) — John Törnblom, with current-tree contributions from EchoStretch, Al-Azif, Matthew Vanek, and Gezine; the verified upstream PS5 ELF is embedded for the Toolbox FTP switch
 - [kstuff-a53](https://github.com/Soonniicc/kstuff-a53) — integrated source snapshot combining the kstuff-lite base with A53/PPR and BackPork
 - [Byepervisor Reborn](https://github.com/PS5Dev/Byepervisor-Reborn) — supplied hypervisor-stage source integrated for its exact 13.00, 13.20, and 13.60 offsets
 - Byepervisor 5.xx — supplied source integrated for its exact 5.00, 5.02, 5.10, and 5.50 profiles

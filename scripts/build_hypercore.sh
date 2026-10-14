@@ -9,6 +9,8 @@ OUTPUT_ELF="${2:-}"
 PS5_PAYLOAD_SDK="${PS5_PAYLOAD_SDK:-}"
 KSTUFF_OBS="${KSTUFF_OBS:-0}"
 HYPERHEN_JOBS="${HYPERHEN_JOBS:-4}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+HYPERHEN_INCLUDE_DIR="${HYPERHEN_INCLUDE_DIR:-${SCRIPT_DIR}/../source/include}"
 
 die() {
   printf 'build_hypercore: %s\n' "$*" >&2
@@ -36,10 +38,21 @@ done
 export PS5_PAYLOAD_SDK
 export PATH="${PS5_PAYLOAD_SDK}/bin:${PATH}"
 
+# The vendored Makefiles generate objects in their source directories.  Clean
+# those outputs in dependency order so an interrupted build cannot leave a
+# truncated syscall table or make prosper0gdb link against a half-written
+# archive during the parallel build below.
+make -C "${SOURCE_DIR}/ps5-kstuff-ldr" clean
+make -C "${SOURCE_DIR}/ps5-kstuff" clean
+make -C "${SOURCE_DIR}/prosper0gdb" clean
+make -C "${SOURCE_DIR}/lib" clean
+
 make -C "${SOURCE_DIR}/ps5-kstuff" -j"${HYPERHEN_JOBS}" \
-  KSTUFF_OBS="${KSTUFF_OBS}"
+  KSTUFF_OBS="${KSTUFF_OBS}" \
+  HYPERHEN_INCLUDE_DIR="${HYPERHEN_INCLUDE_DIR}"
 make -C "${SOURCE_DIR}/ps5-kstuff-ldr" -j"${HYPERHEN_JOBS}" \
-  KSTUFF_OBS="${KSTUFF_OBS}"
+  KSTUFF_OBS="${KSTUFF_OBS}" \
+  HYPERHEN_INCLUDE_DIR="${HYPERHEN_INCLUDE_DIR}"
 
 BUILT_ELF="${SOURCE_DIR}/ps5-kstuff-ldr/kstuff.elf"
 [[ -s "${BUILT_ELF}" ]] || die "build completed without ${BUILT_ELF}"

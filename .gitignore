@@ -7,6 +7,7 @@
 
 # Build trees / final artifacts (default: repo-root build/)
 /build/
+/build-capture/
 /.cache/
 /.docker/
 source/build/
@@ -24,6 +25,9 @@ source/.cache/
 # Build outputs / artifacts
 *.o
 *.elf
+!third_party/debug-tools/
+!third_party/debug-tools/klogsrv-ps5.elf
+!third_party/debug-tools/ftpsrv-ps5.elf
 *.a.tmp
 *.tmp*
 hen.bin

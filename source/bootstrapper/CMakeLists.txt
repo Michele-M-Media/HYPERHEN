@@ -101,6 +101,8 @@ if(DEFINED HYPERHEN_OUT_BIN)
 	set(_hyperhen_legacy_hen_elf "${HYPERHEN_LEGACY_HEN_ELF}")
 	set(_hyperhen_hyperdpi_elf "${HYPERHEN_HYPERDPI_ELF}")
 	set(_hyperhen_linux_elf "${HYPERHEN_LINUX_ELF}")
+	set(_hyperhen_debug_elfldr_elf
+		"${HYPERHEN_OUT_BIN}/hyperhen_debug_elfldr.elf")
 else()
 	set(_hyperhen_daemon_elf "${PROJECT_ROOT}/bin/daemon.elf")
 	set(_hyperhen_util_elf "${PROJECT_ROOT}/bin/util.elf")
@@ -111,11 +113,22 @@ else()
 	set(_hyperhen_legacy_hen_elf "${PROJECT_ROOT}/../vendor/legacy-hen/hyperhen_legacy_hen.elf")
 	set(_hyperhen_hyperdpi_elf "${PROJECT_ROOT}/bin/hyperdpi.elf")
 	set(_hyperhen_linux_elf "${PROJECT_ROOT}/../vendor/hyperlinux/hyperlinux.elf")
+	set(_hyperhen_debug_elfldr_elf
+		"${PROJECT_ROOT}/bin/hyperhen_debug_elfldr.elf")
 endif()
+set(_hyperhen_klogsrv_elf
+	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/klogsrv-ps5.elf")
+set(_hyperhen_ftpsrv_elf
+	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/ftpsrv-ps5.elf")
+foreach(_debug_tool IN ITEMS "${_hyperhen_klogsrv_elf}" "${_hyperhen_ftpsrv_elf}")
+	if(NOT EXISTS "${_debug_tool}")
+		message(FATAL_ERROR "Missing embedded debug tool: ${_debug_tool}")
+	endif()
+endforeach()
 set_source_files_properties(
 	${D_SRC}/daemon.c
 	PROPERTIES OBJECT_DEPENDS
-		"${_hyperhen_daemon_elf};${_hyperhen_util_elf};${_hyperhen_elfldr_elf};${HYPERHEN_CORE_ELF};${_hyperhen_automount_elf};${_hyperhen_hypervisor_elf};${_hyperhen_hypervisor_5xx_elf};${_hyperhen_legacy_hen_elf};${_hyperhen_hyperdpi_elf};${_hyperhen_linux_elf};${D_CWD}/assets/hyperhen_sicon.png;${_generated_icon_files}"
+		"${_hyperhen_daemon_elf};${_hyperhen_util_elf};${_hyperhen_elfldr_elf};${HYPERHEN_CORE_ELF};${_hyperhen_automount_elf};${_hyperhen_hypervisor_elf};${_hyperhen_hypervisor_5xx_elf};${_hyperhen_legacy_hen_elf};${_hyperhen_hyperdpi_elf};${_hyperhen_linux_elf};${_hyperhen_klogsrv_elf};${_hyperhen_ftpsrv_elf};${_hyperhen_debug_elfldr_elf};${D_CWD}/assets/hyperhen_sicon.png;${_generated_icon_files}"
 )
 set_source_files_properties(
 	${D_SRC}/bootstrap_audio_asset.c
@@ -132,6 +145,9 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 	HYPERHEN_LEGACY_HEN_ELF="${_hyperhen_legacy_hen_elf}"
 	HYPERHEN_HYPERDPI_ELF="${_hyperhen_hyperdpi_elf}"
 	HYPERHEN_LINUX_ELF="${_hyperhen_linux_elf}"
+	HYPERHEN_KLOGSRV_ELF="${_hyperhen_klogsrv_elf}"
+	HYPERHEN_FTPSRV_ELF="${_hyperhen_ftpsrv_elf}"
+	HYPERHEN_DEBUG_ELFLDR_ELF="${_hyperhen_debug_elfldr_elf}"
 	HYPERHEN_ICON_ASSET_DIR="${_icon_output_dir}"
 	HYPERHEN_HYPE_VOICE_PCM="${_hype_voice_pcm}"
 )
@@ -158,7 +174,7 @@ target_link_libraries	(${PROJECT_NAME} PUBLIC onion_proc onion_platform onion_se
 add_custom_target(${PROJECT_NAME}_assets
 	DEPENDS ${_generated_icon_files} "${_icon_asm}" "${_icon_manifest}")
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_assets)
-add_dependencies(${PROJECT_NAME} hypercore_payload automount_payload hypervisor_payload hypervisor_5xx_payload legacy_hen_payload hyperlinux_payload hyperdpi daemon util shellui hyperhen_elfldr_server onion_proc onion_platform onion_settings onion_payload onion_conflict onion_ready onion_elfldr)
+add_dependencies(${PROJECT_NAME} hypercore_payload automount_payload hypervisor_payload hypervisor_5xx_payload legacy_hen_payload hyperlinux_payload hyperdpi daemon util shellui hyperhen_elfldr_server hyperhen_debug_elfldr_server onion_proc onion_platform onion_settings onion_payload onion_conflict onion_ready onion_elfldr)
 
 # Copy bootstrapper.elf as test.elf before processing
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
