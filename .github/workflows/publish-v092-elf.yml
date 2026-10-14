@@ -100,9 +100,20 @@ jobs:
 
       - name: Build HyperHEN v0.9.2
         run: |
-          set -euo pipefail
+          set -uo pipefail
           export PATH="/usr/lib/llvm-18/bin:${PS5_PAYLOAD_SDK}/bin:${PATH}"
-          ./scripts/build.sh --release --jobs "$(nproc)"
+          if ! ./scripts/build.sh --release --jobs "$(nproc)" 2>&1 | tee hyperhen-build.log; then
+            echo '### HyperHEN build failure' >> "${GITHUB_STEP_SUMMARY}"
+            echo '```text' >> "${GITHUB_STEP_SUMMARY}"
+            tail -80 hyperhen-build.log >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            while IFS= read -r line; do
+              line="${line//'%'/'%25'}"
+              line="${line//$'\r'/'%0D'}"
+              echo "::error title=HyperHEN build::${line}"
+            done < <(tail -30 hyperhen-build.log)
+            exit 1
+          fi
 
       - name: Stage release files
         run: |
