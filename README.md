@@ -497,7 +497,7 @@ status.
 
 1. Before loading HyperHEN, make sure the external `elfldr` is reachable on port **9021**.
 2. Make sure the payload was built for this firmware with a complete PS5 Payload SDK.
-3. If the selected route provides the Toolbox and it does not appear, wait for `util → HyperCore → Automount → daemon` to finish and check the logs. FW 13.40/13.42 intentionally have no Toolbox.
+3. If the Toolbox does not appear, close WebKit manually, wait for the selected engine → Automount → daemon startup to finish, and check the logs. FW 13.40/13.42 use the restricted Kstuff-lite / Automount-lite route with Toolbox support.
 4. If HyperCore does not build, run `./scripts/sync_dependencies.sh`; it reports the exact missing vendored source.
 5. When you report a problem, include firmware, exploit host, SDK version, build type, logs, and steps to reproduce.
 
