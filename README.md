@@ -566,12 +566,31 @@ engineering, and project maintenance: **MICHELE MEDIA**.
 - [LibTomCrypt](https://github.com/libtom/libtomcrypt) — cryptographic support vendored at the HyperCore-pinned revision
 - [ISA-L Crypto](https://github.com/intel/isa-l_crypto) — cryptographic support vendored at the HyperCore-pinned revision
 
+#### Advanced Debug payload additions
+
+- [PS5 Firmware Spoof](https://github.com/illusionyy/ps5-fw-spoof) — **illusionyy**.
+- [NP Fake Sign-in](https://github.com/earthonion/np-fake-signin) — **earthonion**; its upstream acknowledgements also credit John Törnblom's [offact](https://github.com/ps5-payload-dev/offact) for offline activation.
+- [nanoDNS](https://github.com/drakmor/nanoDNS) — **drakmor**.
+- [Chukei DNS](https://github.com/Al-Azif/chukei-dns) — **Al Azif (Al-Azif)**.
+- [zFTPd + zHTTP](https://github.com/seregonwar/zftpd) — **Seregon (SeregonWar)**.
+- [Garlic SaveMgr](https://github.com/earthonion/garlic-savemgr) — **earthonion**.
+
+#### HyperDeck components
+
+- [PS5 Game Compressor](https://github.com/juma-sayeh/PS5-Game-Compressor) — **Juma Sayeh (juma-sayeh)**.
+- [PS5 Web File Manager](https://github.com/owendswang/ps5-web-file-manager) — **owendswang**.
+- [CheatRunner](https://github.com/notmaj0r/CheatRunner) — **notmaj0r (maj0r)**.
+- [PS5Upload](https://github.com/phantomptr/ps5upload) — **PhantomPtr**.
+- [websrv and the PKG installation helper](https://github.com/ps5-payload-dev/websrv) — **John Törnblom and the ps5-payload-dev contributors**; the web-service foundation and native package-install helper used by HyperDeck.
+
 The exact provenance, revisions, inclusion form, firmware scope, and license
 boundary for every major component are recorded in the
 [technical overview](docs/COMPONENTS_AND_TECHNICAL_OVERVIEW.md) and the
 per-component `HYPERHEN_VENDOR_LOCK.md` files under `third_party/`.
 
 ### Testers
+
+- [**@oG_LuckyXmods**](https://x.com/oG_LuckyXmods) — special thanks for the extensive help testing HyperHEN.
 
 Thanks as well to everyone else who tested, researched, or sent usable feedback.
 
