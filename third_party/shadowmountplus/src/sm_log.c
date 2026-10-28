@@ -134,6 +134,7 @@ static bool build_notification_metadata(char *created_at,
 
 static bool send_rich_notification(const char *message) {
   char escaped_message[4096];
+  char escaped_version[128];
   char escaped_action[256];
   char payload[8192];
   char created_at[32];
@@ -150,8 +151,11 @@ static bool send_rich_notification(const char *message) {
     return false;
 
   escaped_message[0] = '\0';
+  escaped_version[0] = '\0';
   escaped_action[0] = '\0';
   append_json_escaped(escaped_message, sizeof(escaped_message), message);
+  append_json_escaped(escaped_version, sizeof(escaped_version),
+                      SHADOWMOUNT_VERSION);
   append_json_escaped(escaped_action, sizeof(escaped_action),
                       sm_l10n_get(SM_L10N_ACTION_DEBUG_SETTINGS));
   if (!build_notification_metadata(created_at, notification_id,
@@ -182,7 +186,7 @@ static bool send_rich_notification(const char *message) {
       "        \"body\": \"%s\"\n"
       "      },\n"
       "      \"subMessage\": {\n"
-      "        \"body\": \"Coded by MICHELE MEDIA\"\n"
+      "        \"body\": \"HyperHEN Automount %s - Coded by MICHELE MEDIA\"\n"
       "      },\n"
       "      \"actions\": [\n"
       "        {\n"
@@ -214,8 +218,8 @@ static bool send_rich_notification(const char *message) {
       "  \"createdDateTime\": \"%s\",\n"
       "  \"localNotificationId\": \"%s\"\n"
       "}",
-      escaped_message, escaped_action, escaped_message, created_at,
-      notification_id);
+      escaped_message, escaped_version, escaped_action, escaped_message,
+      created_at, notification_id);
   if (len < 0 || (size_t)len >= sizeof(payload))
     return false;
 

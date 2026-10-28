@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark"><title>HyperHEN · Installer PKG Background</title>
+  <link rel="icon" href="/logo.png"><link rel="stylesheet" href="/installer.css">
+</head>
+<body>
+  <div class="ambient ambient-cyan" aria-hidden="true"></div><div class="ambient ambient-violet" aria-hidden="true"></div>
+  <div class="shell">
+    <header class="masthead">
+      <a class="brand" href="#library" aria-label="HyperHEN package library"><span class="monogram" aria-hidden="true">H<span></span></span><span>HYPERHEN<small>CONTROL PANEL / 01</small></span></a>
+      <div class="header-right"><span class="connection" id="connection"><i></i><span id="connection-text">CONNECTING</span></span><button class="icon-button" id="help" aria-label="About this installer">?</button></div>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div><p class="eyebrow"><span></span> THE NEXT THING. IN THE BACKGROUND.</p><h1 id="page-title">Installer PKG<br><em>Background<span>.</span></em></h1><p class="intro">Your packages. Your space. One place.<br>Send a local PKG to the console's system installer.</p></div>
+        <div class="hero-art" aria-hidden="true"><div class="orbital orbital-one"></div><div class="orbital orbital-two"></div><div class="package-cube"><span>H</span><small>PKG</small></div><span class="orbit-label">HYPERHEN / PACKAGE STATION</span></div>
+      </section>
+      <div id="notice" class="notice" role="status" aria-live="polite">Connecting to the local HyperHEN web service…</div>
+      <div class="workspace">
+        <section class="library panel" id="library" aria-labelledby="library-title">
+          <div class="section-heading"><div><p class="eyebrow">01 / SOURCE</p><h2 id="library-title">Package library <span class="counter" id="package-count">—</span></h2></div><button class="button primary" id="scan"><span aria-hidden="true">↻</span> Scan drives</button></div>
+          <div class="library-toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Find a package…" aria-label="Find a package" maxlength="120"></label><label class="source-filter"><span class="sr-only">Package source</span><select id="source"><option value="all">All drives</option><option value="usb">USB</option><option value="ext">M.2 / extended</option></select></label></div>
+          <div class="library-columns" aria-hidden="true"><span>PACKAGE / LOCATION</span><span>SIZE</span><span>ACTION</span></div>
+          <div id="package-list" class="package-list"><div class="empty"><span class="empty-mark">↳</span><h3>Bring your library.</h3><p>Connect a drive and select Scan drives.<br>Your files stay exactly where they are.</p></div></div>
+          <div class="library-footer"><span class="tiny-dot"></span><span id="catalog-status">USB · M.2 / extended storage · local PKG files</span></div>
+        </section>
+        <aside class="side-column">
+          <section class="panel storage" id="storage" aria-labelledby="storage-title"><div class="section-heading"><div><p class="eyebrow">02 / CAPACITY</p><h2 id="storage-title">Room for more.</h2></div><button class="icon-button" id="refresh" aria-label="Refresh storage">↻</button></div><p class="section-copy">Available space, right where you need it.</p><div id="volume-list"><p class="muted">Waiting for mounted-volume data…</p></div></section>
+          <section class="panel dispatch" aria-labelledby="dispatch-title"><p class="eyebrow">03 / LAST REQUEST</p><div class="dispatch-heading"><span class="dispatch-symbol" id="dispatch-symbol" aria-hidden="true">&gt;</span><h2 id="dispatch-title" aria-live="polite">Ready when you are.</h2></div><p id="dispatch-name" class="dispatch-name">No package selected.</p><div id="dispatch-meter" class="dispatch-meter" hidden><span></span></div><p id="dispatch-detail" class="section-copy">Choose a package, then follow its installation in Downloads / Uploads on the console.</p><span class="route">YOUR LIBRARY <b>→</b> YOUR CONSOLE</span></section>
+        </aside>
+      </div>
+    </main>
+    <footer class="page-footer"><span class="footer-wordmark">HYPERHEN <i>/</i> BUILT TO GO FURTHER.</span><div class="controls"><span><kbd>✕</kbd> Select</span><span><kbd>○</kbd> Back</span><span><kbd>L1</kbd> Library</span><span><kbd>R1</kbd> Storage</span></div></footer>
+  </div>
+  <div class="modal" id="modal" hidden><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-text"><p class="eyebrow" id="dialog-kicker">HYPERHEN</p><h2 id="dialog-title"></h2><p id="dialog-text"></p><div class="dialog-actions"><button class="button" id="dialog-cancel">Back</button><button class="button primary" id="dialog-confirm" hidden>Install package</button></div></section></div>
+  <script src="/hyperdeck.js"></script>
+</body>
+</html>

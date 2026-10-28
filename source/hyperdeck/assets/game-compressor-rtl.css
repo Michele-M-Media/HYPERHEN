@@ -1,0 +1,322 @@
+/*
+ * Arabic/RTL layout overrides.
+ *
+ * Keep every rule scoped to an explicitly RTL document so the English layout
+ * remains byte-for-byte governed by the base stylesheet. Physical left/right
+ * fallbacks are intentional for the older WebKit build used by the PS5 browser.
+ */
+
+html[dir="rtl"],
+html[dir="rtl"] body {
+  direction: rtl;
+}
+
+/* Isolate technical values (paths, title IDs, versions, sizes, and hashes). */
+html[dir="rtl"] .ltr-token,
+html[dir="rtl"] [dir="ltr"] {
+  direction: ltr;
+  unicode-bidi: embed;
+  unicode-bidi: isolate;
+}
+
+html[dir="rtl"] .auto-token {
+  unicode-bidi: embed;
+  unicode-bidi: plaintext;
+}
+
+html[dir="rtl"] .ltr-token,
+html[dir="rtl"] .path-line {
+  text-align: left;
+}
+
+html[dir="rtl"] .path-line,
+html[dir="rtl"] .progress-current-file,
+html[dir="rtl"] .row-sub {
+  direction: ltr;
+  unicode-bidi: embed;
+  unicode-bidi: isolate;
+}
+
+html[dir="rtl"] .row-sub {
+  text-align: right;
+}
+
+/* Sidebar rows: mirror the thumbnail/content flow and the floating status chip. */
+html[dir="rtl"] .sidebar-head,
+html[dir="rtl"] .game-row,
+html[dir="rtl"] .row-main {
+  text-align: right;
+}
+
+html[dir="rtl"] .row-tags {
+  padding-right: 0;
+  padding-left: 90px;
+}
+
+html[dir="rtl"] .game-row > .chip {
+  right: auto;
+  left: 12px;
+  justify-self: start;
+  max-width: calc(100% - 92px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[dir="rtl"] .measure-dots {
+  text-align: right;
+}
+
+/* Top-bar callouts and fixed notices follow the mirrored action cluster. */
+html[dir="rtl"] .free-space-label .free-space-value {
+  margin-left: 0;
+  margin-right: 6px;
+}
+
+@media (max-width: 520px) {
+  html[dir="rtl"] .free-space-label .free-space-value {
+    margin-right: 0;
+  }
+}
+
+html[dir="rtl"] .terminate-reminder {
+  right: auto;
+  left: 18px;
+  text-align: right;
+}
+
+html[dir="rtl"] .terminate-reminder::before {
+  right: auto;
+  left: 19px;
+  border-left: 0;
+  border-right: 1px solid rgba(31, 47, 78, .22);
+  border-top: 1px solid rgba(31, 47, 78, .22);
+  transform: rotate(-45deg);
+}
+
+html[dir="rtl"] body.theme-dark .terminate-reminder::before {
+  border-left-color: transparent;
+  border-right-color: rgba(245, 245, 240, .22);
+  border-top-color: rgba(245, 245, 240, .22);
+}
+
+html[dir="rtl"] .info-launcher {
+  right: auto;
+  left: 36px;
+}
+
+html[dir="rtl"] .ui-notice-layer {
+  right: auto;
+  left: 18px;
+}
+
+html[dir="rtl"] .ui-notice,
+html[dir="rtl"] .ui-notice-title,
+html[dir="rtl"] .ui-notice-meta {
+  text-align: right;
+}
+
+html[dir="rtl"] .language-menu,
+html[dir="rtl"] .language-option {
+  text-align: right;
+}
+
+html[dir="rtl"] .language-option:hover {
+  transform: translateX(-1px);
+}
+
+/* Actions, menus, and card-like options use Arabic alignment and can grow. */
+html[dir="rtl"] .primary-btn,
+html[dir="rtl"] .small-action,
+html[dir="rtl"] .more-btn {
+  text-align: center;
+}
+
+html[dir="rtl"] .primary-btn {
+  height: auto;
+  line-height: 1.25;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+html[dir="rtl"] .small-action {
+  height: auto;
+  min-height: 40px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  line-height: 1.25;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+html[dir="rtl"] .menu-action {
+  height: auto;
+  min-height: 46px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  text-align: right;
+  line-height: 1.3;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+html[dir="rtl"] .menu-action:hover {
+  transform: translateX(-1px);
+}
+
+html[dir="rtl"] .menu-action:active {
+  transform: scale(.99);
+}
+
+html[dir="rtl"] .pending-box,
+html[dir="rtl"] .pending-label,
+html[dir="rtl"] .history-row,
+html[dir="rtl"] .usb-row,
+html[dir="rtl"] .format-row,
+html[dir="rtl"] .format-output-note,
+html[dir="rtl"] .format-switch-note,
+html[dir="rtl"] .compress-usb-panel,
+html[dir="rtl"] .usb-picker-trigger,
+html[dir="rtl"] .usb-picker-option,
+html[dir="rtl"] .usb-picker-empty,
+html[dir="rtl"] .delete-warning,
+html[dir="rtl"] .modal-head,
+html[dir="rtl"] .modal-body {
+  text-align: right;
+}
+
+html[dir="rtl"] .history-title {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+html[dir="rtl"] .history-meta,
+html[dir="rtl"] .pending-meta,
+html[dir="rtl"] .format-switch-note,
+html[dir="rtl"] .compress-usb-meta {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+html[dir="rtl"] .usb-row > div,
+html[dir="rtl"] .format-row > div,
+html[dir="rtl"] .format-output-note > div,
+html[dir="rtl"] .usb-picker-trigger > div,
+html[dir="rtl"] .usb-picker-option > div {
+  min-width: 0;
+}
+
+html[dir="rtl"] .usb-row,
+html[dir="rtl"] .format-row,
+html[dir="rtl"] .usb-picker-trigger,
+html[dir="rtl"] .usb-picker-option {
+  white-space: normal;
+}
+
+html[dir="rtl"] .remount-path {
+  height: auto;
+  min-height: 38px;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+/* APR version actions: custom upload stays opposite Cancel/Apply. */
+html[dir="rtl"] #ampr-version-modal .ampr-version-list {
+  padding-right: 0;
+  padding-left: 4px;
+}
+
+html[dir="rtl"] #ampr-version-modal .modal-actions {
+  flex-wrap: wrap;
+}
+
+html[dir="rtl"] #ampr-custom-upload {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+/* Progress labels can expand while machine-formatted values stay LTR. */
+html[dir="rtl"] .progress-heading {
+  flex-wrap: wrap;
+}
+
+html[dir="rtl"] .progress-label,
+html[dir="rtl"] .progress-direction {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+html[dir="rtl"] .progress-percent,
+html[dir="rtl"] .progress-elapsed-value,
+html[dir="rtl"] .progress-speed-value,
+html[dir="rtl"] .progress-remaining-value {
+  direction: ltr;
+  unicode-bidi: embed;
+  unicode-bidi: isolate;
+}
+
+html[dir="rtl"] .progress-percent {
+  text-align: left;
+}
+
+html[dir="rtl"] .progress-time {
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
+html[dir="rtl"] .progress-elapsed {
+  text-align: right;
+}
+
+html[dir="rtl"] .progress-speed,
+html[dir="rtl"] .progress-remaining {
+  text-align: left;
+}
+
+html[dir="rtl"] .progress-times {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+html[dir="rtl"] .bar {
+  direction: rtl;
+}
+
+html[dir="rtl"] .bar span {
+  float: right;
+}
+
+@media (max-width: 760px) {
+  html[dir="rtl"] .sidebar {
+    border-right: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  html[dir="rtl"] .info-launcher {
+    right: auto;
+    left: 20px;
+  }
+
+  html[dir="rtl"] #ampr-version-modal #ampr-custom-upload {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  html[dir="rtl"] #ampr-version-modal #ampr-version-cancel,
+  html[dir="rtl"] #ampr-version-modal #ampr-version-apply {
+    min-width: 0;
+  }
+}

@@ -26,6 +26,7 @@
 #include "daemon_ops.hpp"
 #include "app_lifecycle_runtime.hpp"
 #include "globalconf.hpp"
+#include "shellui_exec_policy.hpp"
 
 #include <onion/app_jailbreak_policy.hpp>
 #include <onion/app_lifecycle.hpp>
@@ -136,8 +137,6 @@ constexpr const char *kJailbreakReqNames[] = {
     "etahen_jailbreak",
     "hyperhen_jailbreak",
 };
-constexpr const char *kShellUiTitleId = "NPXS40087";
-constexpr const char *kShellUiProcessName = "SceShellUI";
 constexpr uintptr_t kReconcileBurstTimerIdent = 1;
 constexpr uintptr_t kReconcileFallbackTimerIdent = 2;
 
@@ -161,12 +160,13 @@ ExecIdentity read_exec_identity(pid_t pid) {
   return id;
 }
 
-bool identity_is_shellui(const ExecIdentity &id) {
-  if (id.name_rc == 0 &&
-      std::strcmp(id.process_name, kShellUiProcessName) == 0) {
-    return true;
-  }
-  return id.app_info_rc == 0 && id.tid == kShellUiTitleId;
+bool identity_is_shellui(pid_t pid, const ExecIdentity &id) {
+  return onion::daemon::ShellUiExecPolicy::accepts(
+      pid, id.name_rc,
+      std::string_view(id.process_name,
+                       strnlen(id.process_name, sizeof(id.process_name))),
+      id.app_info_rc, id.tid,
+      []() -> pid_t { return static_cast<pid_t>(get_shellui_pid()); });
 }
 
 bool is_whitelisted_app(const std::string &tid,
@@ -503,7 +503,7 @@ private:
       return false;
     }
 
-    LOG_INFO("[lifecycle] SceSysCore listener active pid=%d",
+    LOG_INFO("[lifecycle] SceSysCore listener active pid=%d (ShellUI EXEC policy R19)",
              static_cast<int>(syscore_pid_));
 
     EV_SET(&event, kReconcileFallbackTimerIdent, EVFILT_TIMER,
@@ -532,7 +532,7 @@ private:
     bool spawn_activity = false;
     if (event.fflags & NOTE_EXEC) {
       const ExecIdentity id = read_exec_identity(pid);
-      if (identity_is_shellui(id)) {
+      if (identity_is_shellui(pid, id)) {
         LOG_DEBUG("[lifecycle] SysCore EXEC SceShellUI pid=%d",
                   static_cast<int>(pid));
         toolbox_on_new_shellui(pid);

@@ -218,7 +218,23 @@ int test_etahen_container_discovery(void) {
   FakeRuntime runtime;
   onion::plugin::Manager manager(onion::plugin::Repository(root), runtime);
   TEST_ASSERT_EQ_INT(1, static_cast<int>(manager.reconcile().discovered));
+  { std::ofstream old_marker(path + ".auto_start"); }
+  TEST_ASSERT_EQ_INT(0, static_cast<int>(manager.reconcile(true).started));
+  TEST_ASSERT_TRUE(!manager.set_auto_start("TACP00001", true));
   TEST_ASSERT_TRUE(manager.start("TACP00001"));
+  TEST_ASSERT_EQ_INT(1, static_cast<int>(runtime.launched.size()));
+  TEST_ASSERT_TRUE(manager.inventory().front().manual_only);
+  TEST_ASSERT_TRUE(!manager.inventory().front().auto_start());
+  TEST_ASSERT_TRUE(!manager.stop("TACP00001"));
+  TEST_ASSERT_TRUE(!manager.reload("TACP00001"));
+  TEST_ASSERT_TRUE(!manager.remove("TACP00001"));
+  TEST_ASSERT_EQ_INT(0, runtime.stop_count);
+  TEST_ASSERT_TRUE(write_plugin(path, make_etahen_plugin("TACP00001", "1.00", 0x6b)));
+  (void)manager.reconcile();
+  TEST_ASSERT_EQ_INT(1, static_cast<int>(runtime.launched.size()));
+  TEST_ASSERT_EQ_INT(0, runtime.stop_count);
+  runtime.alive_pids[runtime.last_pid] = false;
+  TEST_ASSERT_EQ_INT(0, static_cast<int>(manager.reconcile().started));
   TEST_ASSERT_EQ_INT(1, static_cast<int>(runtime.launched.size()));
 
   unlink(path.c_str());

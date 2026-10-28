@@ -1,3 +1,8 @@
+> Historical translation of the public 0.9.2 documentation. For the current
+> 0.9.3 features, exact firmware profiles and release build instructions, read
+> [README.md](README.md), [RELEASE_NOTES.md](RELEASE_NOTES.md) and
+> [BUILD_RELEASE.md](BUILD_RELEASE.md).
+
 <p align="center">
   <img src="assets/logo.png" alt="HyperHEN" height="128" width="128"/>
 </p>

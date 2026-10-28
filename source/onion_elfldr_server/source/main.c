@@ -47,6 +47,7 @@
 
 #define PAYLOAD_MAGIC_ELF      0x464C457F
 #define PAYLOAD_MAGIC_URI_FILE 0x656C6966
+#define PAYLOAD_MAGIC_PLUGIN   0x676C7068
 #define PAYLOAD_MAGIC_ONION    0x6F696E6F
 
 #define PTRACE_AUTHID 0x4800000000010003
@@ -326,7 +327,8 @@ static int payload_readuri(int fd, char *uri, size_t size) {
   return -1;
 }
 
-static int path_read(const char *path, uint8_t **content, size_t *content_size) {
+static int path_read(const char *path, uint8_t **content, size_t *content_size,
+                      bool plugin) {
   struct stat st;
   uint8_t *buf;
   int fd;
@@ -337,11 +339,12 @@ static int path_read(const char *path, uint8_t **content, size_t *content_size) 
   *content = NULL;
   *content_size = 0;
 
-  fd = open(path, O_RDONLY);
+  fd = open(path, O_RDONLY | O_NOFOLLOW);
   if(fd < 0) {
     return -1;
   }
-  if(fstat(fd, &st) != 0 || st.st_size <= 0) {
+  if(fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0 ||
+     st.st_size > 128 * 1024 * 1024) {
     close(fd);
     return -1;
   }
@@ -364,7 +367,7 @@ static int path_read(const char *path, uint8_t **content, size_t *content_size) 
   }
   close(fd);
 
-  if(elfldr_sanity_check(buf, (size_t)st.st_size)) {
+  if(!plugin && elfldr_sanity_check(buf, (size_t)st.st_size)) {
     free(buf);
     errno = ENOEXEC;
     return -1;
@@ -376,13 +379,27 @@ static int path_read(const char *path, uint8_t **content, size_t *content_size) 
 }
 
 static pid_t payload_spawn(char *filename, char *args, uint8_t *payload,
-                           size_t payload_size) {
+                           size_t payload_size, bool plugin) {
   char *argv[255 + 2] = {0};
   pid_t pid;
 
   argv[0] = filename && filename[0] ? filename : "payload.elf";
   args_split(args, argv + 1, 255);
-  pid = elfldr_spawn(-1, argv, payload, payload_size);
+  struct sigaction previous;
+  bool changed = false;
+  if(plugin) {
+    struct sigaction action;
+    memset(&action, 0, sizeof(action)); sigemptyset(&action.sa_mask);
+    action.sa_handler = SIG_DFL;
+    changed = sigaction(SIGCHLD, &action, &previous) == 0;
+    if(!changed) {
+      for(int i=1;argv[i];++i) free(argv[i]);
+      return -1;
+    }
+  }
+  pid = plugin ? elfldr_spawn_plugin(-1, argv, payload, payload_size)
+               : elfldr_spawn(-1, argv, payload, payload_size);
+  if(changed) (void)sigaction(SIGCHLD, &previous, NULL);
 
   for(int i = 1; argv[i]; i++) {
     free(argv[i]);
@@ -419,10 +436,15 @@ static void on_connection(int fd) {
       send_text(fd, "ERR unknown onion command\n");
     }
     return;
-  } else if(magic == PAYLOAD_MAGIC_URI_FILE) {
+  } else if(magic == PAYLOAD_MAGIC_URI_FILE || magic == PAYLOAD_MAGIC_PLUGIN) {
     char *path = NULL;
-    if(payload_readuri(fd, uri, sizeof(uri)) || !(path = uri_get_path(uri)) ||
-       path_read(path, &buf, &len)) {
+    if(payload_readuri(fd, uri, sizeof(uri))) {
+      send_text(fd, "ERR incomplete URI\n");
+      return;
+    }
+    if(magic == PAYLOAD_MAGIC_PLUGIN) memcpy(uri, "file", 4);
+    if(!(path = uri_get_path(uri)) ||
+       path_read(path, &buf, &len, magic == PAYLOAD_MAGIC_PLUGIN)) {
       LOG_ERROR("error reading URI payload: %s", strerror(errno));
       send_text(fd, "ERR uri read failed\n");
       free(path);
@@ -453,7 +475,7 @@ static void on_connection(int fd) {
   /* The runtime supervisor must not mistake a synchronous, long-running spawn
    * for a wedged loader just because ping is queued behind this connection. */
   set_launch_busy(true);
-  pid = payload_spawn(filename, args, buf, len);
+  pid = payload_spawn(filename, args, buf, len, magic == PAYLOAD_MAGIC_PLUGIN);
   if(pid > 1) {
     char out[64];
     snprintf(out, sizeof(out), "OK %d\n", (int)pid);

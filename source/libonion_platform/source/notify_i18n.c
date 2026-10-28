@@ -10,6 +10,7 @@
 #include "notify_i18n_catalog.inc"
 
 static atomic_int gLanguage = ATOMIC_VAR_INIT(ONION_NOTIFY_LANG_EN);
+static atomic_int gUiLanguage = ATOMIC_VAR_INIT(ONION_NOTIFY_LANG_EN);
 
 static int language_is_known(onion_notify_language_t language) {
   return language >= ONION_NOTIFY_LANG_ZH_HANS &&
@@ -98,6 +99,21 @@ void onion_notify_set_language(onion_notify_language_t language) {
 onion_notify_language_t onion_notify_get_language(void) {
   return (onion_notify_language_t)atomic_load_explicit(&gLanguage,
                                                         memory_order_relaxed);
+}
+
+void onion_notify_set_ui_language(onion_notify_language_t language) {
+  if (!language_is_known(language))
+    language = ONION_NOTIFY_LANG_EN;
+  atomic_store_explicit(&gUiLanguage, language, memory_order_relaxed);
+}
+
+onion_notify_language_t onion_notify_get_ui_language(void) {
+  return (onion_notify_language_t)atomic_load_explicit(&gUiLanguage,
+                                                     memory_order_relaxed);
+}
+
+const char *onion_notify_locale_id(void) {
+  return locale_id_for_language(onion_notify_get_language());
 }
 
 onion_notify_language_t onion_notify_resolve_language(int ui_language,
@@ -227,8 +243,17 @@ onion_notify_language_t onion_notify_resolve_language(int ui_language,
 }
 
 void onion_notify_apply_ui_language(int ui_language, int system_language) {
-  onion_notify_set_language(
+  /* A failed runtime query must preserve the last valid system locale. */
+  if (system_language < 0) {
+    if (ui_language > 0)
+      onion_notify_set_ui_language(
+          onion_notify_resolve_language(ui_language, system_language));
+    return;
+  }
+  onion_notify_set_ui_language(
       onion_notify_resolve_language(ui_language, system_language));
+  onion_notify_set_language(
+      onion_notify_resolve_language(0, system_language));
 }
 
 const char *onion_notify_tr(const char *key) {

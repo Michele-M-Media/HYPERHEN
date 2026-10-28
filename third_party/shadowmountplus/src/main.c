@@ -28,6 +28,9 @@
 #include "sm_time.h"
 #include "sm_install.h"
 #include "sm_appdb.h"
+#include "sm_kstuff.h"
+#include "sm_hyperhen_launch.h"
+#include "sm_hyperhen_policy.h"
 #include "sm_limits.h"
 #include "sm_mdbg.h"
 #include "sm_paths.h"
@@ -47,6 +50,7 @@
 #define HYPERHEN_READY_ROOT HYPERHEN_RUNTIME_ROOT "/ready"
 #define HYPERHEN_AUTOMOUNT_READY HYPERHEN_READY_ROOT "/automount"
 #define HYPERHEN_AUTOMOUNT_FAILED HYPERHEN_READY_ROOT "/automount_failed"
+#define HYPERHEN_AUTOMOUNT_LIMITED HYPERHEN_READY_ROOT "/automount_limited"
 #define RESTART_WAIT_POLL_US 200000u
 #define RESTART_WAIT_MAX_US 60000000u
 #define STOP_FILE_POLL_INTERVAL_US 3000000ull
@@ -67,26 +71,36 @@ static pthread_mutex_t g_runtime_mount_state_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void hyperhen_automount_clear_marker(const char *path) {
   if (unlink(path) != 0 && errno != ENOENT)
-    printf("[HyperHEN] Failed to clear marker %s: %s\n", path,
-           strerror(errno));
+    printf("[HyperHEN] Failed to clear marker %s: %s\n", path, strerror(errno));
 }
 
-static bool hyperhen_automount_write_marker(const char *path,
-                                            const char *value) {
+static bool hyperhen_automount_write_marker(const char *path, const char *value) {
   (void)mkdir(HYPERHEN_RUNTIME_ROOT, 0777);
   (void)mkdir(HYPERHEN_READY_ROOT, 0777);
   int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
   if (fd < 0)
     return false;
-  size_t size = strlen(value);
-  ssize_t written = write(fd, value, size);
-  int saved_errno = errno;
-  if (close(fd) != 0 && written == (ssize_t)size) {
-    saved_errno = errno;
-    written = -1;
+  const size_t size = strlen(value);
+  size_t offset = 0;
+  int saved_errno = 0;
+  while (offset < size) {
+    ssize_t written = write(fd, value + offset, size - offset);
+    if (written < 0 && errno == EINTR)
+      continue;
+    if (written <= 0) {
+      saved_errno = written < 0 ? errno : EIO;
+      break;
+    }
+    offset += (size_t)written;
   }
-  errno = saved_errno;
-  return written == (ssize_t)size;
+  if (close(fd) != 0 && saved_errno == 0)
+    saved_errno = errno;
+  if (saved_errno != 0) {
+    (void)unlink(path);
+    errno = saved_errno;
+    return false;
+  }
+  return true;
 }
 
 static bool hyperhen_automount_signal_ready(void) {
@@ -98,9 +112,9 @@ static bool hyperhen_automount_signal_ready(void) {
 
 static void hyperhen_automount_signal_failed(void) {
   hyperhen_automount_clear_marker(HYPERHEN_AUTOMOUNT_READY);
+  hyperhen_automount_clear_marker(HYPERHEN_AUTOMOUNT_LIMITED);
   if (!hyperhen_automount_write_marker(HYPERHEN_AUTOMOUNT_FAILED, "1"))
-    printf("[HyperHEN] Failed to publish automount failure: %s\n",
-           strerror(errno));
+    printf("[HyperHEN] Failed to publish automount failure: %s\n", strerror(errno));
 }
 
 typedef struct {
@@ -550,39 +564,30 @@ static void cleanup_kstuff_noautomount_file(void) {
   }
 }
 
-static void stop_conflicting_backpork(void) {
-  if (!runtime_config().backport_fakelib_enabled)
-    return;
-
-  const char *names[] = {BACKPORK_PROCESS_NAME, BACKPORK_PROCESS_NAME_ALT};
+static bool external_mount_owner_present(void) {
+  const char *names[] = {"shadowmountplus.elf", "shadowmount.elf",
+                         BACKPORK_PROCESS_NAME, BACKPORK_PROCESS_NAME_ALT};
   for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
-    while (true) {
-      pid_t pid = find_pid_by_name(names[i], false);
-      if (pid <= 0)
-        break;
-
-      if (kill(pid, SIGKILL) != 0) {
-        if (errno != ESRCH) {
-          log_debug("  [FAKELIB] failed to stop %s pid=%ld: %s", names[i],
-                    (long)pid, strerror(errno));
-        }
-        break;
-      }
-
-      log_debug("  [FAKELIB] stopped conflicting %s pid=%ld", names[i],
-                (long)pid);
-      sceKernelUsleep(100000);
+    const pid_t pid = find_pid_by_name(names[i], false);
+    if (pid != 0) {
+      printf("[HyperHEN] External mount owner %s pid=%ld; startup refused.\n",
+             names[i], (long)pid);
+      return true;
     }
   }
+  return false;
 }
 
 int main(void) {
   bool restarted_previous_instance = false;
   bool startup_failed = false;
+  bool hooks_ready = false;
+  bool limited_mode = false;
   pid_t existing_pid = 0;
 
   hyperhen_automount_clear_marker(HYPERHEN_AUTOMOUNT_READY);
   hyperhen_automount_clear_marker(HYPERHEN_AUTOMOUNT_FAILED);
+  hyperhen_automount_clear_marker(HYPERHEN_AUTOMOUNT_LIMITED);
 
   sceUserServiceInitialize(0);
   sceAppInstUtilInitialize();
@@ -594,6 +599,11 @@ int main(void) {
   existing_pid = find_pid_by_name(PAYLOAD_NAME, true);
   if (existing_pid < 0) {
     printf("[RESTART] Failed to enumerate running processes.\n");
+    hyperhen_automount_signal_failed();
+    sceUserServiceTerminate();
+    return 1;
+  }
+  if (external_mount_owner_present()) {
     hyperhen_automount_signal_failed();
     sceUserServiceTerminate();
     return 1;
@@ -646,22 +656,42 @@ int main(void) {
   load_runtime_config();
   const runtime_config_t startup_cfg = runtime_config();
   sm_notifications_init();
-  stop_conflicting_backpork();
+  if (!sm_hyperhen_launch_route_ready()) {
+    log_debug("[STARTUP] selected engine has not supplied valid launch-route proof");
+    startup_failed = true;
+    goto shutdown;
+  }
   sm_mdbg_init();
-  if (!sm_shellcore_service_start())
+  if (!sm_shellcore_service_start()) {
     log_debug("  [SHELLCORE] Unix socket service unavailable: %s",
               strerror(errno));
-  else if (!sm_shellcore_hooks_start()) {
-    log_debug("  [SHELLCORE] lifecycle hooks unavailable; stock behavior kept");
+    startup_failed = true;
+    goto shutdown;
+  }
+  hooks_ready = sm_shellcore_hooks_start();
+  if (!hooks_ready) {
+    log_debug("  [SHELLCORE] required lifecycle hooks unavailable");
     notify_system_l10n(SM_L10N_SHELLCORE_HOOKS_FAILED);
+    if (!sm_hyperhen_shellcore_limited_firmware(kernel_get_fw_version())) {
+      startup_failed = true;
+      goto shutdown;
+    }
+    limited_mode = true;
+    log_debug("[HYPERHEN] LIMITED mode: exact firmware has no verified ShellCore table; scanner/API/direct registration only where supported; on-demand hooks unavailable");
   }
   if (startup_cfg.api_enabled)
     sm_shell_icon_install_if_missing();
-  if (!refresh_game_lifecycle_watcher())
+  if (!refresh_game_lifecycle_watcher()) {
     log_debug("  [GAME] lifecycle watcher unavailable");
+    startup_failed = true;
+    goto shutdown;
+  }
   // Publish the initial AppFocus only after its lifecycle consumer.
-  if (!sm_shellcore_flags_start())
+  if (!sm_shellcore_flags_start()) {
     log_debug("  [SHELLFLAG] monitor unavailable");
+    startup_failed = true;
+    goto shutdown;
+  }
   if (!sm_ampr_updater_start())
     log_debug("  [AMPR] update service unavailable: %s", strerror(errno));
 
@@ -670,16 +700,18 @@ int main(void) {
   }
   if (remount_system_ex() != 0) {
     log_debug("  [MOUNT] remount_system_ex failed: %s", strerror(errno));
+    startup_failed = true;
+    goto shutdown;
   }
 
   if (startup_cfg.api_enabled) {
     char web_address[MAX_API_BIND_ADDRESS];
     resolve_web_interface_address(startup_cfg.api_bind_address, web_address,
                                   sizeof(web_address));
-    notify_system_l10n(SM_L10N_STARTUP_WEB, web_address,
-                       startup_cfg.api_port);
+    notify_system_l10n(SM_L10N_STARTUP_WEB, SHADOWMOUNT_VERSION,
+                       web_address, startup_cfg.api_port);
   } else {
-    notify_system_l10n(SM_L10N_STARTUP);
+    notify_system_l10n(SM_L10N_STARTUP, SHADOWMOUNT_VERSION);
   }
   log_non_empty_scan_paths();
 
@@ -711,18 +743,34 @@ int main(void) {
     goto shutdown;
   }
   log_debug("[STARTUP] scanner startup sync done");
-  if (!hyperhen_automount_signal_ready()) {
-    log_debug("[STARTUP] failed to publish HyperHEN automount readiness: %s",
-              strerror(errno));
+  if (!limited_mode && (!hooks_ready || !sm_shellcore_hooks_refresh())) {
+    log_debug("[STARTUP] required lifecycle hooks lost during startup scan");
     startup_failed = true;
     goto shutdown;
   }
-  if (!sm_api_service_start())
+  if (!sm_api_service_start()) {
     log_debug("  [API] HTTP/JSON service unavailable: %s", strerror(errno));
+    if (startup_cfg.api_enabled) {
+      startup_failed = true;
+      goto shutdown;
+    }
+  }
+  if (limited_mode &&
+      !hyperhen_automount_write_marker(HYPERHEN_AUTOMOUNT_LIMITED, "1")) {
+    log_debug("[STARTUP] failed to publish limited automount mode: %s", strerror(errno));
+    startup_failed = true;
+    goto shutdown;
+  }
+  if (!hyperhen_automount_signal_ready()) {
+    log_debug("[STARTUP] failed to publish HyperHEN automount readiness: %s", strerror(errno));
+    startup_failed = true;
+    goto shutdown;
+  }
   sm_scanner_run_loop();
 
 shutdown:
   hyperhen_automount_clear_marker(HYPERHEN_AUTOMOUNT_READY);
+  hyperhen_automount_clear_marker(HYPERHEN_AUTOMOUNT_LIMITED);
   sm_ampr_updater_stop();
   sm_api_service_stop();
   // Stop ShellCore producers before their lifecycle and mount-state owners.

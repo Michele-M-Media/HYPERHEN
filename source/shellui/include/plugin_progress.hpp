@@ -12,7 +12,7 @@
 #include <string_view>
 
 /** Reset progress state and start the detached plugin start/stop worker. */
-void plugin_progress_show(std::string_view plugin_id, bool start);
+void plugin_progress_show(std::string_view plugin_id, bool start, bool sprx = false);
 
 /** Push plugin_progress.xml on the active Legacy Settings page stack. */
 bool plugin_progress_open_page(void);

@@ -28,6 +28,8 @@ extern "C" {
 #define ONION_READY_KSTUFF_STARTING "kstuff_starting"
 #define ONION_READY_KSTUFF "kstuff"
 #define ONION_READY_KSTUFF_FAILED "kstuff_failed"
+#define ONION_READY_BACKPORK "backpork"
+#define ONION_READY_BACKPORK_FAILED "backpork_failed"
 #define ONION_READY_AUTOMOUNT "automount"
 #define ONION_READY_AUTOMOUNT_FAILED "automount_failed"
 #define ONION_READY_HYPERVISOR "hypervisor"
@@ -35,11 +37,19 @@ extern "C" {
 #define ONION_READY_HYPERVISOR_FAILED "hypervisor_failed"
 #define ONION_READY_HYPERVISOR_5XX "hypervisor_5xx"
 #define ONION_READY_HYPERVISOR_5XX_FAILED "hypervisor_5xx_failed"
+#define ONION_READY_HYPERVISOR_940 "hypervisor_940"
+#define ONION_READY_HYPERVISOR_940_ARMED "hypervisor_940_armed"
+#define ONION_READY_HYPERVISOR_940_FAILED "hypervisor_940_failed"
 #define ONION_READY_HYPERCORE_NO_PPR "hypercore_no_ppr"
+#define ONION_READY_HYPERCORE_940 "hypercore_940"
+#define ONION_READY_HYPERCORE_LITE "hypercore_lite"
 #define ONION_READY_LEGACY_HEN "legacy_hen"
 #define ONION_READY_LEGACY_HEN_FAILED "legacy_hen_failed"
 #define ONION_READY_DAEMON "daemon"
 #define ONION_READY_TOOLBOX "toolbox"
+#define ONION_READY_HYPERDECK "hyperdeck_http"
+#define ONION_READY_HYPERDECK_LISTENER "hyperdeck_listener"
+#define ONION_READY_HYPERDECK_FAILED "hyperdeck_failed"
 
 /*
  * Runtime flags (same storage as ready markers; typed names replace ad-hoc

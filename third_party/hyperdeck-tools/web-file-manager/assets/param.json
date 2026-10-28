@@ -1,0 +1,17 @@
+{
+  "applicationCategoryType": 65536,
+  "titleId": "FMGR88888",
+  "deeplinkUri": "http://127.0.0.1:8888/",
+  "localizedParameters": {
+    "defaultLanguage": "en-US",
+    "en-US": {
+      "titleName": "Web File Manager"
+    },
+    "zh-Hans": {
+      "titleName": "文件管理器网页"
+    },
+    "zh-Hant": {
+      "titleName": "文件管理器网页"
+    }
+  }
+}

@@ -13,6 +13,7 @@ using namespace toolbox_i18n;
 
 static int test_default_zh(void) {
   set_lang(Lang::ZhHans);
+  onion_notify_set_language(ONION_NOTIFY_LANG_ZH_HANS);
   TEST_ASSERT_TRUE(std::strcmp(tr("root.title"), "★HyperHEN Tools") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("group.pkg"), "内容安装与管理") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("group.game"), "游戏辅助") == 0);
@@ -79,6 +80,7 @@ static int test_default_zh(void) {
 
 static int test_en(void) {
   set_lang(Lang::En);
+  onion_notify_set_language(ONION_NOTIFY_LANG_EN);
   TEST_ASSERT_TRUE(std::strcmp(tr("root.title"), "★HyperHEN Tools") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("group.pkg"), "Content Install & Management") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("group.game"), "Game Tools") == 0);
@@ -242,6 +244,7 @@ static int test_pt_br(void) {
 
 static int test_it(void) {
   set_lang(Lang::It);
+  onion_notify_set_language(ONION_NOTIFY_LANG_IT);
   TEST_ASSERT_TRUE(
       std::strcmp(tr("root.title"), "★HyperHEN Tools") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("cheats.link"), "Trucchi") == 0);
@@ -378,6 +381,38 @@ static int test_system_lang_follows_query(void) {
   TEST_ASSERT_TRUE(active_lang() == Lang::En);
 
   onion_test_system_language_configure(0, 1);
+  return 0;
+}
+
+static int test_toolbox_override_keeps_system_notifications(void) {
+  onion_test_system_language_configure(0, 4); /* German console language. */
+  apply_system_or_ui_lang(11); /* Italian Toolbox preference. */
+  TEST_ASSERT_TRUE(active_lang() == Lang::It);
+  TEST_ASSERT_TRUE(onion_notify_get_ui_language() == ONION_NOTIFY_LANG_IT);
+  TEST_ASSERT_TRUE(onion_notify_get_language() == ONION_NOTIFY_LANG_DE);
+  TEST_ASSERT_STREQ("Trucchi", tr("cheats.link"));
+  TEST_ASSERT_STREQ("Engine auswählen",
+                    onion_notify_tr("notify.selector.heading"));
+
+  /* Changing only the Toolbox must leave notifications in German. */
+  set_lang(Lang::Fr);
+  TEST_ASSERT_TRUE(active_lang() == Lang::Fr);
+  TEST_ASSERT_TRUE(onion_notify_get_language() == ONION_NOTIFY_LANG_DE);
+  TEST_ASSERT_STREQ("Codes de triche", tr("cheats.link"));
+  TEST_ASSERT_STREQ("HyperHEN wird gestartet...",
+                    onion_notify_tr("notify.boot.starting"));
+
+  /* A console-language change updates notifications despite the override. */
+  onion_test_system_language_configure(0, 5); /* Italian console language. */
+  apply_system_or_ui_lang(6); /* Keep the Toolbox in French. */
+  TEST_ASSERT_TRUE(active_lang() == Lang::Fr);
+  TEST_ASSERT_TRUE(onion_notify_get_language() == ONION_NOTIFY_LANG_IT);
+  TEST_ASSERT_STREQ("Codes de triche", tr("cheats.link"));
+  TEST_ASSERT_STREQ("Seleziona motore",
+                    onion_notify_tr("notify.selector.heading"));
+
+  onion_test_system_language_configure(0, 1);
+  apply_system_or_ui_lang(0);
   return 0;
 }
 
@@ -527,6 +562,8 @@ extern "C" int test_toolbox_i18n_suite(void) {
   fails += onion_test_run("i18n.apply_ui_lang", test_apply_ui_lang);
   fails += onion_test_run("i18n.system_lang_follows_query",
                           test_system_lang_follows_query);
+  fails += onion_test_run("i18n.toolbox_override_keeps_system_notifications",
+                          test_toolbox_override_keeps_system_notifications);
   fails += onion_test_run("i18n.system_lang_query_failure_keeps_current",
                           test_system_lang_query_failure_keeps_current);
   fails += onion_test_run("i18n.missing_key", test_missing_key);

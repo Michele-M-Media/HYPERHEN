@@ -16,6 +16,7 @@ along with this program; see the file COPYING. If not, see
 
 #include <onion/ipc_client.hpp>
 #include <onion/ipc_server.hpp>
+#include <onion/notify_i18n.h>
 
 #include <cstdarg>
 #include <cstdio>
@@ -263,7 +264,7 @@ bool IPC_Client::IPCSendCommand(DaemonCommands cmd, std::string &ipc_msg1,
 
   if (send_frame_unlocked(msg) < 0) {
     LOG_ERROR("Failed to send message to daemon");
-    maybe_notify("Failed to send message to daemon");
+    maybe_notify(onion_notify_tr("notify.ipc.send_failed"));
     IPCCloseConnection();
     return false;
   }
@@ -277,7 +278,7 @@ bool IPC_Client::IPCSendCommand(DaemonCommands cmd, std::string &ipc_msg1,
   IPC_Ret error =
       static_cast<IPC_Ret>(IPCReceiveData(msg, ipc_msg1, recv_timeout_ms));
   if (error == IPC_Ret::NO_ERROR) {
-    LOG_ERROR("[Daemon] Daemon returned NO ERROR");
+    LOG_DEBUG("[Daemon] Command completed successfully");
     return true;
   }
   LOG_ERROR("[Daemon] Daemon returned an ERROR");
@@ -569,7 +570,8 @@ bool IPC_Client::ListPlugins(std::vector<PluginInventoryItem> &plugins) {
       if (!plugin_id || !version || !name) return false;
       plugins.push_back({plugin_id, version, name,
                          onion_cjson::bool_item(item, "running"),
-                         onion_cjson::bool_item(item, "auto_start")});
+                         onion_cjson::bool_item(item, "auto_start"),
+                         onion_cjson::bool_item(item, "manual_only")});
     }
 
     const int next = onion_cjson::int_item(root.get(), "next", -1);

@@ -2,12 +2,42 @@
 #include "test_support.h"
 
 #include <onion/sprx_catalog.hpp>
+#include <onion/plugin_metadata.hpp>
+#include <cstring>
 
 #include <string>
 #include <unistd.h>
 #include <vector>
 
 namespace {
+
+int test_exact_metadata() {
+  const auto parse = [](const std::string &json, std::string_view id, std::string &version) {
+    return onion::sprx::parse_game_metadata(
+      {reinterpret_cast<const uint8_t *>(json.data()), json.size()}, id, version);
+  };
+  std::string version;
+  TEST_ASSERT_TRUE(parse("{\"titleId\":\"PPSA00001\",\"contentVersion\":\"01.010.000\"}","PPSA00001",version));
+  TEST_ASSERT_STREQ("01.010.000", version.c_str());
+  TEST_ASSERT_TRUE(!parse("{\"titleId\":\"PPSA00002\",\"contentVersion\":\"01.010.000\"}","PPSA00001",version));
+  TEST_ASSERT_TRUE(!parse("{\"titleId\":\"PPSA00001\",\"contentVersion\":\"01.00\"}","PPSA00001",version));
+  TEST_ASSERT_TRUE(!parse("{\"titleId\":\"PPSA00001\",\"titleId\":\"PPSA00001\",\"contentVersion\":\"01.010.000\"}","PPSA00001",version));
+  TEST_ASSERT_TRUE(!parse("{\"titleId\":\"PPSA00001\",\"contentVersion\":\"01.010.000\"} trailing","PPSA00001",version));
+  std::vector<uint8_t> sfo(160,0);
+  const auto u32=[&](size_t at,uint32_t value){memcpy(sfo.data()+at,&value,4);};
+  const auto u16=[&](size_t at,uint16_t value){memcpy(sfo.data()+at,&value,2);};
+  u32(0,0x46535000);u32(4,0x101);u32(8,64);u32(12,96);u32(16,2);
+  u16(20,0);u16(22,0x204);u32(24,10);u32(28,16);u32(32,0);
+  u16(36,9);u16(38,0x204);u32(40,6);u32(44,8);u32(48,16);
+  memcpy(sfo.data()+64,"TITLE_ID\0APP_VER\0",17);
+  memcpy(sfo.data()+96,"CUSA12345",10);memcpy(sfo.data()+112,"01.09",6);
+  TEST_ASSERT_TRUE(onion::sprx::parse_game_metadata(sfo,"CUSA12345",version));
+  TEST_ASSERT_STREQ("01.09", version.c_str());
+  TEST_ASSERT_TRUE(!onion::sprx::parse_game_metadata(sfo,"CUSA99999",version));
+  u32(48,4);TEST_ASSERT_TRUE(!onion::sprx::parse_game_metadata(sfo,"CUSA12345",version));
+  u32(48,0xffffffff);TEST_ASSERT_TRUE(!onion::sprx::parse_game_metadata(sfo,"CUSA12345",version));
+  return 0;
+}
 
 constexpr char kManifest[] =
     "[plugin.base-runtime]\n"
@@ -155,6 +185,7 @@ int test_remove_persists_catalog_entry_only() {
 
 extern "C" int test_sprx_catalog_suite(void) {
   int failures = 0;
+  failures += onion_test_run("sprx_exact_game_metadata",test_exact_metadata);
   failures += onion_test_run("sprx_catalog_parse_order", test_parse_and_startup_order);
   failures += onion_test_run("sprx_catalog_invalid_keys", test_duplicate_and_unknown_keys_rejected);
   failures += onion_test_run("sprx_catalog_missing_dependency", test_dependency_errors_rejected_at_ordering);

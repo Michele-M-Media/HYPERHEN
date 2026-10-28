@@ -93,6 +93,8 @@ struct WorkerArgs {
   uint64_t generation = 0;
   std::string plugin_id;
   bool is_start = false;
+  bool sprx = false;
+  bool manual_only = false;
 };
 
 MonoDomain *current_domain() {
@@ -523,8 +525,8 @@ void *plugin_progress_worker(void *raw) {
   }
 
   IPC_Client &ipc = IPC_Client::getInstance(false);
-  const bool ok = is_start ? ipc.StartPlugin(plugin_id)
-                           : ipc.StopPlugin(plugin_id);
+  const bool ok = args->sprx ? ipc.SetSprxEnabled(plugin_id, is_start)
+                            : (is_start ? ipc.StartPlugin(plugin_id) : ipc.StopPlugin(plugin_id));
 
   if (!session_is_current(generation)) return nullptr;
 
@@ -537,15 +539,8 @@ void *plugin_progress_worker(void *raw) {
     return nullptr;
   }
 
-  {
-    auto it = std::ranges::find(g_ui.external_plugins, plugin_id,
-                                &PluginInventoryItem::plugin_id);
-    if (it != g_ui.external_plugins.end()) {
-      it->running = is_start;
-    }
-  }
-
-  if (is_start) {
+  // Inventory is refreshed by its owning UI page, never mutated by this worker.
+  if (is_start && !args->sprx && !args->manual_only) {
     {
       std::lock_guard<std::mutex> lock(g_progress.mu);
       if (!session_is_current(generation)) return nullptr;
@@ -603,7 +598,7 @@ bool plugin_progress_open_page(void) {
   return toolbox_push_resource("plugin_progress.xml");
 }
 
-void plugin_progress_show(std::string_view plugin_id, bool start) {
+void plugin_progress_show(std::string_view plugin_id, bool start, bool sprx) {
   if (!shellui_hooks_are_ready()) {
     LOG_ERROR("plugin_progress: hooks not ready");
     return;
@@ -630,7 +625,8 @@ void plugin_progress_show(std::string_view plugin_id, bool start) {
     g_progress.phase = start ? "starting" : "stopping";
   }
 
-  auto *args = new WorkerArgs{generation, std::string(plugin_id), start};
+  const bool manual_only = it != g_ui.external_plugins.end() && it->manual_only;
+  auto *args = new WorkerArgs{generation, std::string(plugin_id), start, sprx, manual_only};
   pthread_t thread;
   if (pthread_create(&thread, nullptr, plugin_progress_worker, args) != 0) {
     delete args;

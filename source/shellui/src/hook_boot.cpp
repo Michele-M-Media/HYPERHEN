@@ -2,6 +2,7 @@
  * Extracted from hook_functions.cpp — hook_boot
  */
 #include "hooked_funcs.hpp"
+#include "dashboard_navigation.hpp"
 #include "debug_settings_route_runtime.hpp"
 #include "detour.h"
 #include "ipc.hpp"
@@ -15,16 +16,17 @@
 #include <cstring>
 
 #include "shellui_state.hpp"
+#include "hypershell.hpp"
+#include "hyper_p5_bridge.hpp"
 #include <onion/platform.h>
 
 std::string Mono_to_String(MonoString *str);
 
-static constexpr const char kHomeTopNavUri[] = "HyperHEN?NavUI=1";
-static constexpr const char kLegacyHomeTopNavUri[] = "HyperHEN?NavUI";
-
-static bool is_home_top_nav_uri(const std::string &uri) {
-  return uri == kHomeTopNavUri || uri == kLegacyHomeTopNavUri;
-}
+#if defined(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
+static constexpr bool kHyperShellEnabled = true;
+#else
+static constexpr bool kHyperShellEnabled = false;
+#endif
 
 bool handle_uri_boot_common(MonoString* uri, int opt, MonoString* titleIdForBootAction) {
     std::string uri_string = Mono_to_String(uri);
@@ -50,17 +52,26 @@ bool handle_uri_boot_common(MonoString* uri, int opt, MonoString* titleIdForBoot
         
         return true; // Signal to redirect
     }
-    else if (is_home_top_nav_uri(uri_string)) {
-      LOG_DEBUG("HomeUI top-nav HyperHEN URI detected");
-      return true;
-    }
-
     return false; // No redirect needed
   }
   
   bool uri_boot_hook(MonoString* uri, int opt, MonoString* titleIdForBootAction) {
     if (!shellui_hooks_are_ready())
       return boot_orig ? boot_orig(uri, opt, titleIdForBootAction) : false;
+
+    const std::string original_uri = Mono_to_String(uri);
+    const auto destination =
+        dashboard_navigation::resolve(original_uri, kHyperShellEnabled);
+    if (destination == dashboard_navigation::Destination::HyperShell) {
+      LOG_DEBUG("Independent HyperShell URI detected");
+      hypershell_request_open();
+      return true;
+    }
+    if (destination == dashboard_navigation::Destination::Toolbox) {
+      return boot_orig(
+          mono_string_new(Root_Domain, shellui_debug_settings_toolbox_uri()),
+          opt, titleIdForBootAction);
+    }
 
     if(handle_uri_boot_common(uri, opt, titleIdForBootAction)) {
       return boot_orig(
@@ -69,7 +80,6 @@ bool handle_uri_boot_common(MonoString* uri, int opt, MonoString* titleIdForBoot
     }
 
     // On 11.6+, appdb Debug Settings and other deeplinks must avoid the RN screen.
-    const std::string original_uri = Mono_to_String(uri);
     const std::string rewritten = shellui_rewrite_debug_settings_route(original_uri);
     if (rewritten != original_uri) {
       LOG_DEBUG("Boot: rewrite debug_settings → old: %s", rewritten.c_str());
@@ -86,6 +96,19 @@ bool handle_uri_boot_common(MonoString* uri, int opt, MonoString* titleIdForBoot
 
     const std::string original_uri = Mono_to_String(uri);
     LOG_DEBUG("uri_boot_hook_2: %s, opt: %i", original_uri.c_str(), opt);
+    const auto destination =
+        dashboard_navigation::resolve(original_uri, kHyperShellEnabled);
+    if (destination == dashboard_navigation::Destination::HyperShell) {
+      LOG_DEBUG("Independent HyperShell URI detected (legacy Boot)");
+      hypershell_request_open();
+      return true;
+    }
+    if (destination == dashboard_navigation::Destination::Toolbox) {
+      return boot_orig_2(
+          mono_string_new(Root_Domain,
+                          shellui_debug_settings_toolbox_uri_simple()),
+          opt);
+    }
     if(handle_uri_boot_common(uri, opt, nullptr)) {
       // Redirect to debug settings (no titleId parameter for older fw).
       return boot_orig_2(
@@ -125,6 +148,11 @@ bool handle_uri_boot_common(MonoString* uri, int opt, MonoString* titleIdForBoot
 
   
     result = GetData(deviceIndex);
+    hyper_p5_bridge_observe(deviceIndex, result.Skip,
+                            static_cast<uint32_t>(result.Buttons));
+
+    if (hypershell_handle_gamepad(&result))
+      return result;
 
     // Cheats Shortcut
     if (g_settings.cheats_shortcut_opt != CHEATS_SC_OFF) {

@@ -1,0 +1,42 @@
+{
+  "product": "HyperHEN",
+  "version": "0.9.3",
+  "files": [
+    {
+      "path": "hyperdeck-engines/cheatrunner.elf",
+      "size_bytes": 3374312,
+      "sha256": "e8b76585508e2b91c6784b086f5856ded177506abe7c443617e52b1fff61ac08",
+      "executable": true
+    },
+    {
+      "path": "hyperdeck-engines/game-compressor.elf",
+      "size_bytes": 1240288,
+      "sha256": "3382075c1944b41f3e7d063f106ff6633df7336002f6da94cdd3d69b06aed48b",
+      "executable": true
+    },
+    {
+      "path": "hyperdeck-engines/ps5upload.elf",
+      "size_bytes": 4182896,
+      "sha256": "fa8a86446d97525dd20ac9fdc990dd66ed51faca7d1fcfa67132d2a9d2e22c41",
+      "executable": true
+    },
+    {
+      "path": "hyperdeck-engines/web-file-manager.elf",
+      "size_bytes": 460536,
+      "sha256": "b0e9c545d25954b204da07440e09669698814983099e8a77c3f2db97f48b2b5b",
+      "executable": true
+    },
+    {
+      "path": "websrv-http/include/microhttpd.h",
+      "size_bytes": 252752,
+      "sha256": "265b0ad618c22d0a648326d751d1c08826399d67da13e471f4053bcdf7a9f579",
+      "executable": false
+    },
+    {
+      "path": "websrv-http/lib/libmicrohttpd.a",
+      "size_bytes": 403354,
+      "sha256": "795d7f66b5b6e2b93cadf777fb85714cce7e690c206c16cf4e5a7e674a0e1bcc",
+      "executable": false
+    }
+  ]
+}

@@ -51,6 +51,11 @@ bool upsert_image_sector_size_autotune(const char *filename,
                                        uint32_t *sector_size_out);
 // Return true when the global fakelib overlay is disabled for this title.
 bool is_global_fakelib_excluded_for_title(const char *title_id);
+bool sm_config_title_global_fakelib_excluded(const runtime_config_t *cfg,
+                                            const char *title_id);
+// Persist only the global overlay exclusion, without changing the title mode.
+bool sm_config_set_title_global_fakelib_excluded(const char *title_id,
+                                                bool excluded);
 // Return true when all fakelib overlays are disabled for this title.
 bool is_fakelib_excluded_for_title(const char *title_id);
 // Resolve a mode from a snapshot or live config; absent rules use the default.

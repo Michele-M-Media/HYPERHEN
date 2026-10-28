@@ -1,0 +1,321 @@
+{
+  "ar": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "smp_meta_json"
+    ]
+  },
+  "bn": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "screenshots_png_hdr",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "de": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "console_tab_name",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "game_hub_addons",
+      "health_cat_remoteplay",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "remotePlay",
+      "remotePlay_slot",
+      "remote_play",
+      "smp_meta_json"
+    ]
+  },
+  "es": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "remotePlay",
+      "remote_play",
+      "smp_meta_json"
+    ]
+  },
+  "fa": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name"
+    ]
+  },
+  "fr": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "hardware_systime_via",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "queue_console_total",
+      "remotePlay",
+      "remote_play",
+      "smp_meta_json"
+    ]
+  },
+  "hi": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "screenshots_png_hdr",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "hu": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "engine_url_label",
+      "ffpkg_inspect_sce_sys",
+      "health_cat_remoteplay",
+      "payloads_prerelease",
+      "pkglib.auth.fake",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "remotePlay",
+      "remotePlay_title",
+      "remote_play",
+      "screenshots_png_hdr",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "id": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "fs_item_one",
+      "hardware_systime_via",
+      "health_cat_remoteplay",
+      "processes_pid",
+      "remotePlay",
+      "remotePlay_slot",
+      "remote_play",
+      "smp_meta_json"
+    ]
+  },
+  "it": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "remotePlay",
+      "remotePlay_slot",
+      "remote_play",
+      "shortcuts_sec_filesystem",
+      "smp_meta_json",
+      "status_helper_version"
+    ]
+  },
+  "ja": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "ko": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "screenshots_png_hdr",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "pl": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "smp_meta_json"
+    ]
+  },
+  "pt-BR": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "fs_item_one",
+      "hardware_systime_via",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "queue_console_total",
+      "remotePlay",
+      "remotePlay_slot",
+      "remote_play",
+      "smp_meta_json"
+    ]
+  },
+  "ru": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "screenshots_png_hdr",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "th": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "smp_meta_json"
+    ]
+  },
+  "tr": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "remotePlay",
+      "screenshots_png_hdr",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "vi": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "power_wake_signin_rpkey",
+      "processes_pid",
+      "remotePlay",
+      "remote_play",
+      "smp_meta_json"
+    ]
+  },
+  "zh-CN": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  },
+  "zh-TW": {
+    "missing": [],
+    "stale": [],
+    "untranslated": [
+      "br_issue_link_placeholder",
+      "br_payloads_placeholder",
+      "br_where_discord",
+      "cw_settings_app_name",
+      "ffpkg_inspect_sce_sys",
+      "processes_pid",
+      "screenshots_png_sdr",
+      "smp_meta_json"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "applicationCategoryType": 65536,
+  "titleId": "HYPR00001",
+  "deeplinkUri": "http://127.0.0.1:8088/",
+  "localizedParameters": {
+    "defaultLanguage": "en-US",
+    "en-US": { "titleName": "Hyperdeck" }
+  }
+}

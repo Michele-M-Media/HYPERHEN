@@ -1,0 +1,637 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
+import { HardDrive, FileArchive, Unplug, RefreshCw, PackageCheck } from "lucide-react";
+
+import { useConnectionStore } from "../../state/connection";
+import { pushNotification } from "../../state/notifications";
+import { withConsolePrefix } from "../../state/roster";
+import {
+  fetchHwStorage,
+  fetchVolumes,
+  fsUnmount,
+  usbEject,
+  volumeLikelyFitsBytes,
+  type Volume,
+} from "../../api/ps5";
+import {
+  PageHeader,
+  EmptyState,
+  ErrorCard,
+  Button,
+  ConnectionGate,
+  Badge,
+  ProgressBar,
+} from "../../components";
+// Direct import to avoid the barrel's circular-dep warning at build.
+import { useConfirm } from "../../components/ConfirmDialog";
+import { humanizePs5Error } from "../../lib/humanizeError";
+import { useTr } from "../../state/lang";
+import { formatBytes } from "../../lib/format";
+import { hostOf, transferAddr } from "../../lib/addr";
+import { useStaleHostGuard } from "../../lib/staleHostGuard";
+import { isInternalVolume, usePkgStorageStore } from "../../lib/pkgStorage";
+import { saveFsLastPath } from "../../lib/fsLastPath";
+import { KeptByApp } from "./KeptByApp";
+
+/** Path prefix for volumes our FS_MOUNT creates. Showing an Unmount
+ *  button only for these keeps us from accidentally offering to
+ *  unmount /data or /mnt/ext0 — the payload rejects that anyway,
+ *  but hiding the button avoids a confusing error. Must match
+ *  FS_MOUNT_BASE in payload/src/runtime.c. */
+const PS5UPLOAD_MOUNT_PREFIX = "/mnt/ps5upload/";
+
+// Volume cards use formatBytes (IEC GiB/TiB) like every other size in the
+// app, so a drive's free space reads the same here as on Files and Upload.
+
+export default function VolumesScreen() {
+  const tr = useTr();
+  const host = useConnectionStore((s) => s.host);
+  const guard = useStaleHostGuard();
+  const payloadStatus = useConnectionStore((s) => s.payloadStatus);
+  const navigate = useNavigate();
+  const [volumes, setVolumes] = useState<Volume[] | null>(null);
+  // Counts completed drive-list loads, so what ps5upload keeps is measured again with them.
+  const [loadedCount, setLoadedCount] = useState(0);
+  // What the console keeps back of its internal storage for its own use (a fact the console
+  // reports; nothing is derived from it). Null = not reported.
+  const [consoleKept, setConsoleKept] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [unmountingPath, setUnmountingPath] = useState<string | null>(null);
+  const [ejectingPath, setEjectingPath] = useState<string | null>(null);
+  // This console's default drive for install packages (null = internal).
+  const packageDrive = usePkgStorageStore((s) => (host ? s.defaults[hostOf(host)] ?? null : null));
+  const setPackageDrive = usePkgStorageStore((s) => s.setDefault);
+  // Native window.confirm() is a no-op in Tauri's webview; use the
+  // in-tree modal instead (see ConfirmDialog.tsx).
+  const { confirm: confirmDialog, dialog: confirmDialogNode } = useConfirm();
+
+  const refresh = useCallback(async () => {
+    if (!host?.trim()) return;
+    // Host-stale guard (2.12.0 migrated to canonical useStaleHostGuard).
+    // fetchVolumes can take seconds on a PS5 with many mounts; an
+    // OLD list attributed to NEW host could lead to Unmount clicks
+    // targeting the wrong console.
+    const probe = guard.capture();
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await fetchVolumes(transferAddr(probe.host));
+      if (probe.isStale()) return;
+      setVolumes(list);
+      setLoadedCount((n) => n + 1);
+      // Best effort: a payload without the storage summary just shows no "kept" line.
+      fetchHwStorage(transferAddr(probe.host))
+        .then((hw) => {
+          if (!probe.isStale()) setConsoleKept(hw.user_reserved_bytes > 0 ? hw.user_reserved_bytes : null);
+        })
+        .catch(() => {
+          if (!probe.isStale()) setConsoleKept(null);
+        });
+    } catch (e) {
+      if (probe.isStale()) return;
+      const raw = e instanceof Error ? e.message : String(e);
+      // Run through the shared humanizer so transient
+      // `fs_list_volumes_getmntinfo_failed` payload errors surface
+      // as a retryable hint instead of a raw internal string.
+      setError(humanizePs5Error(raw));
+      setVolumes(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [host, guard]);
+
+  /** Safely remove a USB drive (`/mnt/usbN`): the helper unmounts it, never forced, so a
+   *  drive still in use stays mounted and the user is told to close what uses it. */
+  const handleEject = async (mountPoint: string) => {
+    if (!host?.trim()) return;
+    const probe = guard.capture();
+    const ok = await confirmDialog({
+      title: tr("volumes_eject_confirm_title", { path: mountPoint }, `Eject ${mountPoint}?`),
+      message: tr(
+        "volumes_eject_confirm_body",
+        undefined,
+        "The drive is unmounted so you can unplug it. Close any game or app on the PS5 that uses it first; the PS5 keeps a drive that is in use.",
+      ),
+      confirmLabel: tr("volumes_eject", undefined, "Eject"),
+    });
+    if (!ok) return;
+    if (probe.isStale()) return;
+    setEjectingPath(mountPoint);
+    setError(null);
+    const done = () => {
+      pushNotification(
+        "success",
+        withConsolePrefix(
+          probe.host,
+          tr("volumes_eject_done", { path: mountPoint }, `${mountPoint} ejected — safe to unplug`),
+        ),
+      );
+    };
+    try {
+      await usbEject(probe.host, mountPoint);
+      done();
+      await refresh();
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      if (!/usb_eject_busy/.test(raw)) {
+        setError(tr("volumes_eject_failed", { path: mountPoint, error: raw }, `Couldn't eject ${mountPoint}: ${raw}`));
+        setEjectingPath(null);
+        return;
+      }
+      // The PS5's own services usually keep a USB drive open, so a plain unmount is
+      // refused on every console tried. Forcing flushes the drive first; the only
+      // thing the user must rule out is a game or app reading from it right now.
+      setEjectingPath(null);
+      const force = await confirmDialog({
+        title: tr("volumes_eject_force_title", { path: mountPoint }, `${mountPoint} is still in use — eject anyway?`),
+        message: tr(
+          "volumes_eject_force_body",
+          undefined,
+          "The PS5 holds the drive open; its own services usually do. Ejecting anyway flushes the drive first, so it is safe as long as no game or app is reading from it right now.",
+        ),
+        confirmLabel: tr("volumes_eject_force", undefined, "Eject anyway"),
+        destructive: true,
+      });
+      if (!force || probe.isStale()) return;
+      setEjectingPath(mountPoint);
+      try {
+        await usbEject(probe.host, mountPoint, true);
+        done();
+        await refresh();
+      } catch (e2) {
+        const raw2 = e2 instanceof Error ? e2.message : String(e2);
+        setError(tr("volumes_eject_failed", { path: mountPoint, error: raw2 }, `Couldn't eject ${mountPoint}: ${raw2}`));
+      }
+    } finally {
+      setEjectingPath(null);
+    }
+  };
+
+  const handleUnmount = async (mountPoint: string) => {
+    if (!host?.trim()) return;
+    // Capture the target console BEFORE the confirm dialog, which the user
+    // can sit on for any length of time. Without this, switching the active
+    // PS5 while the dialog is open would fire the unmount against the live
+    // `host` and surprise the user; the guard makes us act on the captured
+    // console and bail entirely if they switched away.
+    const probe = guard.capture();
+    const ok = await confirmDialog({
+      title: tr(
+        "volumes_unmount_confirm_title",
+        { path: mountPoint },
+        `Unmount ${mountPoint}?`,
+      ),
+      message: tr(
+        "volumes_unmount_confirm_body",
+        undefined,
+        "Anything reading files from this mount will break until you remount the image.",
+      ),
+      confirmLabel: tr("unmount", undefined, "Unmount"),
+      destructive: true,
+    });
+    if (!ok) return;
+    if (probe.isStale()) return;
+    setUnmountingPath(mountPoint);
+    setError(null);
+    try {
+      await fsUnmount(transferAddr(probe.host), mountPoint);
+      if (probe.isStale()) return;
+      await refresh();
+    } catch (e) {
+      if (probe.isStale()) return;
+      const raw = e instanceof Error ? e.message : String(e);
+      // Humanize like refresh() — a raw `fs_unmount_busy` code isn't
+      // actionable to the user.
+      setError(humanizePs5Error(raw) || raw);
+    } finally {
+      setUnmountingPath(null);
+    }
+  };
+
+  useEffect(() => {
+    if (payloadStatus === "up") refresh();
+  }, [payloadStatus, refresh]);
+
+  const { storageDrives, mountedImages } = useMemo(() => {
+    const storage: Volume[] = [];
+    const mounted: Volume[] = [];
+    for (const v of volumes ?? []) {
+      // Pre-2.2.36 we split by `/mnt/ps5upload/` prefix, which broke
+      // categorization for user-chosen mount points (added 2.2.25).
+      // The truthful signal that a volume is one of our image
+      // mounts is `source_image` — the payload sets it for every
+      // image we attach via fs_mount, regardless of where it lands
+      // on the filesystem. Falling back to the legacy prefix keeps
+      // older payload firmwares (which may not echo source_image)
+      // categorising correctly.
+      const isOurMount =
+        Boolean(v.source_image) || v.path.startsWith(PS5UPLOAD_MOUNT_PREFIX);
+      if (isOurMount) {
+        mounted.push(v);
+      } else {
+        storage.push(v);
+      }
+    }
+    return { storageDrives: storage, mountedImages: mounted };
+  }, [volumes]);
+
+  // The drives ps5upload may have written its own folders to: writable ones, and internal
+  // storage once however many mount points it shows under.
+  const keptDrives = useMemo(() => {
+    const out: string[] = [];
+    let internalSeen = false;
+    for (const v of storageDrives) {
+      if (!v.writable || v.is_placeholder) continue;
+      if (isInternalVolume(v.path)) {
+        if (internalSeen) continue;
+        internalSeen = true;
+      }
+      out.push(v.path);
+    }
+    return out;
+  }, [storageDrives]);
+
+  return (
+    <div className="app-page">
+      {confirmDialogNode}
+      <PageHeader
+        icon={HardDrive}
+        title={tr("volumes", undefined, "Volumes")}
+        loading={loading}
+        description={tr(
+          "volumes_description",
+          undefined,
+          "Storage drives and any disk images currently mounted on your PS5.",
+        )}
+        right={
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<RefreshCw size={12} />}
+            onClick={refresh}
+            disabled={loading || !host?.trim()}
+            loading={loading}
+          >
+            {tr("refresh", undefined, "Refresh")}
+          </Button>
+        }
+      />
+
+      {/* Gate the body on a reachable payload, like every other Browse
+          screen — otherwise a disconnected user was stranded on a "waiting…"
+          message with no way to act. The gate offers a Set-up-connection CTA. */}
+      <ConnectionGate require="payload">
+        {error && (
+          <div className="mb-4">
+            <ErrorCard
+              title={tr(
+                "volumes_read_error",
+                undefined,
+                "Couldn't read volumes",
+              )}
+              detail={error}
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void refresh()}>
+                  {tr("volumes_retry", undefined, "Retry")}
+                </Button>
+              }
+            />
+          </div>
+        )}
+
+        {volumes && volumes.length === 0 && (
+          <EmptyState
+            icon={HardDrive}
+            size="hero"
+            title={tr("volumes_empty_title", undefined, "No volumes visible")}
+            message={tr(
+              "volumes_empty_message",
+              undefined,
+              "The payload didn't return any writable drives. Make sure it's loaded and your PS5 has storage attached.",
+            )}
+          />
+        )}
+
+        {/* Mounted images section — deliberately at the top since this
+          is the more actionable / transient set of volumes. Users
+          typically open Volumes to unmount something or confirm a
+          mount succeeded, not to inspect permanent drives. */}
+        {mountedImages.length > 0 && (
+          <section className="mb-6">
+            <header className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+              <FileArchive size={13} />
+              {tr(
+                "volumes_mounted_disk_images",
+                undefined,
+                "Mounted disk images",
+              )}
+              <span className="text-xs text-[var(--color-muted)]">
+                · {mountedImages.length}
+              </span>
+            </header>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {mountedImages.map((v) => (
+                <MountedImageCard
+                  key={v.path}
+                  volume={v}
+                  onUnmount={() => handleUnmount(v.path)}
+                  unmounting={unmountingPath === v.path}
+                  anyUnmountInFlight={unmountingPath !== null}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Storage drives — the persistent set: internal SSD, M.2,
+          USB. Unmountable only if it's one of ours, which shouldn't
+          happen in this section — kept read-only. */}
+        {storageDrives.length > 0 && (
+          <section>
+            <header className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+              <HardDrive size={13} />
+              {tr("volumes_storage_drives", undefined, "Storage drives")}
+              <span className="text-xs text-[var(--color-muted)]">
+                · {storageDrives.length}
+              </span>
+            </header>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {storageDrives.map((v) => (
+                <StorageCard
+                  key={v.path}
+                  volume={v}
+                  packageDrive={packageDrive}
+                  consoleKeptBytes={isInternalVolume(v.path) ? consoleKept : null}
+                  onUseForPackages={() =>
+                    host && setPackageDrive(host, isInternalVolume(v.path) ? null : v.path)
+                  }
+                  onEject={/^\/mnt\/usb[0-7]$/.test(v.path) ? () => void handleEject(v.path) : undefined}
+                  ejecting={ejectingPath === v.path}
+                />
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-[var(--color-muted)]">
+              {tr(
+                "volumes_pkg_copies_hint",
+                undefined,
+                "What this choice does: “Upload & install” first copies the .pkg file onto the PS5, then installs from that copy. This only sets which drive holds those copies. It does not change where games are installed (the PS5 decides that in its own Storage settings), and “Stream & install” keeps no copy at all. If the chosen drive isn't connected, copies go to internal storage.",
+              )}
+            </p>
+          </section>
+        )}
+
+        {host && keptDrives.length > 0 && (
+          <KeptByApp
+            host={host}
+            drives={keptDrives}
+            refreshKey={loadedCount}
+            confirm={confirmDialog}
+            onOpenPath={(path) => {
+              // `?path=`: Files reads its saved folder only when it mounts (see EditSessionBanner).
+              saveFsLastPath(host, path);
+              navigate(`/files?path=${encodeURIComponent(path)}`);
+            }}
+            onChanged={() => void refresh()}
+          />
+        )}
+      </ConnectionGate>
+    </div>
+  );
+}
+
+/** Mounted disk image — accent border, prominent Unmount button,
+ *  surfaces the backing .exfat/.ffpkg path so the user can always
+ *  tell which file is feeding this mount. */
+function MountedImageCard({
+  volume: v,
+  onUnmount,
+  unmounting,
+  anyUnmountInFlight,
+}: {
+  volume: Volume;
+  onUnmount: () => void;
+  unmounting: boolean;
+  anyUnmountInFlight: boolean;
+}) {
+  const tr = useTr();
+  const pct =
+    v.total_bytes > 0
+      ? Math.max(0, Math.min(100, 100 - (v.free_bytes / v.total_bytes) * 100))
+      : 0;
+  // Display name: legacy `/mnt/ps5upload/<leaf>` mounts strip the
+  // prefix so the card shows just `<leaf>`. Custom-path mounts (e.g.
+  // /data/homebrew/Mafia/) don't have that prefix — show the
+  // basename of the mount point instead, falling back to the full
+  // path if there's no basename to extract.
+  const name = (() => {
+    if (v.path.startsWith(PS5UPLOAD_MOUNT_PREFIX)) {
+      return v.path.slice(PS5UPLOAD_MOUNT_PREFIX.length) || v.path;
+    }
+    const trimmed = v.path.replace(/\/+$/, "");
+    const slash = trimmed.lastIndexOf("/");
+    return slash >= 0 ? trimmed.slice(slash + 1) || trimmed : trimmed;
+  })();
+  return (
+    <article className="flex flex-col gap-3 rounded-[var(--radius-panel)] border border-[color-mix(in_srgb,var(--color-accent)_35%,transparent)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--edge-highlight),var(--shadow-1)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">{name}</div>
+          <div className="mt-0.5 truncate font-mono text-xs text-[var(--color-muted)]">
+            {v.path}
+          </div>
+          {v.source_image && (
+            <div
+              className="mt-2 truncate font-mono text-xs text-[var(--color-muted)]"
+              title={v.source_image}
+            >
+              ← {v.source_image}
+            </div>
+          )}
+        </div>
+        {/* A read-write image mount is a live, editable game file. Badge it
+            so nobody forgets which mode they picked minutes ago. */}
+        {v.writable && (
+          <Badge tone="warn" variant="soft" size="md">
+            {tr("volumes_mounted_rw", undefined, "read-write")}
+          </Badge>
+        )}
+        <Badge tone="accent" variant="soft" size="md">
+          {tr("volumes_mounted", undefined, "mounted")}
+        </Badge>
+      </div>
+
+      {v.total_bytes > 0 && (
+        <div>
+          <div className="mb-1 flex items-baseline justify-between text-xs text-[var(--color-muted)]">
+            <span>
+              {formatBytes(v.free_bytes)}{" "}
+              {tr("volumes_free_of_mounted", undefined, "free of")}{" "}
+              {formatBytes(v.total_bytes)}
+            </span>
+            <span className="tabular-nums">
+              {pct.toFixed(0)}
+              {tr("volumes_pct_used_mounted", undefined, "% used")}
+            </span>
+          </div>
+          <ProgressBar size="sm" value={pct / 100} label={v.path} />
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 text-xs text-[var(--color-muted)]">
+        <span>
+          {v.fs_type} · {v.writable ? "rw" : "ro"}
+        </span>
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon={<Unplug size={12} />}
+          onClick={onUnmount}
+          disabled={anyUnmountInFlight}
+          loading={unmounting}
+        >
+          {tr("volumes_unmount", undefined, "Unmount")}
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+/** Permanent storage drive. No unmount action — these are
+ *  internal/USB drives the user shouldn't be unmounting from here. The one
+ *  install packages are uploaded to is marked, and any other writable drive
+ *  can be made that drive. */
+export function StorageCard({
+  volume: v,
+  packageDrive,
+  consoleKeptBytes = null,
+  onUseForPackages,
+  onEject,
+  ejecting = false,
+}: {
+  volume: Volume;
+  /** The console's own reserved pool on this drive (internal storage only), as it reports it. */
+  consoleKeptBytes?: number | null;
+  /** This console's chosen package drive; null = internal storage. */
+  packageDrive: string | null;
+  onUseForPackages: () => void;
+  /** Present for a USB drive (`/mnt/usbN`): unmount it so it can be unplugged. */
+  onEject?: () => void;
+  ejecting?: boolean;
+}) {
+  const tr = useTr();
+  const isPackageDrive = isInternalVolume(v.path)
+    ? isInternalVolume(packageDrive)
+    : packageDrive === v.path.replace(/\/+$/, "");
+  // What is likely to fit: on internal storage less than free, since the PS5 holds back
+  // more as data is written. The line under the bar shows it with the difference.
+  const uploadSafeBytes =
+    v.allocatable_bytes === undefined ? undefined : volumeLikelyFitsBytes(v);
+  const pct =
+    v.total_bytes > 0
+      ? Math.max(0, Math.min(100, 100 - (v.free_bytes / v.total_bytes) * 100))
+      : 0;
+  return (
+    <article className="flex flex-col gap-3 rounded-[var(--radius-panel)] border border-[var(--glass-edge)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--edge-highlight),var(--shadow-1)]">
+      {/* Wraps: "Package copies are stored here" is wider than what is left
+          beside the path, and used to run out past the card's edge while
+          squeezing the line under the path onto two rows. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-[9rem] flex-1">
+          <div className="truncate font-mono text-sm">{v.path}</div>
+          <div className="mt-0.5 text-xs text-[var(--color-muted)]">
+            {v.mount_from ? `${v.mount_from} · ` : ""}
+            {v.fs_type}
+            {" · "}
+            {v.writable ? "rw" : "ro"}
+          </div>
+        </div>
+        {!v.writable && (
+          <Badge tone="neutral" variant="soft" size="md">
+            {tr("volumes_read_only", undefined, "read-only")}
+          </Badge>
+        )}
+        {v.writable && isPackageDrive && (
+          <Badge tone="accent" variant="soft" size="md" className="max-w-full">
+            <PackageCheck size={12} className="me-1 inline" aria-hidden />
+            {tr("volumes_pkg_copies_here", undefined, "Package copies are stored here")}
+          </Badge>
+        )}
+      </div>
+
+      {v.total_bytes > 0 && (
+        <div>
+          <div className="mb-1 flex items-baseline justify-between text-xs text-[var(--color-muted)]">
+            <span>
+              {formatBytes(v.free_bytes)}{" "}
+              {tr("volumes_free_of_storage", undefined, "free of")}{" "}
+              {formatBytes(v.total_bytes)}
+            </span>
+            <span className="tabular-nums">
+              {pct.toFixed(0)}
+              {tr("volumes_pct_used_storage", undefined, "% used")}
+            </span>
+          </div>
+          {consoleKeptBytes !== null && consoleKeptBytes > 0 && (
+            <div className="mb-2 text-xs text-[var(--color-muted)]">
+              {tr(
+                "volumes_kept_by_console",
+                { kept: formatBytes(consoleKeptBytes) },
+                "{kept} kept by the console for its own use",
+              )}
+            </div>
+          )}
+          {uploadSafeBytes !== undefined &&
+            uploadSafeBytes < v.free_bytes && (
+              <div className="mb-2 text-xs text-[var(--color-muted)]">
+                {tr(
+                  "volumes_upload_safe_capacity",
+                  {
+                    safe: formatBytes(uploadSafeBytes),
+                    // Everything between "free" and "likely to fit": the working margin,
+                    // and on internal storage what the PS5 holds back as it writes.
+                    reserve: formatBytes(
+                      Math.max(0, v.free_bytes - uploadSafeBytes),
+                    ),
+                  },
+                  "{safe} safe for new uploads · {reserve} kept as system/filesystem headroom",
+                )}
+              </div>
+            )}
+          <ProgressBar
+            size="sm"
+            value={pct / 100}
+            tone={pct >= 95 ? "bad" : pct >= 80 ? "warn" : "accent"}
+            label={v.path}
+          />
+        </div>
+      )}
+      {((v.writable && !v.is_placeholder && !isPackageDrive) || onEject) && (
+        <div className="flex flex-wrap gap-2">
+          {v.writable && !v.is_placeholder && !isPackageDrive && (
+            <Button variant="secondary" size="sm" onClick={onUseForPackages}>
+              {tr("volumes_store_pkg_copies", undefined, "Store package copies here")}
+            </Button>
+          )}
+          {onEject && (
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<Unplug size={12} />}
+              onClick={onEject}
+              loading={ejecting}
+              disabled={ejecting}
+              title={tr(
+                "volumes_eject_tooltip",
+                undefined,
+                "Unmount the USB drive so it can be unplugged safely.",
+              )}
+            >
+              {tr("volumes_eject", undefined, "Eject")}
+            </Button>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}

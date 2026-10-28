@@ -35,6 +35,17 @@ typedef struct {
   char unknown2[0x3c];
 } app_info_t;
 
+/* Keep the existing 13.40/13.42 restrictions in the standard asset as well;
+ * the explicit lite asset can never enable these features after a config reload. */
+static inline bool sm_hyperhen_lite_profile(void) {
+#if defined(SM_HYPERHEN_LITE) && SM_HYPERHEN_LITE
+  return true;
+#else
+  const uint32_t fw = kernel_get_fw_version() & 0xffff0000u;
+  return fw == 0x13400000u || fw == 0x13420000u;
+#endif
+}
+
 static inline uint32_t sm_firmware_major_version(void) {
   uint32_t fw = kernel_get_fw_version();
   uint32_t major_bcd = (fw >> 24) & 0xFFu;

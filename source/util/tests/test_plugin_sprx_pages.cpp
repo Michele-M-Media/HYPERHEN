@@ -77,6 +77,19 @@ static int test_plugin_config_order(void) {
   return 0;
 }
 
+static int test_standalone_manual_only(void) {
+  toolbox_i18n::set_lang(toolbox_i18n::Lang::En);
+  PluginInventoryItem plugin;
+  plugin.plugin_id = "TEST00001"; plugin.name = "Standalone"; plugin.manual_only = true;
+  ps5ui::Page page("id_plugin_config", plugin.name);
+  fill_plugin_config(page, plugin, nullptr);
+  const auto xml = page.build();
+  TEST_ASSERT_TRUE(xml.find("id_external_plugin_run_TEST00001") != std::string::npos);
+  TEST_ASSERT_TRUE(xml.find("id_external_plugin_autostart_") == std::string::npos);
+  TEST_ASSERT_TRUE(xml.find("Reboot to unload") != std::string::npos);
+  return 0;
+}
+
 static int test_sprx_list_is_flat_links(void) {
   toolbox_i18n::set_lang(toolbox_i18n::Lang::En);
   std::vector<SprxInventoryItem> sprx = {
@@ -104,7 +117,7 @@ static int test_sprx_list_is_flat_links(void) {
                    std::string::npos);
   TEST_ASSERT_TRUE(
       xml.find(
-          "second_title=\"Matches the current game; loads at its next start\"") !=
+          "second_title=\"Matching game: manual loading available\"") !=
       std::string::npos);
   TEST_ASSERT_TRUE(xml.find("id_external_sprx_enabled_") == std::string::npos);
   return 0;
@@ -137,6 +150,7 @@ extern "C" int test_plugin_sprx_pages_suite(void) {
   int fails = 0;
   fails += onion_test_run("plugin_pages.flat_list", test_plugin_list_is_flat_links);
   fails += onion_test_run("plugin_pages.config_order", test_plugin_config_order);
+  fails += onion_test_run("plugin_pages.manual_only", test_standalone_manual_only);
   fails += onion_test_run("sprx_pages.flat_list", test_sprx_list_is_flat_links);
   fails += onion_test_run("sprx_pages.config_status",
                           test_sprx_config_has_status_and_path);

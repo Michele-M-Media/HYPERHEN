@@ -109,7 +109,9 @@ void rebuild_inventory(const Discovery &discovery,
         });
     inventory.push_back({plugin.descriptor, plugin.path, plugin.fingerprint,
                          running == instances.end() ? -1 : running->pid,
-                         auto_start_enabled(plugin.path)});
+                         plugin.format != PluginFormat::EtaHenContainer &&
+                             auto_start_enabled(plugin.path),
+                         plugin.format == PluginFormat::EtaHenContainer});
   }
 }
 
@@ -134,10 +136,10 @@ OperationResult launch_plugin(ProcessRuntime &runtime, const PluginFile &plugin,
                               std::vector<Instance> &instances,
                               bool allow_recover) {
   pid_t pid = allow_recover
-                  ? runtime.recover(plugin.descriptor.plugin_id)
+                  ? runtime.recover_file(plugin)
                   : -1;
   if (pid <= 1 || !runtime.alive(pid)) pid = runtime.launch(plugin);
-  if (pid <= 1) {
+  if (pid <= 1 || !runtime.alive(pid)) {
     runtime.persist(plugin.descriptor.plugin_id, -1);
     return {false, "private elfldr launch failed"};
   }
@@ -257,6 +259,7 @@ ReconcileReport Manager::reconcile(bool apply_auto_start) {
   for (auto instance = instances_.begin(); instance != instances_.end();) {
     const auto found = discovered.find(instance->descriptor.plugin_id);
     if (found == discovered.end()) {
+      if (has_etahen_plugin_suffix(instance->path)) { ++instance; continue; }
       stop_instance(runtime_, *instance);
       suppressed_.erase(instance->descriptor.plugin_id);
       instance = instances_.erase(instance);
@@ -265,6 +268,10 @@ ReconcileReport Manager::reconcile(bool apply_auto_start) {
     PluginFile *current = found->second;
     if (instance->path != current->path ||
         instance->fingerprint != current->fingerprint) {
+      if (current->format == PluginFormat::EtaHenContainer) {
+        report.issues.push_back({current->path, "running plugin changed; reboot before replacement"});
+        ++instance; continue;
+      }
       if (runtime_.alive(instance->pid))
         restart.insert(instance->descriptor.plugin_id);
       stop_instance(runtime_, *instance);
@@ -274,6 +281,7 @@ ReconcileReport Manager::reconcile(bool apply_auto_start) {
     if (!runtime_.alive(instance->pid)) {
       runtime_.persist(instance->descriptor.plugin_id, -1);
       const bool supervised =
+          current->format != PluginFormat::EtaHenContainer &&
           (current->descriptor.flags & kFlagLongRunning) != 0 &&
           !suppressed_.contains(instance->descriptor.plugin_id);
       if (supervised) relaunch.insert(instance->descriptor.plugin_id);
@@ -286,8 +294,19 @@ ReconcileReport Manager::reconcile(bool apply_auto_start) {
 
   for (auto &[plugin_id, plugin] : discovered) {
     if (find_instance(instances_, plugin_id) != instances_.end()) continue;
+    if (plugin->format == PluginFormat::EtaHenContainer) {
+      // Adopt a verified existing process after daemon/resume recovery; never
+      // dispatch a standalone plugin from a watcher or saved autostart marker.
+      const pid_t recovered = runtime_.recover_file(*plugin);
+      if (recovered > 1 && runtime_.alive(recovered)) {
+        instances_.push_back({plugin->descriptor, plugin->path, plugin->fingerprint, recovered});
+        ++report.running;
+      }
+      continue;
+    }
     const bool replacing_running = restart.contains(plugin_id);
     const bool auto_start = apply_auto_start &&
+                            plugin->format != PluginFormat::EtaHenContainer &&
                             auto_start_enabled(plugin->path) &&
                             !suppressed_.contains(plugin_id);
     if (!replacing_running && !auto_start && !relaunch.contains(plugin_id))
@@ -336,6 +355,8 @@ OperationResult Manager::stop(std::string_view plugin_id) {
         return entry.descriptor.plugin_id == plugin_id;
       });
   if (known == inventory_.end()) return {false, "plugin is not installed"};
+  if (known->manual_only && known->pid > 1)
+    return {false, "resident plugin has no generic safe unload; reboot to unload"};
 
   auto instance = find_instance(instances_, plugin_id);
   if (instance != instances_.end()) {
@@ -352,6 +373,8 @@ OperationResult Manager::set_auto_start(std::string_view plugin_id, bool enabled
   Discovery discovery = repository_.discover();
   PluginFile *plugin = find_plugin(discovery, plugin_id);
   if (!plugin) return {false, "plugin is not installed"};
+  if (enabled && plugin->format == PluginFormat::EtaHenContainer)
+    return {false, "standalone plugins are manual-only; start after entering the game"};
   if (!write_auto_start_marker(plugin->path, enabled))
     return {false, std::string("cannot update auto-start marker: ") +
                        std::strerror(errno)};
@@ -364,6 +387,8 @@ OperationResult Manager::reload(std::string_view plugin_id) {
   Discovery discovery = repository_.discover();
   PluginFile *plugin = find_plugin(discovery, plugin_id);
   if (!plugin) return {false, "plugin is not installed"};
+  if (plugin->format == PluginFormat::EtaHenContainer)
+    return {false, "plugin reload requires a console reboot"};
 
   auto instance = find_instance(instances_, plugin_id);
   if (instance != instances_.end()) {
@@ -384,6 +409,8 @@ OperationResult Manager::remove(std::string_view plugin_id) {
         return entry.descriptor.plugin_id == plugin_id;
       });
   if (known == inventory_.end()) return {false, "plugin is not installed"};
+  if (known->manual_only && known->pid > 1)
+    return {false, "resident plugin requires a reboot before removal"};
   const std::string path = known->path;
 
   auto instance = find_instance(instances_, plugin_id);
@@ -405,7 +432,7 @@ OperationResult Manager::remove(std::string_view plugin_id) {
 void Manager::stop_all() {
   std::lock_guard<std::mutex> lock(mutex_);
   for (const Instance &instance : instances_) {
-    stop_instance(runtime_, instance);
+    if (!has_etahen_plugin_suffix(instance.path)) stop_instance(runtime_, instance);
   }
   instances_.clear();
   for (InventoryEntry &entry : inventory_) entry.pid = -1;

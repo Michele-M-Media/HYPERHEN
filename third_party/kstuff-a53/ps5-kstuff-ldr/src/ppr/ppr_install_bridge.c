@@ -48,6 +48,20 @@ static int hyperhen_no_ppr_route_ready(uint32_t system_fw) {
                   F_OK) == 0;
 }
 
+static int hyperhen_kstuff_lite_route_ready(uint32_t system_fw) {
+    return onion_firmware_route(system_fw) ==
+               ONION_FIRMWARE_ROUTE_KSTUFF_LITE &&
+           access(ONION_READY_ROOT "/" ONION_READY_HYPERCORE_LITE,
+                  F_OK) == 0;
+}
+
+static int hyperhen_940_prerequisite_ready(uint32_t system_fw) {
+    return onion_firmware_route(system_fw) ==
+               ONION_FIRMWARE_ROUTE_HYPERVISOR_940 &&
+           access(ONION_READY_ROOT "/" ONION_READY_HYPERVISOR_940,
+                  F_OK) == 0;
+}
+
 static int run_ppr_install_impl(int resumed) {
     uint64_t total_ms = startup_now_ms();
     uint64_t stage_ms = total_ms;
@@ -65,6 +79,11 @@ static int run_ppr_install_impl(int resumed) {
     char version[160];
     uint32_t system_fw = kernel_get_fw_version() & 0xffff0000U;
     ppr_printf("[PPR] System FW: 0x%08x\n", system_fw);
+    if (hyperhen_kstuff_lite_route_ready(system_fw)) {
+        ppr_printf("[PPR] HyperHEN kstuff-lite route ready; PPR install disabled\n");
+        startup_stage("HyperCore kstuff-lite route", total_ms);
+        return 0;
+    }
     /*
      * The bootstrapper publishes this marker only for exact firmwares with a
      * complete HyperCore/ShellCore table but no exact PPR installer profile.
@@ -76,11 +95,19 @@ static int run_ppr_install_impl(int resumed) {
         startup_stage("HyperCore no-PPR route", total_ms);
         return 0;
     }
-    /* Byepervisor Reborn supplies the supported 13.x route. Its offsets do
-       not overlap the supplied exact A53/PPR profiles, so once its readiness
-       marker is present we continue into kstuff without pretending PPR ran. */
+    if (onion_firmware_route(system_fw) ==
+        ONION_FIRMWARE_ROUTE_HYPERVISOR_940) {
+        if (!hyperhen_940_prerequisite_ready(system_fw)) {
+            ppr_puts("[PPR] Byepervisor 9.40 prerequisite is not ready");
+            return -1;
+        }
+        ppr_puts("[PPR] Byepervisor 9.40 route ready; PPR install disabled");
+        startup_stage("HyperCore 9.40 no-PPR route", total_ms);
+        return 0;
+    }
+    /* A verified Byepervisor route supplies the hypervisor prerequisite. */
     if (hyperhen_hypervisor_route_ready(system_fw)) {
-        ppr_printf("[PPR] HyperHEN hypervisor route ready; skipping unsupported 13.x PPR install\n");
+        ppr_printf("[PPR] HyperHEN hypervisor route ready; skipping PPR install\n");
         startup_stage("Hypervisor route", total_ms);
         return 0;
     }

@@ -61,11 +61,13 @@ SprxStartupReport SprxPluginManager::reconcile() {
   return start_locked();
 }
 
-SprxStartupReport SprxPluginManager::start_locked() {
+SprxStartupReport SprxPluginManager::start_locked(std::string_view manual_id) {
   SprxStartupReport report;
   report.catalog_loaded = catalog_store_.loaded();
   if (!report.catalog_loaded)
     return report;
+  // TacHen workflow: saved autostart flags and game-start events never inject.
+  if (manual_id.empty()) return report;
 
   SprxTarget target;
   if (!target_provider_.current(&target)) {
@@ -75,7 +77,7 @@ SprxStartupReport SprxPluginManager::start_locked() {
 
   const SprxCatalog catalog = catalog_store_.snapshot();
   std::vector<SprxCatalogIssue> order_issues;
-  const auto order = catalog.startup_order(target.title_id, &order_issues);
+  const auto order = catalog.manual_order(manual_id, target.title_id, &order_issues);
   append_issues(&report.issues, order_issues);
   if (order.empty())
     return report;
@@ -98,10 +100,21 @@ SprxStartupReport SprxPluginManager::start_locked() {
       }
     }
     if (!item.skipped_dependency) {
+      if (target.version.empty() ||
+          (!entry->game_version.empty() && entry->game_version != target.version)) {
+        item.load.status = LoadStatus::PolicyDenied;
+        failed.insert(entry->id); report.results.push_back(std::move(item)); continue;
+      }
+      if (entry->game_version.empty() && !catalog_store_.bind_game(entry->id,target.title_id,target.version)) {
+        item.load.status = LoadStatus::WriteFailed;
+        failed.insert(entry->id); report.results.push_back(std::move(item)); continue;
+      }
       LoadRequest request;
       request.pid = target.pid;
       request.title_id = target.title_id;
       request.path = entry->path;
+      request.options.max_attempts = 1;
+      request.options.game_version = target.version;
       item.load = loader.load(request);
       if (!item.load.succeeded())
         failed.insert(entry->id);
@@ -114,13 +127,15 @@ SprxStartupReport SprxPluginManager::start_locked() {
 std::vector<SprxInventoryEntry> SprxPluginManager::inventory() const {
   std::lock_guard<std::mutex> lock(mutex_);
   std::vector<SprxInventoryEntry> entries = catalog_store_.inventory();
+  for (auto &entry : entries) entry.auto_start = false;
   const SprxCatalog catalog = catalog_store_.snapshot();
   SprxTarget target;
   if (!target_provider_.current(&target))
     return entries;
   for (SprxInventoryEntry &item : entries) {
     const SprxManifestEntry *entry = catalog.find(item.id);
-    if (!entry || !catalog.matches(*entry, target.title_id))
+    if (!entry || !catalog.matches(*entry, target.title_id) ||
+        (!entry->game_version.empty() && entry->game_version != target.version))
       continue;
     item.matches_current_target = true;
     ModuleInfo module;
@@ -135,7 +150,27 @@ std::vector<SprxInventoryEntry> SprxPluginManager::inventory() const {
 SprxOperationResult SprxPluginManager::set_enabled(std::string_view id,
                                                     bool enabled) {
   std::lock_guard<std::mutex> lock(mutex_);
-  return catalog_store_.set_enabled(id, enabled);
+  const SprxCatalog catalog = catalog_store_.snapshot();
+  const auto *entry = catalog.find(id);
+  if (!entry) return {false, "SPRX plugin is not declared"};
+  SprxTarget target;
+  if (!enabled) {
+    ModuleInfo module;
+    if (target_provider_.current(&target) &&
+        runtime_.find_loaded(target.pid, canonical_module_name(entry->path), &module))
+      return {false, "resident module cannot be generically unloaded; close the game"};
+    return catalog_store_.set_enabled(id, false);
+  }
+  if (!target_provider_.current(&target) || !catalog.matches(*entry, target.title_id))
+    return {false, "start the registered target game before loading this plugin"};
+  const auto report = start_locked(id);
+  if (!report.issues.empty()) return {false, report.issues.front().message};
+  for (const auto &item : report.results)
+    if (item.id == id)
+      return item.load.succeeded() && !item.skipped_dependency
+                 ? SprxOperationResult{true, {}}
+                 : SprxOperationResult{false, load_status_name(item.load.status)};
+  return {false, "plugin or its dependencies do not match the running game"};
 }
 
 SprxOperationResult SprxPluginManager::remove(std::string_view id) {

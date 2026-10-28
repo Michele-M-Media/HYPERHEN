@@ -1,0 +1,325 @@
+/**
+ * More (v5, mobile).
+ *
+ * The mobile "everything else" hub. Replaces the old bottom sheet that
+ * rendered the desktop <Sidebar> verbatim — measured at 448x997 that was
+ * a 270px-wide, 1858px-tall column stranded in a height-capped sheet,
+ * with 36px rows (every one under the 44px floor) and two nested scroll
+ * containers.
+ *
+ * Three zones: console switcher + search (sticky), the screen list
+ * (grouped, or flat while searching), and a utility footer.
+ *
+ * SCROLLING: this screen deliberately has NO scroll container of its own.
+ * <main> in AppShell is already `overflow-y-auto` with the bottom-nav
+ * padding applied; adding another would recreate the exact nested-scroll
+ * bug this screen exists to fix. The sticky header works inside main's
+ * scroll context.
+ */
+import { useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router";
+import { ChevronRight, Eye, EyeOff, LayoutGrid, Moon, Search, Sun, X } from "lucide-react";
+
+import { PageHeader, Input, EmptyState } from "../../components";
+import { useTr } from "../../state/lang";
+import { useNavSidebarStore } from "../../state/navSidebar";
+import { useLogsStore } from "../../state/logs";
+import { useUpdateStore } from "../../state/update";
+import { isDarkTheme, useThemeStore } from "../../state/theme";
+import { isTauriEnv } from "../../lib/tauriEnv";
+import { getAppVersion } from "../../lib/appVersion";
+import { isMacOrLinuxDesktop } from "../../lib/platform";
+import RosterPicker from "../../layout/RosterPicker";
+import { useBetaFeaturesStore } from "../../state/betaFeatures";
+import NotificationInbox from "../../layout/NotificationInbox";
+import {
+  BUG_REPORT_NAV_ITEM,
+  isPinnedNav,
+  NAV_ITEMS,
+  groupNavItems,
+  filterNavItems,
+  navItemOffered,
+  navItemVisible,
+  type NavItem,
+} from "../../layout/navItems";
+
+export default function MoreScreen() {
+  const tr = useTr();
+  const [query, setQuery] = useState("");
+  const { theme, toggleTheme } = useThemeStore();
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    getAppVersion()
+      .then(setVersion)
+      .catch(() => setVersion(""));
+  }, []);
+
+  const errorCount = useLogsStore((s) => s.errorCount);
+  const updateAvailable = useUpdateStore((s) => s.phase.kind === "available");
+  const betaEnabled = useBetaFeaturesStore((s) => s.enabled);
+
+  const visible = useMemo(
+    () =>
+      NAV_ITEMS.filter(
+        (i) =>
+          navItemOffered(i, { inBrowser: !isTauriEnv(), macOrLinux: isMacOrLinuxDesktop() }) &&
+          navItemVisible(i, betaEnabled),
+      ),
+    [betaEnabled],
+  );
+  const matches = useMemo(
+    () => filterNavItems([BUG_REPORT_NAV_ITEM, ...visible], query, tr),
+    [visible, query, tr],
+  );
+  const groups = useMemo(() => groupNavItems(matches.filter((i) => !isPinnedNav(i.to))), [matches]);
+  const searching = query.trim().length > 0;
+  return (
+    <div className="app-page max-w-4xl! pb-6!">
+      <PageHeader
+        icon={LayoutGrid}
+        title={tr("more_title", undefined, "More")}
+        description={tr(
+          "more_description",
+          undefined,
+          "Every screen, plus your consoles and app settings.",
+        )}
+      />
+
+      {/* Sticky zone: console switcher + search. Sticks inside <main>'s
+          scroll context — this screen adds no scroller of its own. */}
+      <div className="glass-float sticky top-2 z-10 rounded-[var(--radius-panel)] px-1 py-3 [&>div:first-child]:mx-2">
+        <RosterPicker />
+        <div className="mt-3 px-2">
+          <Input
+            type="search"
+            inputMode="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label={tr(
+              "more_search_placeholder",
+              undefined,
+              "Search screens",
+            )}
+            placeholder={tr(
+              "more_search_placeholder",
+              undefined,
+              "Search screens",
+            )}
+            leftIcon={<Search size={18} />}
+            // Suppress the native search clear affordance: it renders as
+            // a second, differently-styled X beside our own, it's well
+            // under the 44px touch floor, and Android WebView doesn't
+            // draw it consistently. Ours (rightSlot) is the real one.
+            className="h-12 [&::-webkit-search-cancel-button]:appearance-none"
+            rightSlot={
+              query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label={tr(
+                    "more_search_clear",
+                    undefined,
+                    "Clear search",
+                  )}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-muted)] hover:text-[var(--color-text)]"
+                >
+                  <X size={18} />
+                </button>
+              ) : undefined
+            }
+          />
+        </div>
+      </div>
+
+      {matches.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title={tr("more_no_results", undefined, "No screens match")}
+          message={tr(
+            "more_no_results_desc",
+            undefined,
+            "Try a different word — screen names also match their English titles.",
+          )}
+        />
+      ) : searching ? (
+        /* Flat results — grouping is noise once the list is narrowed. */
+        <ul className="surface-panel mt-4 overflow-hidden p-1.5">
+          {matches.map((item) => (
+            <MoreRow
+              key={item.to}
+              item={item}
+              pinned={isPinnedNav(item.to)}
+              errorCount={errorCount}
+              updateAvailable={updateAvailable}
+            />
+          ))}
+        </ul>
+      ) : (
+        <>
+          {/* Pinned, like the sidebar: the way to report a problem is always first. */}
+          <ul className="surface-panel mt-4 overflow-hidden p-1.5">
+            <MoreRow
+              item={BUG_REPORT_NAV_ITEM}
+              errorCount={errorCount}
+              updateAvailable={updateAvailable}
+              pinned
+            />
+          </ul>
+          {groups.map((group) => (
+            <section key={group.section.key} className="mt-6 first:mt-1">
+              <h2 className="px-4 pb-2 text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                {tr(group.section.key, undefined, group.section.fallback)}
+              </h2>
+              <ul className="surface-panel overflow-hidden p-1.5">
+                {group.items.map((item) => (
+                  <MoreRow
+                    key={item.to}
+                    item={item}
+                    errorCount={errorCount}
+                    updateAvailable={updateAvailable}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </>
+      )}
+
+      {/* Utility footer — theme, notifications, version. */}
+      <div className="mt-6 flex items-center justify-between pt-1">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="chip h-11 gap-2 px-4 text-sm font-medium"
+          aria-label={tr(
+            "switch_theme",
+            { current: theme },
+            `Switch theme (current: ${theme})`,
+          )}
+        >
+          {!isDarkTheme(theme) ? <Moon size={16} aria-hidden /> : <Sun size={16} aria-hidden />}
+          {tr("more_theme", undefined, "Theme")}
+        </button>
+        <div className="flex items-center gap-2">
+          {/* Bottom-RIGHT of the screen here, unlike the desktop sidebar
+              footer — so the panel must grow leftward or it lands off the
+              edge of the phone. */}
+          <NotificationInbox align="right" />
+          <span className="text-xs tabular-nums text-[var(--color-muted)]">
+            {version ? `v${version}` : "—"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One 56px navigation row. Full-bleed tappable, chevron affordance, and
+ * the same Logs error / Settings update badges the desktop sidebar shows
+ * — losing them on mobile would hide the only signal that something
+ * needs attention.
+ */
+export function MoreRow({
+  item,
+  errorCount,
+  updateAvailable,
+  pinned = false,
+}: {
+  item: NavItem;
+  errorCount: number;
+  updateAvailable: boolean;
+  /** Always in the sidebar: no hide switch. */
+  pinned?: boolean;
+}) {
+  const tr = useTr();
+  const Icon = item.icon;
+  const showErrors = item.to === "/logs" && errorCount > 0;
+  const showUpdate = item.to === "/settings" && updateAvailable;
+  const hidden = useNavSidebarStore((s) => !pinned && s.hidden.includes(item.to));
+  const toggleHidden = useNavSidebarStore((s) => s.toggleHidden);
+  const label = tr(item.key, undefined, item.fallback);
+  return (
+    <li className="flex items-center">
+      <NavLink
+        to={item.to}
+        className={({ isActive }) =>
+          [
+            // 56px on touch (the §4.1 floor with room for the chevron);
+            // tighter above md where the pointer is a mouse and the
+            // extra height just costs rows-per-screen.
+            "flex min-h-14 w-full items-center gap-3 rounded-full px-4 text-[15px] transition-colors md:min-h-11 md:text-sm",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]",
+            isActive
+              ? "bg-[var(--color-pill)] font-semibold text-[var(--color-text)] shadow-[var(--edge-highlight),var(--shadow-1)] [&>svg:first-child]:text-[var(--color-accent-bright)]"
+              : "text-[var(--color-text)] hover:bg-[var(--color-surface-3)] active:bg-[var(--color-surface-3)]",
+          ].join(" ")
+        }
+      >
+        <Icon size={22} strokeWidth={1.75} className="shrink-0 text-[var(--color-muted)]" />
+        <span className="min-w-0 flex-1 truncate">
+          {tr(item.key, undefined, item.fallback)}
+        </span>
+        {hidden && (
+          <span className="hidden shrink-0 text-xs text-[var(--color-muted)] md:inline">
+            {tr("nav_hidden_marker", undefined, "Hidden from the sidebar")}
+          </span>
+        )}
+        {showErrors && (
+          <span
+            className="rounded-full bg-[var(--color-bad)] px-2 py-0.5 text-xs font-semibold tabular-nums text-[var(--color-accent-contrast)]"
+            title={tr(
+              errorCount === 1 ? "logged_error_one" : "logged_error_many",
+              { count: errorCount },
+              `${errorCount} logged error${errorCount === 1 ? "" : "s"}`,
+            )}
+          >
+            {errorCount > 99 ? "99+" : errorCount}
+          </span>
+        )}
+        {showUpdate && (
+          <span
+            className="h-2 w-2 rounded-full bg-[var(--color-accent)]"
+            aria-label={tr(
+              "update_available_short",
+              undefined,
+              "Update available",
+            )}
+          />
+        )}
+        <ChevronRight
+          size={18}
+          aria-hidden
+          className="shrink-0 text-[var(--color-muted)] rtl:rotate-180"
+        />
+      </NavLink>
+      {/* Sibling of the link, not a child: a <button> inside an <a> is
+          invalid markup and the click would navigate instead of toggling. */}
+      {/* Desktop only: phones navigate by tabs and this list, and have no sidebar to change. A
+          pinned screen has no switch: it is always there. */}
+      {!pinned && (
+        <button
+          type="button"
+          onClick={() => toggleHidden(item.to)}
+          aria-pressed={!hidden}
+          aria-label={
+            hidden
+              ? tr("nav_show_item", { name: label }, "Show {name} in the sidebar")
+              : tr("nav_hide_item", { name: label }, "Hide {name} from the sidebar")
+          }
+          title={
+            hidden
+              ? tr("nav_show_item", { name: label }, "Show {name} in the sidebar")
+              : tr("nav_hide_item", { name: label }, "Hide {name} from the sidebar")
+          }
+          className={`mr-2 hidden h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-surface-3)] md:flex ${
+            hidden ? "text-[var(--color-muted)] opacity-60 hover:opacity-100" : "text-[var(--color-accent)]"
+          }`}
+        >
+          {hidden ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+        </button>
+      )}
+    </li>
+  );
+}

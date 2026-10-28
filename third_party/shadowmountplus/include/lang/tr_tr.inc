@@ -1,11 +1,11 @@
 static const char *const g_tr_tr[SM_L10N_COUNT] = {
     /* English: Go to Debug Settings */
     [SM_L10N_ACTION_DEBUG_SETTINGS] = "Hata ayıklama ayarlarına git",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA */
-    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u */
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community */
+    [SM_L10N_STARTUP] = "HyperHEN Automount v%s\n© Drakmor ve Topluluk",
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community\nControl: http://%s:%u */
     [SM_L10N_STARTUP_WEB] =
-        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+        "HyperHEN Automount v%s\n© Drakmor ve Topluluk\nKontrol: http://%s:%u",
     /* English: HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2. */
     [SM_L10N_RECURSIVE_SCAN_DEPRECATED] = "HyperHEN Automount: recursive_scan=1 kullanımdan kaldırıldı; scan_depth=2 kullanılacak.",
     /* English: HyperHEN Automount: scan depth %u enabled. */
@@ -14,10 +14,10 @@ static const char *const g_tr_tr[SM_L10N_COUNT] = {
     [SM_L10N_BACKPORT_OVERLAY_FAILED] = "Backport overlay başarısız: %s\n%s\n0x%08X",
     /* English: Emulators applied to game: %s */
     [SM_L10N_GAME_EMULATORS_APPLIED] = "Oyuna emülatörler uygulandı: %s",
-    /* English: Backport applied to game: %s */
-    [SM_L10N_GAME_BACKPORTED] = "Oyuna backport uygulandı: %s",
-    /* English: Backport applied to game: %s\nEmulators updated */
-    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "Oyuna backport uygulandı: %s\nEmülatörler güncellendi",
+    /* English: Backport applied: %s */
+    [SM_L10N_GAME_BACKPORTED] = "Backport uygulandı: %s",
+    /* English: Backport applied: %s\nEmulators updated */
+    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "Backport uygulandı: %s\nEmülatörler güncellendi",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nSaved image_sector override: %u.\nTry mounting again. */
     [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] = "İmaj bağlama işlemi reddedildi:\n%s\nKüme boyutu çok küçük (%llu < %u).\nimage_sector değeri kaydedildi: %u.\nBağlamayı yeniden deneyin.",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nUse a larger cluster size in the image or lower sector size in config. */
@@ -50,8 +50,8 @@ static const char *const g_tr_tr[SM_L10N_COUNT] = {
     [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... ve %d tane daha",
     /* English: Batch install failed for %d app(s).\ncode=0x%08X */
     [SM_L10N_BATCH_INSTALL_FAILED] = "%d uygulama için toplu yükleme başarısız.\nkod=0x%08X",
-    /* English: Missing/invalid param.json:\n%s */
-    [SM_L10N_MISSING_PARAM] = "param.json eksik veya geçersiz:\n%s",
+    /* English: Missing/invalid param.json/param.sfo:\n%s */
+    [SM_L10N_MISSING_PARAM] = "param.json/param.sfo eksik veya geçersiz:\n%s",
     /* English: Found %d new games. Processing... */
     [SM_L10N_FOUND_NEW_GAMES] = "%d yeni oyun bulundu. İşleniyor...",
     /* English: Library synchronized.\nFound %d games. */
@@ -64,6 +64,8 @@ static const char *const g_tr_tr[SM_L10N_COUNT] = {
     [SM_L10N_AMPR_EMULATOR_UPDATED] = "AMPR emülatörü güncellendi",
     /* English: HyperHEN Automount: failed to install ShellCore hooks */
     [SM_L10N_SHELLCORE_HOOKS_FAILED] = "HyperHEN Automount: ShellCore hook'ları yüklenemedi",
+    /* English: HyperHEN Automount: kstuff not found; waiting for it to start. */
+    [SM_L10N_KSTUFF_WAITING] = "HyperHEN Automount: kstuff bulunamadı; başlaması bekleniyor",
     /* English: Target temperature %u °C → %u °C */
     [SM_L10N_TEMPERATURE_TRANSITION] = "Hedef sıcaklık %u °C → %u °C",
     /* English: External drive %s connected\nFree %llu.%llu GB of %llu.%llu (Block size %llu KB)\nGames on drive: %d%s */

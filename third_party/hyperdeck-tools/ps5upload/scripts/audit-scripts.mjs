@@ -1,0 +1,75 @@
+#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+
+const repoRoot = path.resolve(import.meta.dirname, "..");
+const strict = process.argv.includes("--strict");
+
+const manualEntrypoints = new Set([
+  "scripts/bundle-fonts.py",
+  "scripts/find-orphan-i18n.mjs",
+  // Research tool for comparing a built package against a reference one by hand.
+  "scripts/fpkg-diff.py",
+  "scripts/hw-test-loop.sh",
+  "scripts/i18n-fill-missing.mjs",
+  "scripts/i18n-prune-unused.mjs",
+  "scripts/release-posts.js",
+  "scripts/translate-i18n.py",
+  "tests/lab/README.md",
+]);
+
+function gitLsFiles(prefixes) {
+  const res = spawnSync("git", ["ls-files", ...prefixes], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  if (res.status !== 0) throw new Error(res.stderr || "git ls-files failed");
+  return res.stdout.trim().split(/\n/).filter(Boolean);
+}
+
+function countRefs(needle, haystackFiles) {
+  const base = path.basename(needle);
+  let refs = 0;
+  for (const file of haystackFiles) {
+    // A script naming itself (usage text, a docstring) is not a reference.
+    if (file === "scripts/audit-scripts.mjs" || file === needle) continue;
+    try {
+      const text = fs.readFileSync(path.join(repoRoot, file), "utf8");
+      if (text.includes(base)) refs += 1;
+    } catch {
+      // Binary or unreadable tracked file: irrelevant for script references.
+    }
+  }
+  return refs;
+}
+
+const files = gitLsFiles(["scripts", "tests/lab", "bench"]);
+const haystackFiles = gitLsFiles(["."]).filter((file) =>
+  !file.startsWith("client/node_modules/")
+  && !file.startsWith("engine/target/")
+  && !file.startsWith("client/src-tauri/target/")
+  && !file.startsWith("client/dist/")
+);
+const executableLike = files.filter((f) => /\.(mjs|js|py|sh|ps1)$/i.test(f));
+// A `*.test.mjs` beside a script is run by check-scripts.mjs (`node --test` over
+// every such file), so it is used without being named anywhere.
+const runByCheckScripts = (file) => /\.test\.mjs$/.test(file);
+const rows = executableLike.map((file) => ({
+  file,
+  refs: runByCheckScripts(file) ? 1 : countRefs(file, haystackFiles),
+  manual: manualEntrypoints.has(file),
+}));
+const suspicious = rows.filter((r) => r.refs === 0 && !r.manual);
+
+process.stdout.write("[audit-scripts] tracked script/test utilities\n");
+for (const r of rows) {
+  const mark = r.manual ? "manual" : r.refs === 0 ? "orphan?" : "used";
+  process.stdout.write(`${String(r.refs).padStart(3)}  ${mark.padEnd(7)}  ${r.file}\n`);
+}
+
+if (suspicious.length > 0) {
+  process.stdout.write("\n[audit-scripts] review these unreferenced files:\n");
+  for (const r of suspicious) process.stdout.write(`  ${r.file}\n`);
+  if (strict) process.exit(1);
+}

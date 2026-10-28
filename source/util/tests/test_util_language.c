@@ -39,10 +39,11 @@ static int test_store_reapplies_runtime_language(void) {
   util_apply_ui_language(0);
   TEST_ASSERT_EQ_INT(ONION_NOTIFY_LANG_EN, onion_notify_get_language());
 
-  /* An explicit Toolbox language keeps winning over the pushed console lang. */
+  /* A Toolbox override must not change system-language notifications. */
   util_store_system_language(4);
   util_apply_ui_language(9);
-  TEST_ASSERT_EQ_INT(ONION_NOTIFY_LANG_ES, onion_notify_get_language());
+  TEST_ASSERT_EQ_INT(ONION_NOTIFY_LANG_ES, onion_notify_get_ui_language());
+  TEST_ASSERT_EQ_INT(ONION_NOTIFY_LANG_DE, onion_notify_get_language());
 
   /* Keep later suites independent from this process-global language state. */
   util_store_system_language(1);

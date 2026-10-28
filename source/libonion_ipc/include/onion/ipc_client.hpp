@@ -48,6 +48,7 @@ struct PluginInventoryItem {
   std::string name;
   bool running = false;
   bool auto_start = false;
+  bool manual_only = false;
 };
 
 struct SprxInventoryItem {

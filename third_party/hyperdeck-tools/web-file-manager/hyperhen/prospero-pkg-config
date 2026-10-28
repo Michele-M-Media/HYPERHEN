@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+prefix="${HYPERHEN_MHD_PREFIX:?HYPERHEN_MHD_PREFIX is required}"
+case " $* " in
+  *" --exists "*) exit 0 ;;
+  *" --cflags "*) printf '%s\n' "-I${prefix}/include" ;;
+  *" --libs "*) printf '%s\n' "${prefix}/lib/libmicrohttpd.a -pthread" ;;
+  *) exit 1 ;;
+esac

@@ -305,7 +305,7 @@ bool read_system_language(int *out) {
 
 } // namespace
 
-Lang active_lang() { return lang_from_notify(onion_notify_get_language()); }
+Lang active_lang() { return lang_from_notify(onion_notify_get_ui_language()); }
 
 int active_ui_lang_value() {
   switch (active_lang()) {
@@ -373,7 +373,7 @@ void set_lang(Lang lang) {
   if (static_cast<int>(lang) < static_cast<int>(Lang::ZhHans) ||
       lang > Lang::PtPt)
     lang = Lang::ZhHans;
-  onion_notify_set_language(notify_from_lang(lang));
+  onion_notify_set_ui_language(notify_from_lang(lang));
 }
 
 void apply_ui_lang(int ui_lang) {
@@ -381,18 +381,15 @@ void apply_ui_lang(int ui_lang) {
 }
 
 void apply_system_or_ui_lang(int ui_lang) {
-  if (ui_lang != 0) {
-    set_lang(lang_from_ui_value(ui_lang));
-    return;
-  }
-
   int system_language = 0;
   if (!read_system_language(&system_language)) {
+    if (ui_lang != 0)
+      set_lang(lang_from_ui_value(ui_lang));
     LOG_WARN("system language query failed; keeping %d",
              static_cast<int>(active_lang()));
     return;
   }
-  set_lang(lang_from_notify(onion_notify_resolve_language(0, system_language)));
+  onion_notify_apply_ui_language(ui_lang, system_language);
 }
 
 const char *tr(const char *key) {

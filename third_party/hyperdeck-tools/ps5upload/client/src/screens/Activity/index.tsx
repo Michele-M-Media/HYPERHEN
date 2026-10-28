@@ -1,0 +1,897 @@
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
+import {
+  Activity as ActivityIcon,
+  CheckCircle2,
+  XCircle,
+  StopCircle,
+  Trash2,
+  Eye,
+} from "lucide-react";
+
+import {
+  PageHeader,
+  Button,
+  EmptyState,
+  Modal,
+  Spinner,
+  Badge,
+} from "../../components";
+import { TaskList } from "../../components/TaskList";
+import { Tabs } from "../../components/Tabs";
+import { MissedSchedules } from "./MissedSchedules";
+import { RunningEngineJobs } from "../../components/RunningEngineJobs";
+import { RemoteSends } from "./RemoteSends";
+import { StatsPanel } from "./StatsPanel";
+import { parseActivityTab, stopActionFor, type ActivityTab } from "./activityView";
+import { useConfirm } from "../../components/ConfirmDialog";
+import { useTr } from "../../state/lang";
+import {
+  useActivityHistoryStore,
+  type ActivityEntry,
+  type ActivityOutcome,
+} from "../../state/activityHistory";
+import { formatBytes, formatDuration } from "../../lib/format";
+import { averageRate } from "../../lib/rollingRate";
+import { fsOpCancel } from "../../api/ps5";
+import { hostOf } from "../../lib/addr";
+import { useFsBulkOpStore, useFsDownloadOpStore } from "../../state/fsBulkOp";
+import { useTransferStore } from "../../state/transfer";
+import { useUploadQueueStore } from "../../state/uploadQueue";
+import { useTaskStore } from "../../state/tasks";
+import { useConnectionStore } from "../../state/connection";
+import { activityForHost } from "../../lib/activityScope";
+import { profileNameForAddr, useRosterStore } from "../../state/roster";
+import { ConsoleChip } from "../../components/ConsoleChip";
+import { formatDate } from "../../lib/formatDate";
+
+/**
+ * Tasks screen. Three tabs (`?tab=`):
+ *  - tasks: the live task projection with its real controls.
+ *  - history: the persistent `activityHistory` log (last 100 entries, kept
+ *    in localStorage) as a day timeline above the list of rows.
+ *  - stats: aggregates of that same history.
+ * History and stats show the selected console's entries plus local-only work;
+ * Clear acts on exactly what is shown.
+ */
+export default function ActivityScreen() {
+  const tr = useTr();
+  const allEntries = useActivityHistoryStore((s) => s.entries);
+  // The selected console's activity only (a PS5 tab is that console's workspace); entries
+  // with no console (local-only work) show under every console.
+  const activeHost = useConnectionStore((s) => s.host);
+  // `?console=<ip>`: another console's activity, opened from a job running there.
+  const [params, setParams] = useSearchParams();
+  const otherConsole = params.get("console");
+  const view = parseActivityTab(params.get("tab"));
+  const setView = (tab: ActivityTab) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (tab === "tasks") next.delete("tab");
+        else next.set("tab", tab);
+        return next;
+      },
+      { replace: true },
+    );
+  const scopeHost = otherConsole || activeHost;
+  const entries = activityForHost(allEntries, scopeHost);
+  const profiles = useRosterStore((s) => s.profiles);
+  const clear = useActivityHistoryStore((s) => s.clear);
+  const clearRunning = useActivityHistoryStore((s) => s.clearRunning);
+  const taskCount = useTaskStore((s) => s.tasks.length);
+  // Canonical confirm dialog — replaces the hand-rolled modal this screen
+  // used to maintain in parallel with ConfirmDialog (style drift hazard).
+  const { confirm: confirmDialog, dialog: confirmDialogNode } = useConfirm();
+
+  const running = entries.filter((e) => e.outcome === "running");
+  const past = entries.filter((e) => e.outcome !== "running");
+
+  const onClearAll = async () => {
+    const ok = await confirmDialog({
+      title: tr(
+        "activity_clear_shown_confirm_title",
+        undefined,
+        "Clear this history?",
+      ),
+      message: tr(
+        "activity_clear_shown_confirm_body",
+        undefined,
+        "Removes the finished entries listed here (done, failed, stopped). Other consoles' history and anything still running are kept. To delete one row, use its trash button.",
+      ),
+      confirmLabel: tr("activity_clear", undefined, "Clear history"),
+      destructive: true,
+    });
+    if (ok) clear(scopeHost);
+  };
+
+  return (
+    <div className="app-page">
+      <PageHeader
+        icon={ActivityIcon}
+        title={tr("v5_tab_tasks", undefined, "Tasks")}
+        description={tr(
+          "activity_description_v2",
+          undefined,
+          "Everything the app is doing and has done on your consoles: uploads, downloads, installs and file operations. Stop or retry one from here. The last 100 are kept, also after a restart.",
+        )}
+        right={
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs
+              variant="segmented"
+              size="sm"
+              ariaLabel={tr("activity_view_toggle", undefined, "View")}
+              value={view}
+              onChange={(id) => setView(id as ActivityTab)}
+              tabs={[
+                { id: "tasks", label: tr("v5_tab_tasks", undefined, "Tasks") },
+                { id: "history", label: tr("activity_view_history", undefined, "History") },
+                { id: "stats", label: tr("stats", undefined, "Stats") },
+              ]}
+            />
+            {view === "history" && entries.length > 0 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<Trash2 size={12} />}
+                onClick={() => void onClearAll()}
+              >
+                {tr("activity_clear", undefined, "Clear history")}
+              </Button>
+            ) : null}
+          </div>
+        }
+      />
+
+      {otherConsole && hostOf(otherConsole) !== hostOf(activeHost ?? "") && (
+        <div
+          className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]"
+          data-testid="activity-console"
+        >
+          {tr(
+            "activity_showing_console",
+            { name: profileNameForAddr(otherConsole, profiles) || otherConsole },
+            "Showing {name}",
+          )}
+          <button
+            type="button"
+            className="underline hover:text-[var(--color-text)]"
+            onClick={() =>
+              setParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete("console");
+                  return next;
+                },
+                { replace: true },
+              )
+            }
+          >
+            {tr("activity_show_this_console", undefined, "Show this console")}
+          </button>
+        </div>
+      )}
+
+      {view === "stats" && <StatsPanel entries={entries} />}
+
+      {/* The unified task projection and legacy operation history are separate
+          views. Stacking both produced duplicate rows for the same upload and
+          made it unclear which controls were authoritative. */}
+      {view === "tasks" && <MissedSchedules />}
+      {view === "tasks" && <RunningEngineJobs />}
+      {view === "tasks" && <RemoteSends />}
+      {view === "tasks" && <TaskList />}
+      {view === "tasks" && taskCount === 0 && (
+        <EmptyState
+          icon={ActivityIcon}
+          size="hero"
+          title={tr("activity_empty_title", undefined, "No tasks yet")}
+          message={tr(
+            "activity_empty_message",
+            undefined,
+            "Uploads, installs, downloads, and file operations will appear here with their real controls.",
+          )}
+        />
+      )}
+
+      {view === "history" && entries.length === 0 && (
+        <EmptyState
+          icon={ActivityIcon}
+          size="hero"
+          title={tr("activity_empty_title", undefined, "No activity yet")}
+          message={tr(
+            "activity_empty_message",
+            undefined,
+            "Uploads, downloads, and file system operations show up here as you trigger them.",
+          )}
+        />
+      )}
+
+      {view === "history" && entries.length > 0 && (
+        <div className="mb-6">
+          <ActivityTimeline entries={entries} />
+        </div>
+      )}
+
+      {view === "history" && running.length > 0 && (
+        <section className="mb-6">
+          <header className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+            <Spinner size={14} />
+            {tr("activity_running", undefined, "Running now")}
+            <span className="text-xs">· {running.length}</span>
+            {/* Bulk clear of running rows. Same effect as the per-row
+                Stop button, but for orphans whose underlying op is
+                already gone (engine restart, payload disconnect, app
+                process killed mid-op): no live cancel to fire, just
+                drop the ghost UI state. Per-row Stop stays for
+                actually-cancellable in-flight ops. */}
+            <button
+              type="button"
+              onClick={() => clearRunning(scopeHost)}
+              className="chip ml-auto min-h-7 px-3 text-xs font-medium normal-case tracking-normal"
+              title={tr(
+                "activity_clear_running_tooltip",
+                undefined,
+                "Mark stuck running entries as stopped without cancelling. Use when the underlying op is already gone (engine restart, app crash) and the row is just stuck in the UI.",
+              )}
+            >
+              {tr("activity_clear_running", undefined, "Clear running")}
+            </button>
+          </header>
+          <ul className="space-y-2">
+            {running.map((e) => (
+              <ActivityRow key={e.id} entry={e} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {view === "history" && past.length > 0 && (
+        <section>
+          <header className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+            {tr("activity_past", undefined, "Recent")}
+            <span className="ml-2 text-xs">· {past.length}</span>
+          </header>
+          <ul className="space-y-2">
+            {past.map((e) => (
+              <ActivityRow key={e.id} entry={e} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {confirmDialogNode}
+    </div>
+  );
+}
+
+function ActivityRow({ entry }: { entry: ActivityEntry }) {
+  const tr = useTr();
+  const remove = useActivityHistoryStore((s) => s.remove);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const isRunning = entry.outcome === "running";
+  const stopAction = stopActionFor(entry);
+  // "Running but nothing on the wire yet" — for archive uploads (esp. .rar,
+  // which the engine extracts to a host temp dir BEFORE any transfer) this is
+  // the long silent prep phase that used to read as a misleading "Uploading N
+  // files" with no speed. Surface it honestly. Gate on running + zero bytes.
+  const preparing = isRunning && entry.phase !== "finalizing" && !entry.bytes;
+  // For finished rows we have a fixed end timestamp (pure subtract).
+  // For running rows we tick `now` every second so the elapsed
+  // counter advances; this also drives the speed/percent re-renders.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isRunning) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [isRunning]);
+  const elapsedMs =
+    entry.endedAtMs !== null
+      ? entry.endedAtMs - entry.startedAtMs
+      : now - entry.startedAtMs;
+  // Shared helper clamps sub-250 ms windows so tiny/reconcile finishes
+  // don't render as absurd multi-GB/s averages in the Activity list.
+  const speed =
+    entry.bytes && entry.bytes > 0 ? averageRate(entry.bytes, elapsedMs) : 0;
+  const pct =
+    entry.totalBytes && entry.totalBytes > 0 && entry.bytes
+      ? Math.min(100, (entry.bytes / entry.totalBytes) * 100)
+      : null;
+
+  // The outcome icon carries the state; the edge only speaks up for work
+  // still running and for failures.
+  const borderClass =
+    entry.outcome === "running"
+      ? "border-[color-mix(in_srgb,var(--color-accent)_45%,transparent)]"
+      : entry.outcome === "failed"
+        ? "border-[color-mix(in_srgb,var(--color-bad)_35%,transparent)]"
+        : "border-[var(--glass-edge)]";
+
+  // Stop dispatch — pick the appropriate cancel mechanism based on
+  // entry.kind. For ops with an op_id (Library moves, FS pastes), call the
+  // payload's FS_OP_CANCEL. For uploads (single-shot + queue) we now TRULY
+  // cancel the engine transfer job (POST /api/jobs/{id}/cancel → the core
+  // aborts at its next shard boundary, partial tx left resumable), not just
+  // stop watching. FS bulk delete / download use their per-host stop signals.
+  const handleStop = async () => {
+    if (entry.opId !== undefined && entry.addr) {
+      try {
+        await fsOpCancel(entry.addr, entry.opId);
+      } catch {
+        // Best-effort. The local store-side cancel below will still
+        // fire if applicable.
+      }
+    }
+    if (
+      entry.kind === "fs-delete" ||
+      entry.kind === "fs-paste-copy" ||
+      entry.kind === "fs-paste-move"
+    ) {
+      // Scope to THIS entry's console — the bulk-op store is per-host now,
+      // so a bare cancel would target the wrong console's op.
+      useFsBulkOpStore.getState().requestCancel(hostOf(entry.addr ?? ""));
+    } else if (entry.kind === "download") {
+      useFsDownloadOpStore.getState().requestStop(hostOf(entry.addr ?? ""));
+    } else if (
+      entry.kind === "upload" ||
+      entry.kind === "upload-dir" ||
+      entry.kind === "upload-reconcile"
+    ) {
+      // Scope to THIS entry's console. transfer state is per-host
+      // (phasesByHost). cancel() asks the engine to truly abort the running
+      // job (not just stop watching), then resets the phase.
+      useTransferStore
+        .getState()
+        .cancel(entry.addr ? hostOf(entry.addr) : undefined);
+    } else if (entry.kind === "upload-queue") {
+      // Queue-driven uploads: halt only THIS console's queue worker (resets
+      // its running item to pending). stop() would halt every console's
+      // queue; stopHost() is per-console. Previously Stop was a no-op for
+      // these — the longest-running ops had a dead button.
+      if (entry.addr) {
+        useUploadQueueStore.getState().stopHost(hostOf(entry.addr));
+      } else {
+        useUploadQueueStore.getState().stop();
+      }
+    }
+    // library-* ops are component-local; the fsOpCancel call above
+    // is the only useful action — the screen's poller will see the
+    // cancelled error from fsCopy and clean up its own state.
+  };
+
+  return (
+    <li
+      className={`rounded-[var(--radius-card)] border bg-[var(--color-surface-raised)] px-4 py-3 text-xs shadow-[var(--edge-highlight)] ${borderClass}`}
+    >
+      <div className="mb-1 flex items-center gap-2">
+        <OutcomeIcon outcome={entry.outcome} />
+        <span className="font-medium">{entry.label}</span>
+        {/* Canonical console chip (colored dot + roster name, hidden for
+            single-console rosters where it's pure noise). Same accent
+            color as the console's tab so rows match tabs at a glance. */}
+        <ConsoleChip addr={entry.addr} />
+        {entry.outcome === "running" && entry.phase === "finalizing" && (
+          // Inline pill that visibly marks the post-100% state where the
+          // engine is waiting on the PS5 to commit the manifest. Without
+          // it, the row sits at "Uploading X files 100%" silently for
+          // minutes-to-hours on big multi-file uploads (user reported a
+          // 1h+ stall on 84,216 files) and the user has no way to tell
+          // it apart from a true hang.
+          //
+          // P3 / v2.18.0: when the payload streams APPLY_PROGRESS frames
+          // (new payloads + multi-file uploads), the engine populates
+          // filesFinalized / filesFinalizingTotal on the entry. We then
+          // render "Finalizing on PS5 — 12,400 / 84,216 files" so the
+          // user sees motion through the commit phase. Falls back to
+          // the legacy "Finalizing on PS5" pill (no counter) for old
+          // payloads or before the first frame lands.
+          <span
+            className="rounded-full bg-[var(--color-warn)]/15 px-1.5 py-0.5 text-xs font-medium text-[var(--color-warn)]"
+            title={tr(
+              "activity_phase_finalizing_hint",
+              undefined,
+              "All bytes are on the PS5; it's committing the file index. This can take a while for large file counts — don't close the app.",
+            )}
+          >
+            {entry.filesFinalizingTotal && entry.filesFinalizingTotal > 0
+              ? tr(
+                  "activity_phase_finalizing_with_counter",
+                  {
+                    done: (entry.filesFinalized ?? 0).toLocaleString(),
+                    total: entry.filesFinalizingTotal.toLocaleString(),
+                  },
+                  `Finalizing on PS5 — ${(entry.filesFinalized ?? 0).toLocaleString()} / ${entry.filesFinalizingTotal.toLocaleString()} files`,
+                )
+              : tr("activity_phase_finalizing", undefined, "Finalizing on PS5")}
+          </span>
+        )}
+        {entry.files !== undefined && entry.files > 1 && (
+          <Badge tone="neutral" variant="soft">
+            {tr(
+              "activity_files_badge",
+              { count: entry.files },
+              `${entry.files} files`,
+            )}
+          </Badge>
+        )}
+        <span className="ml-auto text-xs text-[var(--color-muted)]">
+          {formatRelative(entry.startedAtMs, tr)} ·{" "}
+          {formatDuration(elapsedMs / 1000)}
+        </span>
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className="rounded-full border border-[var(--color-border)] p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-text)]"
+          title={tr("activity_view_tooltip", undefined, "View details")}
+        >
+          <Eye size={13} />
+        </button>
+        {isRunning ? (
+          stopAction && (
+            <button
+              type="button"
+              onClick={() => void handleStop()}
+              className="chip min-h-7 px-3 text-xs"
+              title={
+                stopAction === "cancel"
+                  ? tr(
+                      "activity_cancel_tooltip",
+                      undefined,
+                      "Cancel this operation",
+                    )
+                  : tr(
+                      "fs_download_stop_tooltip",
+                      undefined,
+                      "Stop watching this download (engine job continues server-side)",
+                    )
+              }
+            >
+              {stopAction === "cancel"
+                ? tr("activity_cancel", undefined, "Cancel")
+                : tr("fs_download_stop", undefined, "Stop watching")}
+            </button>
+          )
+        ) : (
+          <button
+            type="button"
+            onClick={() => remove(entry.id)}
+            className="rounded-full border border-[var(--color-border)] p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-3)] hover:text-[var(--color-bad)]"
+            title={tr(
+              "activity_delete_tooltip",
+              undefined,
+              "Delete this entry",
+            )}
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
+      {preparing && (
+        <div className="mb-1 text-xs text-[var(--color-muted)]">
+          {tr(
+            "activity_preparing_hint",
+            undefined,
+            "Preparing… no data transferred yet. Compressed archives (.rar/.7z) are extracted on your computer first — this can take a while for large files before the upload speed appears.",
+          )}
+        </div>
+      )}
+
+      {entry.outcome === "running" && entry.phase === "finalizing" && (
+        // Always-visible "don't close the app" hint. Previously this
+        // copy only lived in the pill's tooltip, which on a Tauri
+        // desktop app means almost nobody saw it (no hover discovery
+        // muscle memory on desktop chrome the way there is in browsers).
+        // The user the screenshot came from sat staring at the
+        // tooltip-hidden warning for an hour before force-quitting.
+        // Promote it to an inline line under the row's header so it's
+        // the next thing they read after seeing the pill itself.
+        <div className="mb-1 text-xs text-[var(--color-warn)]">
+          {tr(
+            "activity_phase_finalizing_hint",
+            undefined,
+            "All bytes are on the PS5; it's committing the file index. This can take a while for large file counts — don't close the app.",
+          )}
+        </div>
+      )}
+
+      {/* From / To paths on their own lines for readability — game
+          paths are long and a single break-all line wraps awkwardly
+          at the end. Falls back to the legacy single `detail` line
+          for entries created before fromPath/toPath were tracked. */}
+      {entry.fromPath || entry.toPath ? (
+        <div className="mb-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-xs text-[var(--color-muted)]">
+          {entry.fromPath && (
+            <>
+              <span className="text-[var(--color-muted)]">
+                {tr("activity_from", undefined, "From")}
+              </span>
+              <span className="break-all">{entry.fromPath}</span>
+            </>
+          )}
+          {entry.toPath && (
+            <>
+              <span className="text-[var(--color-muted)]">
+                {tr("activity_to", undefined, "To")}
+              </span>
+              <span className="break-all">{entry.toPath}</span>
+            </>
+          )}
+        </div>
+      ) : entry.detail ? (
+        <div className="mb-1 break-all font-mono text-xs text-[var(--color-muted)]">
+          {entry.detail}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-[var(--color-muted)]">
+        {entry.bytes !== undefined && entry.bytes > 0 && (
+          <span>
+            {formatBytes(entry.bytes)}
+            {entry.totalBytes !== undefined && entry.totalBytes > 0 && (
+              <> / {formatBytes(entry.totalBytes)}</>
+            )}
+            {pct !== null && ` (${pct.toFixed(0)}%)`}
+          </span>
+        )}
+        {speed > 0 && isRunning && entry.phase !== "finalizing" && (
+          // Hide the speed chip during the finalize phase — the byte
+          // counter is pegged at 100% so the speed math collapses to a
+          // total-average and the readout is meaningless ("0 B/s" or a
+          // stale prior value depending on which path you take). The
+          // pill at the top already tells the user what's happening.
+          // Label as "live" so it isn't confused with the finished-row
+          // "avg" chip (bug report: high avg vs crawling live meter).
+          <span>
+            {tr(
+              "activity_live_speed",
+              { speed: formatBytes(speed) },
+              `${formatBytes(speed)}/s live`,
+            )}
+          </span>
+        )}
+        {!isRunning &&
+          entry.bytes !== undefined &&
+          entry.bytes > 0 &&
+          speed > 0 && (
+            <span>
+              {tr(
+                "activity_avg_speed",
+                // Was previously called with `undefined` as the vars
+                // arg. tr() always looks up the key in the active
+                // locale first and only falls through to the 3rd-arg
+                // fallback if the lookup misses — every locale has
+                // this key, so the fallback never ran. Result: a
+                // literal "{speed}" rendered in every language the
+                // app supports (the user-reported "(speed)" in the
+                // bug screenshot is just curly braces blurred by a
+                // phone camera). Passing the vars now interpolates
+                // correctly in every locale.
+                { speed: formatBytes(speed) },
+                `avg ${formatBytes(speed)}/s`,
+              )}
+            </span>
+          )}
+        <span>
+          {entry.outcome === "running"
+            ? tr("activity_outcome_running", undefined, "Running")
+            : entry.outcome === "done"
+              ? tr("activity_outcome_done", undefined, "Done")
+              : entry.outcome === "failed"
+                ? tr("activity_outcome_failed", undefined, "Failed")
+                : tr("activity_outcome_stopped", undefined, "Stopped")}
+        </span>
+      </div>
+      {entry.error && (
+        // For terminal entries, the error is a failure detail (red).
+        // For still-running entries, treat it as an informational
+        // hint about why progress data isn't appearing — yellow,
+        // not red. The Library move's poller writes the
+        // "unsupported_frame" warning into this field while the op
+        // is in flight; without distinct styling the user sees a
+        // red error on a row that's still happily running, which
+        // is more confusing than helpful.
+        <div
+          className={`mt-1 text-xs ${
+            isRunning ? "text-[var(--color-warn)]" : "text-[var(--color-bad)]"
+          }`}
+        >
+          {entry.error}
+        </div>
+      )}
+      {detailOpen && (
+        <ActivityDetailModal
+          entry={entry}
+          speed={speed}
+          pct={pct}
+          elapsedMs={elapsedMs}
+          onClose={() => setDetailOpen(false)}
+        />
+      )}
+    </li>
+  );
+}
+
+/** Full-detail modal for one activity — everything the entry carries, for
+ *  users who want the complete picture (paths, sizes, phase, timings, error
+ *  reason/detail). Opened by the row's eye button. */
+function ActivityDetailModal({
+  entry,
+  speed,
+  pct,
+  elapsedMs,
+  onClose,
+}: {
+  entry: ActivityEntry;
+  speed: number;
+  pct: number | null;
+  elapsedMs: number;
+  onClose: () => void;
+}) {
+  const tr = useTr();
+  const profiles = useRosterStore((s) => s.profiles);
+  const consoleName = entry.addr
+    ? profileNameForAddr(entry.addr, profiles)
+    : null;
+  const phaseLabel =
+    entry.outcome === "running" && entry.phase !== "finalizing" && !entry.bytes
+      ? tr("activity_phase_preparing", undefined, "Preparing (no transfer yet)")
+      : entry.phase === "finalizing"
+        ? tr("activity_phase_finalizing", undefined, "Finalizing on PS5")
+        : entry.phase === "uploading"
+          ? tr("activity_phase_uploading", undefined, "Uploading")
+          : null;
+  const fmtTime = (ms: number) => formatDate(ms);
+  const rows: Array<[string, string | null]> = [
+    [tr("activity_detail_kind", undefined, "Type"), entry.kind],
+    [tr("activity_detail_console", undefined, "Console"), consoleName],
+    [tr("activity_detail_phase", undefined, "Phase"), phaseLabel],
+    [tr("activity_detail_from", undefined, "From"), entry.fromPath ?? null],
+    [
+      tr("activity_detail_to", undefined, "To"),
+      entry.toPath ?? entry.detail ?? null,
+    ],
+    [
+      tr("activity_detail_progress", undefined, "Progress"),
+      entry.bytes !== undefined
+        ? `${formatBytes(entry.bytes)}${
+            entry.totalBytes ? ` / ${formatBytes(entry.totalBytes)}` : ""
+          }${pct !== null ? ` (${pct.toFixed(0)}%)` : ""}`
+        : null,
+    ],
+    [
+      tr("activity_detail_speed", undefined, "Speed"),
+      speed > 0 ? `${formatBytes(speed)}/s` : null,
+    ],
+    [
+      tr("activity_detail_files", undefined, "Files"),
+      entry.files !== undefined ? String(entry.files) : null,
+    ],
+    [
+      tr("activity_detail_started", undefined, "Started"),
+      fmtTime(entry.startedAtMs),
+    ],
+    [
+      tr("activity_detail_ended", undefined, "Ended"),
+      entry.endedAtMs ? fmtTime(entry.endedAtMs) : null,
+    ],
+    [
+      tr("activity_detail_duration", undefined, "Duration"),
+      formatDuration(elapsedMs / 1000),
+    ],
+  ];
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={entry.label}
+      titleIcon={<OutcomeIcon outcome={entry.outcome} />}
+      size="md"
+    >
+      <div className="p-4">
+        <dl className="space-y-1.5 text-xs">
+          {rows
+            .filter(([, v]) => v != null && v !== "")
+            .map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <dt className="w-24 shrink-0 text-[var(--color-muted)]">{k}</dt>
+                <dd className="min-w-0 flex-1 break-words font-mono">{v}</dd>
+              </div>
+            ))}
+        </dl>
+        {entry.error && (
+          <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-xs">
+            <div className="mb-1 font-medium text-[var(--color-bad)]">
+              {tr("activity_detail_error", undefined, "Error")}
+            </div>
+            <div className="break-words font-mono text-[var(--color-muted)]">
+              {entry.error}
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function OutcomeIcon({ outcome }: { outcome: ActivityOutcome }) {
+  if (outcome === "running") return <Spinner size={14} tone="accent" />;
+  if (outcome === "done")
+    return <CheckCircle2 size={13} className="text-[var(--color-good)]" />;
+  if (outcome === "failed")
+    return <XCircle size={13} className="text-[var(--color-bad)]" />;
+  return <StopCircle size={13} className="text-[var(--color-warn)]" />;
+}
+
+/**
+ * Localized relative time. Caller passes the active `tr` since this
+ * helper is invoked from the row body — JSX render path, no context
+ * to thread. Day-or-older entries fall through to the locale's
+ * `toLocaleString` which the browser already adapts to the user's
+ * preferred language.
+ */
+function formatRelative(
+  ms: number,
+  tr: (
+    key: string,
+    vars?: Record<string, string | number>,
+    fallback?: string,
+  ) => string,
+): string {
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return tr("activity_just_now", undefined, "just now");
+  if (diff < 3_600_000) {
+    const m = Math.floor(diff / 60_000);
+    return tr("activity_minutes_ago", { count: m }, `${m}m ago`);
+  }
+  if (diff < 86_400_000) {
+    const h = Math.floor(diff / 3_600_000);
+    return tr("activity_hours_ago", { count: h }, `${h}h ago`);
+  }
+  return formatDate(ms);
+}
+
+/**
+ * Horizontal timeline grouped by day. Each row is one calendar day;
+ * each block is one operation positioned along the 24-hour x-axis.
+ * Color encodes outcome (green=done, amber=running, red=failed,
+ * grey=stopped). Hover for the full detail.
+ */
+function ActivityTimeline({ entries }: { entries: ActivityEntry[] }) {
+  const tr = useTr();
+  // Roster for tooltip console attribution — two overlapping amber blocks
+  // from two consoles are otherwise indistinguishable on hover.
+  const profiles = useRosterStore((s) => s.profiles);
+  // Tapped block → open the same detail modal the list rows use. Without
+  // this, the timeline's only info was a hover tooltip — invisible on
+  // touch (the app ships on Android), making the whole view a dead end.
+  const [selected, setSelected] = useState<ActivityEntry | null>(null);
+  // Group entries by local-day key (YYYY-MM-DD).
+  const byDay = new Map<string, ActivityEntry[]>();
+  for (const e of entries) {
+    const d = new Date(e.startedAtMs);
+    const key = `${d.getFullYear()}-${(d.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+    const arr = byDay.get(key) ?? [];
+    arr.push(e);
+    byDay.set(key, arr);
+  }
+  const days = Array.from(byDay.entries()).sort((a, b) =>
+    b[0].localeCompare(a[0]),
+  );
+
+  function blockColor(outcome: ActivityOutcome): string {
+    switch (outcome) {
+      case "done":
+        return "var(--color-good)";
+      case "running":
+        return "var(--color-warn)";
+      case "failed":
+        return "var(--color-bad)";
+      case "stopped":
+      default:
+        return "var(--color-muted)";
+    }
+  }
+
+  return (
+    <section className="surface-panel p-5">
+      <header className="mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-semibold">
+          {tr(
+            "activity_timeline_title",
+            { count: days.length },
+            `Timeline (${days.length} days)`,
+          )}
+        </h3>
+        <span className="text-xs text-[var(--color-muted)]">
+          {tr(
+            "activity_timeline_legend",
+            undefined,
+            "green=done · amber=running · red=failed · grey=stopped",
+          )}
+        </span>
+      </header>
+      <div className="space-y-1">
+        {/* X-axis labels: 0h, 6h, 12h, 18h, 24h. */}
+        <div className="ml-20 flex justify-between text-xs text-[var(--color-muted)]">
+          <span>00:00</span>
+          <span>06:00</span>
+          <span>12:00</span>
+          <span>18:00</span>
+          <span>24:00</span>
+        </div>
+        {days.map(([day, dayEntries]) => (
+          <div key={day} className="flex items-center gap-2">
+            <div className="w-20 shrink-0 text-xs tabular-nums text-[var(--color-muted)]">
+              {day}
+            </div>
+            <div className="relative h-5 flex-1 rounded-sm bg-[var(--color-surface)]">
+              {/* Hour gridlines */}
+              {[0.25, 0.5, 0.75].map((p) => (
+                <div
+                  key={p}
+                  className="absolute top-0 h-full border-l border-[var(--color-border)]"
+                  style={{ left: `${p * 100}%` }}
+                />
+              ))}
+              {dayEntries.map((e) => {
+                const start = new Date(e.startedAtMs);
+                const end = e.endedAtMs ? new Date(e.endedAtMs) : new Date();
+                const dayStart = new Date(start);
+                dayStart.setHours(0, 0, 0, 0);
+                const dayMs = 86_400_000;
+                const left =
+                  ((start.getTime() - dayStart.getTime()) / dayMs) * 100;
+                const widthMs = end.getTime() - start.getTime();
+                const widthPct = Math.max(0.4, (widthMs / dayMs) * 100);
+                const label = `${
+                  e.addr && profiles.length > 1
+                    ? `${profileNameForAddr(e.addr, profiles)} · `
+                    : ""
+                }${e.label} · ${e.outcome} · ${formatDate(start, "time")}${
+                  e.endedAtMs ? ` → ${formatDate(end, "time")}` : ""
+                }`;
+                return (
+                  <button
+                    type="button"
+                    key={e.id}
+                    onClick={() => setSelected(e)}
+                    aria-label={label}
+                    className="absolute top-0.5 h-4 cursor-pointer rounded-sm hover:opacity-80 focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+                    style={{
+                      left: `${left.toFixed(2)}%`,
+                      width: `${Math.min(100 - left, widthPct).toFixed(2)}%`,
+                      backgroundColor: blockColor(e.outcome),
+                    }}
+                    title={label}
+                  />
+                );
+              })}
+            </div>
+            <div className="w-12 text-right text-xs tabular-nums text-[var(--color-muted)]">
+              {dayEntries.length}
+            </div>
+          </div>
+        ))}
+      </div>
+      {selected && (
+        <ActivityDetailModal
+          entry={selected}
+          // Snapshot values — the live speed/pct only matter for the list
+          // row's progress bar; from the timeline we just want the full
+          // detail (paths, sizes, phase, timings, error).
+          speed={0}
+          pct={selected.outcome === "done" ? 100 : null}
+          // Finished entries get their real duration; a still-running one
+          // shows 0 here (the live ticking elapsed is the list row's job —
+          // and Date.now() in render is a lint-flagged impure call).
+          elapsedMs={
+            selected.endedAtMs ? selected.endedAtMs - selected.startedAtMs : 0
+          }
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </section>
+  );
+}

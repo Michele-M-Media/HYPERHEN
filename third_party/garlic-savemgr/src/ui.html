@@ -1,0 +1,2398 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GarlicMgr</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box }
+
+    :root {
+      --bg: #06060e; --s1: #0c0c1a; --bd: #1a1a35;
+      --ac: #0070ff; --ac2: #00bbff; --gl: rgba(0,112,255,.15);
+      --tx: #d0d0e4; --dm: #505068;
+      --ok: #00dd77; --er: #ff2244; --lb: #040408;
+    }
+
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      background: radial-gradient(ellipse at 10% 40%, #0c1424, var(--bg) 65%);
+      color: var(--tx); height: 100vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 5px }
+    ::-webkit-scrollbar-track { background: transparent }
+    ::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 3px }
+
+    /* ── Nav ─────────────────────────────────────────── */
+    nav {
+      height: 48px; background: var(--s1);
+      border-bottom: 1px solid var(--bd);
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 6px;
+      flex-shrink: 0; position: relative;
+    }
+    nav::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--ac), transparent); opacity: .3;
+    }
+
+    .logo {
+      font-size: 14px; font-weight: 800; letter-spacing: 3px;
+      text-transform: uppercase; margin-right: 20px;
+      background: linear-gradient(135deg, var(--ac), var(--ac2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .tab {
+      background: none; border: 1px solid transparent; color: var(--dm);
+      font-size: 11px; font-weight: 600; padding: 5px 14px;
+      cursor: pointer; border-radius: 16px; transition: all .2s;
+      letter-spacing: .5px; text-transform: uppercase;
+    }
+    .tab:hover { color: var(--tx); border-color: var(--bd) }
+    .tab.active {
+      color: #fff; background: var(--ac); border-color: var(--ac);
+      box-shadow: 0 0 12px var(--gl);
+    }
+
+    .spacer { flex: 1 }
+
+    .shut {
+      background: none; border: 1px solid var(--er); color: var(--er);
+      padding: 5px 12px; border-radius: 16px; cursor: pointer;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: .5px; text-transform: uppercase; transition: all .2s;
+    }
+    .shut:hover { background: var(--er); color: #fff }
+
+    /* ── Layout ──────────────────────────────────────── */
+    .main { flex: 1; display: flex; overflow: hidden }
+    .main.full .left { display: none }
+    .main.full .right { border-left: none }
+
+    .left {
+      width: 300px; min-width: 220px; display: flex; flex-direction: column;
+      border-right: 1px solid var(--bd); background: var(--s1);
+    }
+
+    .shdr {
+      padding: 10px 16px; font-size: 10px; font-weight: 700; color: var(--dm);
+      text-transform: uppercase; letter-spacing: 1.5px;
+      border-bottom: 1px solid var(--bd); flex-shrink: 0;
+    }
+    .desk-shdr { display: flex; align-items: center; gap: 0 }
+
+    /* ── Platform tabs ────────────────────────────────── */
+    .ptab {
+      background: none; border: 1px solid var(--bd); color: var(--dm);
+      font-size: 13px; font-weight: 700; padding: 3px 12px;
+      cursor: pointer; letter-spacing: .5px; text-transform: uppercase; transition: all .2s;
+    }
+    .ptab:first-of-type { border-radius: 10px 0 0 10px }
+    .ptab:last-of-type { border-radius: 0 10px 10px 0 }
+    .ptab.active { color: #fff; background: var(--ac); border-color: var(--ac) }
+    .ptab:hover:not(.active) { color: var(--tx) }
+
+    /* ── Save list ───────────────────────────────────── */
+    .svs { flex: 1; overflow-y: auto }
+
+    .sv {
+      padding: 10px 14px; border-bottom: 1px solid rgba(26,26,53,.5);
+      cursor: pointer; transition: all .15s; border-left: 2px solid transparent;
+    }
+    .sv:hover { background: rgba(255,255,255,.02) }
+    .sv.sel {
+      background: rgba(0,112,255,.08); border-left-color: var(--ac);
+      box-shadow: inset 3px 0 8px -3px var(--gl);
+    }
+    .sv .tid { font-size: 12px; font-weight: 600; color: var(--tx); letter-spacing: .3px }
+    .sv .sn {
+      font-size: 11px; color: var(--dm); margin-top: 2px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .badge { display:inline-block; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; float:right; margin-left:6px }
+    .badge-ps4 { background:#1e6fbf; color:#fff }
+    .badge-ps5 { background:#1a8a3f; color:#fff }
+    .badge-bu { background:#c89b00; color:#000 }
+    .badge-usb { background:#8b5cf6; color:#fff }
+
+    /* ── Right panel ─────────────────────────────────── */
+    .right { flex: 1; display: flex; flex-direction: column; overflow: hidden }
+
+    .tb {
+      padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      border-bottom: 1px solid var(--bd); background: var(--s1);
+      flex-shrink: 0; min-height: 40px;
+    }
+
+    .btn {
+      background: var(--ac); color: #fff; border: none;
+      padding: 6px 16px; border-radius: 16px; cursor: pointer;
+      font-size: 11px; font-weight: 700; letter-spacing: .4px;
+      text-transform: uppercase; transition: all .2s;
+    }
+    .btn:hover { box-shadow: 0 0 12px var(--gl); filter: brightness(1.1) }
+    .btn:disabled { opacity: .25; cursor: not-allowed; box-shadow: none; filter: none }
+    .btn.red { background: var(--er) }
+    .btn.grn { background: var(--ok); color: #000 }
+
+    /* ── Content area ────────────────────────────────── */
+    .ct { flex: 1; overflow-y: auto; display: flex; flex-direction: column }
+    .ct.ctr { align-items: center; justify-content: center }
+
+    .drop {
+      border: 2px dashed var(--bd); border-radius: 12px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px 48px; transition: all .2s; gap: 10px;
+      max-width: 380px; width: 90%;
+    }
+    .drop.over { border-color: var(--ac); background: rgba(0,112,255,.06) }
+
+    .dico { font-size: 32px; opacity: .5 }
+    .dlbl { color: var(--dm); font-size: 12px; text-align: center; line-height: 1.6 }
+    .dlbl b { color: var(--tx) }
+
+    .bbtn {
+      background: var(--ac); color: #fff; border: none;
+      padding: 8px 24px; border-radius: 16px; cursor: pointer;
+      font-size: 11px; font-weight: 700; letter-spacing: .4px;
+      text-transform: uppercase; transition: all .2s; margin-top: 4px;
+    }
+    .bbtn:hover { box-shadow: 0 0 12px var(--gl); filter: brightness(1.1) }
+
+    .dlnk {
+      display: inline-block; padding: 10px 24px;
+      background: var(--ok); color: #000; border-radius: 16px;
+      text-decoration: none; font-weight: 700; font-size: 12px;
+      letter-spacing: .4px; text-transform: uppercase;
+      transition: all .2s; margin-top: 8px;
+    }
+    .dlnk:hover { filter: brightness(1.1); box-shadow: 0 0 12px rgba(0,221,119,.3) }
+
+    /* ── File listing ────────────────────────────────── */
+    .fi { padding: 6px 16px; font-size: 14px; color: var(--tx); display: flex; align-items: center }
+    .fi.dir { color: var(--ac2); font-weight: 600; cursor: pointer }
+    .fi .sz { color: var(--dm); font-size: 12px; margin-left: auto }
+    .dir-dots {
+      color: var(--dm); font-size: 18px;
+      cursor: pointer; padding: 0 4px; margin-left: 6px;
+      opacity: .3; transition: opacity .15s; border-radius: 4px;
+    }
+    .fi.dir:hover .dir-dots { opacity: .7 }
+    .dir-dots:hover { opacity: 1 !important; color: var(--tx); background: rgba(255,255,255,.05) }
+    .title-dots {
+      color: var(--dm); font-size: 18px;
+      cursor: pointer; padding: 0 4px; margin-left: 6px;
+      opacity: .3; transition: opacity .15s; border-radius: 4px;
+    }
+    .sv:hover .title-dots { opacity: .7 }
+    .title-dots:hover { opacity: 1 !important; color: var(--tx); background: rgba(255,255,255,.05) }
+
+    .empty { padding: 40px; text-align: center; color: var(--dm); font-size: 12px; letter-spacing: .3px }
+    .dh { padding: 16px; text-align: center; color: var(--dm); font-size: 11px; opacity: .4; margin-top: auto }
+
+    /* ── Log panel ───────────────────────────────────── */
+    .logw {
+      height: 150px; border-top: 1px solid var(--bd);
+      display: flex; flex-direction: column;
+      flex-shrink: 0; background: var(--lb); position: relative;
+    }
+    .logw::before {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,20,10,.04) 2px, rgba(0,20,10,.04) 4px);
+      pointer-events: none; z-index: 1;
+    }
+
+    .log {
+      flex: 1; overflow-y: auto; padding: 6px 14px;
+      font-family: 'SF Mono', Consolas, monospace; font-size: 11px; line-height: 1.7;
+    }
+
+    .ll { color: #4a6a5a; animation: fadeIn .2s ease }
+    .ll.err { color: var(--er) }
+    .ll.ok { color: var(--ok) }
+    .ll .t { opacity: .35; margin-right: 8px }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(2px) }
+      to { opacity: 1; transform: none }
+    }
+
+    /* ── Modal ───────────────────────────────────────── */
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; backdrop-filter: blur(4px);
+    }
+    .modal {
+      background: var(--s1); border: 1px solid var(--bd); border-radius: 12px;
+      padding: 24px; max-width: 380px; width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .modal h3 { font-size: 14px; color: var(--tx); margin-bottom: 8px }
+    .modal p { font-size: 12px; color: var(--dm); margin-bottom: 20px; word-break: break-all }
+    .modal .btns { display: flex; gap: 8px; justify-content: flex-end }
+    .modal .btns button {
+      padding: 8px 20px; border: none; border-radius: 16px;
+      font-size: 11px; font-weight: 700; letter-spacing: .4px;
+      text-transform: uppercase; cursor: pointer; transition: all .2s;
+    }
+    .modal .mbtn-r { background: var(--er); color: #fff }
+    .modal .mbtn-r:hover { filter: brightness(1.2) }
+    .modal .mbtn-s { background: var(--bd); color: var(--tx) }
+    .modal .mbtn-s:hover { background: var(--dm) }
+
+    /* ── Hex/Text editor ─────────────────────────────── */
+    .editor-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; background: var(--s1);
+      border-bottom: 1px solid var(--bd); flex-shrink: 0;
+    }
+    .editor-bar .ebtn {
+      background: none; border: 1px solid var(--bd); color: var(--dm);
+      font-size: 11px; font-weight: 600; padding: 4px 14px;
+      cursor: pointer; border-radius: 12px; transition: all .2s;
+      letter-spacing: .4px; text-transform: uppercase;
+    }
+    .editor-bar .ebtn:hover { color: var(--tx); border-color: var(--tx) }
+    .editor-bar .ebtn.eact { color: #fff; background: var(--ac); border-color: var(--ac) }
+    .editor-bar .ename {
+      font-size: 12px; color: var(--tx); font-weight: 600;
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .editor-bar .esz { font-size: 11px; color: var(--dm); margin-left: auto }
+
+    .hex-wrap {
+      flex: 1; overflow: auto; font-family: 'SF Mono', Consolas, monospace;
+      font-size: 14px; line-height: 1.6; padding: 8px 0;
+    }
+    .hex-row {
+      display: flex; padding: 0 16px; white-space: pre;
+    }
+    .hex-row:hover { background: rgba(255,255,255,.02) }
+    .hex-off { color: var(--dm); width: 80px; flex-shrink: 0; user-select: none }
+    .hex-bytes { flex-shrink: 0 }
+    .hex-bytes span { cursor: pointer; padding: 0 1px; border-radius: 2px }
+    .hex-bytes span:hover { background: rgba(0,112,255,.2) }
+    .hex-bytes span.dirty { color: var(--ok); font-weight: 700 }
+    .hex-sep { width: 12px; flex-shrink: 0 }
+    .hex-ascii { color: var(--ac2); flex-shrink: 0; flex: 1 }
+    .hex-ascii span { cursor: pointer; border-radius: 2px }
+    .hex-ascii span:hover { background: rgba(0,187,255,.15) }
+    .hex-ascii span.dirty { color: var(--ok); font-weight: 700 }
+
+    .hex-edit-input {
+      background: var(--ac); color: #fff; border: none;
+      font-family: inherit; font-size: inherit; font-weight: 700;
+      width: 20px; text-align: center; padding: 0; border-radius: 2px;
+      outline: none;
+    }
+
+    .text-wrap {
+      flex: 1; position: relative; overflow: hidden;
+    }
+    .text-wrap textarea, .text-wrap pre {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; padding: 12px 16px;
+      font-family: 'SF Mono', Consolas, monospace; font-size: 13px;
+      line-height: 1.6; tab-size: 4; white-space: pre-wrap; word-wrap: break-word;
+      border: none; resize: none; outline: none;
+      overflow: auto; -webkit-overflow-scrolling: touch;
+    }
+    .text-wrap textarea {
+      background: transparent; color: transparent; caret-color: var(--tx);
+      z-index: 2;
+    }
+    .text-wrap textarea.text-plain {
+      background: var(--bg); color: var(--tx); z-index: 1;
+    }
+    .text-wrap pre {
+      background: var(--bg); color: var(--tx);
+      z-index: 1; pointer-events: none;
+    }
+    /* syntax colors */
+    .hl-key { color: #7cb8ff }
+    .hl-str { color: #a5d6ff }
+    .hl-num { color: #79c0ff }
+    .hl-bool { color: #ff7b72 }
+    .hl-null { color: #ff7b72; font-style: italic }
+    .hl-tag { color: #7ee787 }
+    .hl-attr { color: #d2a8ff }
+    .hl-aval { color: #a5d6ff }
+    .hl-cmt { color: #505068; font-style: italic }
+
+    /* ── Context menu ────────────────────────────────── */
+    .ctx-menu {
+      position: fixed; background: var(--s1); border: 1px solid var(--bd);
+      border-radius: 8px; padding: 4px 0; min-width: 140px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.5); z-index: 200;
+    }
+    .ctx-menu div {
+      padding: 7px 14px; font-size: 12px; cursor: pointer;
+      transition: background .1s;
+    }
+    .ctx-menu div:hover { background: rgba(255,255,255,.05) }
+    .ctx-menu .ctx-del { color: var(--er) }
+
+    /* ── Options dropdown ────────────────────────────── */
+    .opts-menu {
+      display: none; position: absolute; top: 100%; right: 0;
+      background: var(--s1); border: 1px solid var(--bd);
+      border-radius: 8px; padding: 4px 0; min-width: 200px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.5); z-index: 200;
+      margin-top: 4px;
+    }
+    .opts-menu.open { display: block }
+    .mob-opts { display: none; position: relative }
+    .opts-menu div {
+      padding: 9px 16px; font-size: 12px; cursor: pointer;
+      transition: background .1s; white-space: nowrap;
+    }
+    .opts-menu div:hover { background: rgba(255,255,255,.05) }
+
+    /* ── Progress bar ────────────────────────────────── */
+    .prog {
+      width: 100%; height: 4px; background: var(--bd);
+      border-radius: 2px; margin-top: 8px; overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%; background: var(--ac); border-radius: 2px;
+      transition: width .15s; width: 0%;
+    }
+    .prog-text {
+      font-size: 11px; color: var(--dm); margin-top: 6px;
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    /* ── Hamburger button (mobile only) ─────────────── */
+    .hamburger {
+      display: none; background: none; border: 1px solid var(--bd);
+      color: var(--tx); padding: 6px 8px; border-radius: 6px;
+      cursor: pointer; font-size: 18px; line-height: 1;
+    }
+
+    /* ── Mobile menu overlay ────────────────────────── */
+    .mob-menu {
+      display: none; position: fixed; top: 48px; left: 0; right: 0;
+      background: var(--s1); border-bottom: 1px solid var(--bd);
+      z-index: 50; flex-direction: column; padding: 8px 0;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .mob-menu.open { display: flex }
+    .mob-menu .tab {
+      border-radius: 0; padding: 12px 20px; text-align: left;
+      font-size: 13px; border: none;
+    }
+    .mob-menu .tab.active { border-radius: 0 }
+    .mob-menu .shut {
+      margin: 8px 16px; text-align: center;
+    }
+
+    /* ── Drawer toggle (mobile browse) ──────────────── */
+    .drawer-toggle {
+      display: none; padding: 10px 16px; background: var(--s1);
+      border-bottom: 1px solid var(--bd); cursor: pointer;
+      font-size: 11px; font-weight: 700; color: var(--dm);
+      text-transform: uppercase; letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+    .drawer-toggle:hover { color: var(--tx) }
+
+    /* ── Mobile ─────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .hamburger { display: block }
+      nav .tab, nav .shut { display: none }
+
+      .main { flex-direction: column }
+      .main .left {
+        width: 100%; min-width: 0; border-right: none;
+        border-bottom: 1px solid var(--bd);
+        max-height: 50vh; flex-shrink: 0;
+      }
+      .main .left.collapsed .svs { display: none }
+      .main .left.collapsed { max-height: none }
+      .main.full .left { display: none }
+
+      .drawer-toggle { display: block }
+      .desk-shdr { display: none !important }
+
+      .desk-btn { display: none !important }
+      .mob-opts { display: inline-block !important }
+      .tb { gap: 6px; padding: 8px 10px }
+      .tb .btn { font-size: 10px; padding: 5px 10px }
+      .tb img { width: 60px !important; height: 34px !important }
+
+      .drop { padding: 24px 20px; max-width: 100%; width: 95% }
+
+      .logw { height: 100px }
+
+      .fi { font-size: 12px; padding: 6px 10px }
+      .dir-dots { opacity: .5 }
+    }
+
+    /* ── User selector ────────────────────────────────── */
+    .user-sel {
+      position: relative; display: inline-flex; align-items: center;
+      margin-right: 12px;
+    }
+    .user-btn {
+      background: none; border: 1px solid var(--bd); color: var(--tx);
+      font-size: 11px; font-weight: 600; padding: 4px 10px;
+      cursor: pointer; border-radius: 12px; transition: all .2s;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .user-btn:hover { border-color: var(--ac); color: var(--ac) }
+    .user-btn .arrow { font-size: 8px; color: var(--dm) }
+    .user-dd {
+      display: none; position: absolute; top: 100%; left: 0; margin-top: 4px;
+      background: var(--s1); border: 1px solid var(--bd); border-radius: 8px;
+      min-width: 140px; z-index: 100; overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .user-dd.open { display: block }
+    .user-dd div {
+      padding: 8px 12px; font-size: 11px; cursor: pointer; transition: background .1s;
+    }
+    .user-dd div:hover { background: var(--gl) }
+    .user-dd div.active { color: var(--ac); font-weight: 700 }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────── -->
+<nav>
+  <span class="logo">GARLICMGR</span>
+  <div class="user-sel" id="usersel">
+    <button class="user-btn" onclick="toggleUserDD()"><span id="curuser">Loading...</span> <span class="arrow">&#9662;</span></button>
+    <div class="user-dd" id="userdd"></div>
+  </div>
+  <button class="tab active" onclick="switchTab('browse')">Browse</button>
+  <button class="tab" onclick="switchTab('decrypt')">Decrypt</button>
+  <button class="tab" onclick="switchTab('encrypt')">Encrypt</button>
+  <button class="tab" onclick="switchTab('resign')">Resign</button>
+  <button class="tab" onclick="switchTab('import')">Import</button>
+  <span class="spacer"></span>
+  <button class="shut" onclick="shutdown()">Kill GarlicMgr</button>
+  <button class="hamburger" onclick="toggleMenu()">&#9776;</button>
+</nav>
+<div class="mob-menu" id="mobmenu">
+  <button class="tab active" onclick="switchTab('browse')">Browse</button>
+  <button class="tab" onclick="switchTab('decrypt')">Decrypt</button>
+  <button class="tab" onclick="switchTab('encrypt')">Encrypt</button>
+  <button class="tab" onclick="switchTab('resign')">Resign</button>
+  <button class="tab" onclick="switchTab('import')">Import</button>
+  <button class="shut" onclick="shutdown()">Kill GarlicMgr</button>
+</div>
+
+<!-- ── Main layout ─────────────────────────────────── -->
+<div class="main" id="mn">
+  <div class="left" id="drawer">
+    <div class="shdr desk-shdr">
+      <span style="margin-right:auto">Saves</span>
+      <button class="ptab active" id="ptab5" onclick="setPlatform('ps5')">PS5</button>
+      <button class="ptab" id="ptab4" onclick="setPlatform('ps4')">PS4</button>
+    </div>
+    <div class="drawer-toggle" onclick="toggleDrawer()" id="dtog"></div>
+    <div class="svs" id="svs"><div class="empty">Loading...</div></div>
+  </div>
+  <div class="right">
+    <div class="tb" id="tb"></div>
+    <div class="ct" id="ct"></div>
+  </div>
+</div>
+
+<!-- ── Log panel ───────────────────────────────────── -->
+<div class="logw">
+  <div class="shdr">Terminal</div>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+/* ── State ─────────────────────────────────────────── */
+let S = [], si = -1, tab = 'browse';
+let mt = false, bsy = false;
+let cf = [], ex = new Set();
+let aid = '', stitle = '', mtid = '', mpt = '';
+
+/* ── Utilities ─────────────────────────────────────── */
+function $(id) { return document.getElementById(id) }
+
+function esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function log(m, c) {
+  const d = $('log'), t = new Date().toLocaleTimeString();
+  d.innerHTML += '<div class="ll' + (c ? ' ' + c : '') + '">'
+    + '<span class="t">' + t + '</span>' + esc(m) + '</div>';
+  d.scrollTop = d.scrollHeight;
+}
+
+function fmtB(b) {
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + 'K';
+  return (b / 1048576).toFixed(1) + 'M';
+}
+
+/* ── XHR upload with progress ──────────────────────── */
+function upload(url, file, onProgress, respType) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    if (respType) xhr.responseType = respType;
+    xhr.timeout = 300000; /* 5 min timeout for large saves */
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
+    };
+    xhr.onload = () => resolve(xhr);
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.ontimeout = () => reject(new Error('Timeout'));
+    xhr.send(file);
+  });
+}
+
+function showProgress(pct, loaded, total) {
+  let el = document.getElementById('upprog');
+  if (!el) {
+    const ct = $('ct');
+    const drop = ct.querySelector('.drop');
+    if (!drop) return;
+    el = document.createElement('div');
+    el.id = 'upprog';
+    el.innerHTML = '<div class="prog"><div class="prog-fill"></div></div><div class="prog-text"></div>';
+    drop.appendChild(el);
+  }
+  el.querySelector('.prog-fill').style.width = pct + '%';
+  el.querySelector('.prog-text').textContent = fmtB(loaded) + ' / ' + fmtB(total) + ' (' + pct + '%)';
+}
+
+/* ── Drag & drop zone setup ────────────────────────── */
+function setupDZ(id, fn) {
+  const el = $(id);
+  if (!el) return;
+  el.ondragover = e => { e.preventDefault(); el.classList.add('over') };
+  el.ondragleave = e => { e.preventDefault(); el.classList.remove('over') };
+  el.ondrop = e => {
+    e.preventDefault(); el.classList.remove('over');
+    if (e.dataTransfer.files.length) fn(e.dataTransfer.files);
+  };
+  const b = el.querySelector('.bbtn');
+  if (b) b.onclick = e => {
+    e.stopPropagation();
+    const i = document.createElement('input');
+    i.type = 'file'; i.multiple = true;
+    i.onchange = () => { if (i.files.length) fn(i.files) };
+    i.click();
+  };
+}
+
+/* ── Folder drag & drop zone setup ────────────────── */
+function setupFolderDZ(id, fn) {
+  const el = $(id);
+  if (!el) return;
+  el.ondragover = e => { e.preventDefault(); el.classList.add('over') };
+  el.ondragleave = e => { e.preventDefault(); el.classList.remove('over') };
+  el.ondrop = async e => {
+    e.preventDefault(); el.classList.remove('over');
+    const items = e.dataTransfer.items;
+    if (!items || !items.length) return;
+    const files = [];
+    const entries = [];
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+      if (entry) entries.push(entry);
+    }
+    if (entries.length && entries[0].isDirectory) {
+      const all = await readEntryRecursive(entries[0], '');
+      if (all.length) fn(all, entries[0].name);
+    } else if (e.dataTransfer.files.length) {
+      fn(Array.from(e.dataTransfer.files));
+    }
+  };
+  const b = el.querySelector('.bbtn');
+  if (b) b.onclick = e => {
+    e.stopPropagation();
+    const i = document.createElement('input');
+    i.type = 'file'; i.webkitdirectory = true;
+    i.onchange = () => {
+      if (i.files.length) {
+        const prefix = i.files[0].webkitRelativePath.split('/')[0];
+        fn(Array.from(i.files), prefix);
+      }
+    };
+    i.click();
+  };
+}
+
+/* ── Recursively read folder entries ──────────────── */
+function readEntryRecursive(entry, basePath) {
+  return new Promise(resolve => {
+    if (entry.isFile) {
+      entry.file(f => {
+        f._path = basePath + f.name;
+        resolve([f]);
+      });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const all = [];
+      const readBatch = () => {
+        reader.readEntries(entries => {
+          if (!entries.length) {
+            Promise.all(all).then(arrs => resolve(arrs.flat()));
+            return;
+          }
+          for (const e of entries) {
+            all.push(readEntryRecursive(e, basePath + entry.name + '/'));
+          }
+          readBatch();
+        });
+      };
+      readBatch();
+    } else {
+      resolve([]);
+    }
+  });
+}
+
+/* ── Options dropdown toggle ───────────────────────── */
+function toggleOpts() {
+  const m = $('optsmenu');
+  if (!m) return;
+  m.classList.toggle('open');
+}
+function closeOpts() {
+  const m = $('optsmenu');
+  if (m) m.classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.opts-menu') && !e.target.closest('[onclick*="toggleOpts"]'))
+    closeOpts();
+});
+
+/* ── Hamburger menu ────────────────────────────────── */
+function toggleMenu() {
+  const m = $('mobmenu');
+  m.classList.toggle('open');
+}
+
+/* ── Drawer toggle (mobile save list) ─────────────── */
+let drawerOpen = false;
+function toggleDrawer() {
+  drawerOpen = !drawerOpen;
+  updateDrawer();
+}
+function updateDrawer() {
+  const d = $('drawer');
+  const cnt = S.filter(s => s.type === platform).length;
+  if (drawerOpen) {
+    d.classList.remove('collapsed');
+    $('dtog').innerHTML = '\u25BE Saves'
+      + ' <button class="ptab' + (platform === 'ps5' ? ' active' : '') + '" onclick="event.stopPropagation();setPlatform(\'ps5\')" style="margin-left:8px">PS5</button>'
+      + '<button class="ptab' + (platform === 'ps4' ? ' active' : '') + '" onclick="event.stopPropagation();setPlatform(\'ps4\')">PS4</button>';
+  } else {
+    d.classList.add('collapsed');
+    $('dtog').textContent = '\u25B8 ' + platform.toUpperCase() + ' Saves' + (cnt ? ' (' + cnt + ')' : '');
+  }
+}
+
+/* ── User selector ─────────────────────────────────── */
+let users = [];
+let curUid = '';
+
+async function loadUsers() {
+  try {
+    const r = await fetch('/api/users');
+    const d = await r.json();
+    users = d.users || [];
+    if (users.length > 0) {
+      curUid = users[0].id;
+      $('curuser').textContent = users[0].name;
+    }
+    if (users.length <= 1) $('usersel').querySelector('.arrow').style.display = 'none';
+  } catch(e) {}
+}
+
+function toggleUserDD() {
+  if (users.length <= 1) return;
+  const dd = $('userdd');
+  dd.classList.toggle('open');
+  dd.innerHTML = users.map(u =>
+    '<div class="' + (u.id === curUid ? 'active' : '') + '" onclick="selectUser(\'' + u.id + '\')">' + esc(u.name) + '</div>'
+  ).join('');
+}
+
+function selectUser(uid) {
+  curUid = uid;
+  const u = users.find(x => x.id === uid);
+  $('curuser').textContent = u ? u.name : uid;
+  $('userdd').classList.remove('open');
+  si = -1; mt = null; cf = [];
+  renderL(); renderTB(); renderCt(); updateDrawer();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.user-sel')) $('userdd').classList.remove('open');
+});
+
+/* ── Tab switching ─────────────────────────────────── */
+function switchTab(t) {
+  tab = t;
+  const tabs = ['browse', 'decrypt', 'encrypt', 'resign', 'import'];
+  document.querySelectorAll('nav .tab, .mob-menu .tab').forEach(b => {
+    const idx = tabs.indexOf(b.textContent.trim().toLowerCase());
+    b.className = 'tab' + (tabs[idx] === t ? ' active' : '');
+  });
+  $('mn').className = t === 'browse' ? 'main' : 'main full';
+  /* Close mobile menu */
+  $('mobmenu').classList.remove('open');
+  if (t === 'browse') load();
+  renderTB();
+  renderCt();
+}
+
+/* ── Load saves list ───────────────────────────────── */
+async function load() {
+  try {
+    const r = await fetch('/api/saves');
+    const d = await r.json();
+    S = d.saves || [];
+    renderL();
+    renderTB();
+    updateDrawer();
+    log('Loaded ' + S.length + ' saves', 'ok');
+  } catch (e) {
+    log('Failed: ' + e.message, 'err');
+    S = [];
+    renderL();
+  }
+}
+
+/* ── Render save list (left panel) ─────────────────── */
+let exG = new Set(); /* expanded groups */
+let usbDrawerOpen = false;
+let platform = 'ps5';
+
+function setPlatform(p) {
+  platform = p;
+  $('ptab5').className = 'ptab' + (p === 'ps5' ? ' active' : '');
+  $('ptab4').className = 'ptab' + (p === 'ps4' ? ' active' : '');
+  si = -1; mt = null; cf = [];
+  renderL(); renderTB(); renderCt(); updateDrawer();
+}
+
+function renderGroup(g, h) {
+  const gtype = S[g.items[0]].type || 'ps5';
+  const badge = '<span class="badge badge-' + gtype + '">' + gtype.toUpperCase() + '</span>';
+  const anyUsb = g.items.every(i => S[i].usb);
+  const gkey = (anyUsb ? 'usb:' : '') + g.title_id;
+  const tdots = anyUsb ? '' : '<span class="title-dots" onclick="event.stopPropagation();showTitleMenu(event,\'' + esc(g.title_id).replace(/'/g, "\\'") + '\')">\u22EE</span>';
+  function saveDots(idx) {
+    return '<span class="title-dots" onclick="event.stopPropagation();showSaveMenu(event,' + idx + ')">\u22EE</span>';
+  }
+  if (g.items.length === 1) {
+    const i = g.items[0], s = S[i];
+    const bu = s.backup ? '<span class="badge badge-bu">BACKUP</span>' : '';
+    const dots = s.usb ? saveDots(i) : tdots;
+    h += '<div class="sv' + (i === si ? ' sel' : '') + '" onclick="sel(' + i + ')">';
+    h += '<div class="tid">' + bu + badge + esc(g.name) + dots + '</div>';
+    h += '<div class="sn">' + esc(s.save_name) + '</div></div>';
+  } else {
+    const open = exG.has(gkey);
+    const anySel = g.items.includes(si);
+    const gesc = esc(gkey).replace(/'/g, "\\'");
+    h += '<div class="sv' + (anySel ? ' sel' : '') + '" onclick="togG(\'' + gesc + '\',event)" style="cursor:pointer">';
+    h += '<div class="tid">' + badge + (open ? '\u25BE ' : '\u25B8 ') + esc(g.name) + tdots + '</div>';
+    h += '<div class="sn">' + g.items.length + ' saves</div></div>';
+    if (open) {
+      g.items.forEach(i => {
+        const s = S[i];
+        const bu = s.backup ? '<span class="badge badge-bu">BACKUP</span>' : '';
+        const dots = s.usb ? saveDots(i) : '';
+        h += '<div class="sv' + (i === si ? ' sel' : '') + '" onclick="sel(' + i + ')" style="padding-left:28px">';
+        h += '<div class="sn" style="color:var(--tx)">' + bu + esc(s.save_name) + dots + '</div></div>';
+      });
+    }
+  }
+  return h;
+}
+
+function renderL() {
+  const ptype = platform === 'ps4' ? 'ps4' : 'ps5';
+  const filtered = S.map((s, i) => ({s, i})).filter(x => x.s.type === ptype && (x.s.usb || x.s.uid === curUid));
+  if (!filtered.length) {
+    $('svs').innerHTML = '<div class="empty">No ' + ptype.toUpperCase() + ' saves found</div>';
+    return;
+  }
+  /* Group saves by title_id, split system vs USB */
+  const sysGroups = [], usbGroups = [];
+  const sysMap = {}, usbMap = {};
+  filtered.forEach(({s, i}) => {
+    if (s.usb) {
+      if (!usbMap[s.title_id]) {
+        usbMap[s.title_id] = { title_id: s.title_id, name: s.title_name || s.title_id, items: [] };
+        usbGroups.push(usbMap[s.title_id]);
+      }
+      usbMap[s.title_id].items.push(i);
+    } else {
+      if (!sysMap[s.title_id]) {
+        sysMap[s.title_id] = { title_id: s.title_id, name: s.title_name || s.title_id, items: [] };
+        sysGroups.push(sysMap[s.title_id]);
+      }
+      sysMap[s.title_id].items.push(i);
+    }
+  });
+
+  let h = '';
+  sysGroups.forEach(g => { h = renderGroup(g, h); });
+
+  if (usbGroups.length > 0) {
+    h += '<div class="sv" onclick="event.stopPropagation();usbDrawerOpen=!usbDrawerOpen;renderL()" style="cursor:pointer;border-top:1px solid var(--bd);margin-top:4px">';
+    h += '<div class="tid" style="color:#8b5cf6;font-weight:700">'
+      + (usbDrawerOpen ? '\u25BE' : '\u25B8') + ' USB Saves'
+      + '<span class="badge badge-usb" style="float:none;margin-left:8px">' + usbGroups.length + '</span></div></div>';
+    if (usbDrawerOpen) {
+      usbGroups.forEach(g => { h = renderGroup(g, h); });
+    }
+  }
+
+  $('svs').innerHTML = h;
+}
+
+function togG(tid, e) {
+  if (e) e.stopPropagation();
+  if (exG.has(tid)) exG.delete(tid); else exG.add(tid);
+  renderL();
+}
+
+/* ── Render content area ───────────────────────────── */
+function renderCt() {
+  const c = $('ct');
+
+  if (tab === 'decrypt') {
+    c.className = 'ct ctr';
+    c.innerHTML =
+      '<div class="drop" id="dz">'
+      + '<div class="dlbl">Drag & drop encrypted save file</div>'
+      + '<div style="font-size:11px;color:var(--dm);margin:6px 0">PS4: drop save image + .bin key together</div>'
+      + '<button class="bbtn">Browse Files</button></div>';
+    setupDZ('dz', decDrop);
+
+  } else if (tab === 'encrypt') {
+    c.className = 'ct ctr';
+    c.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'
+      + '<label style="font-size:12px;color:var(--dm);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Account ID:</label>'
+      + '<input id="eaid" type="text" maxlength="16" placeholder="optional" '
+      + 'style="background:var(--bg);border:1px solid var(--bd);color:var(--tx);padding:6px 10px;border-radius:8px;font-family:monospace;font-size:13px;width:170px">'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">'
+      + '<label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dm);font-weight:600;text-transform:uppercase;letter-spacing:.5px">'
+      + '<input id="eps4" type="checkbox" style="accent-color:#1e6fbf;width:16px;height:16px"> PS4 Save'
+      + '</label>'
+      + '</div>'
+      + '<div class="drop" id="dz">'
+      + '<div class="dlbl">Drag & drop a <b>folder</b> to encrypt into a save</div>'
+      + '<button class="bbtn">Browse Folder</button></div>';
+    setupFolderDZ('dz', encDrop);
+
+  } else if (tab === 'resign') {
+    c.className = 'ct ctr';
+    c.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'
+      + '<label style="font-size:12px;color:var(--dm);font-weight:600;text-transform:uppercase;letter-spacing:.5px">New Account ID:</label>'
+      + '<input id="raid" type="text" maxlength="16" placeholder="0000000000000000" '
+      + 'style="background:var(--bg);border:1px solid var(--bd);color:var(--tx);padding:6px 10px;border-radius:8px;font-family:monospace;font-size:13px;width:170px">'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">'
+      + '<label style="font-size:12px;color:var(--dm);font-weight:600;text-transform:uppercase;letter-spacing:.5px">User ID:</label>'
+      + '<input id="ruid" type="text" maxlength="8" placeholder="optional (uses local user)" '
+      + 'style="background:var(--bg);border:1px solid var(--bd);color:var(--tx);padding:6px 10px;border-radius:8px;font-family:monospace;font-size:13px;width:240px">'
+      + '</div>'
+      + '<div class="drop" id="dz">'
+      + '<div class="dlbl">Drag & drop encrypted save to resign</div>'
+      + '<div style="font-size:11px;color:var(--dm);margin:6px 0">PS4: drop save image + .bin key together</div>'
+      + '<button class="bbtn">Browse Files</button></div>';
+    setupDZ('dz', resignDrop);
+
+  } else if (tab === 'import') {
+    c.className = 'ct ctr';
+    c.innerHTML =
+      '<div class="drop" id="dz">'
+      + '<div class="dlbl">Drag & drop a <b>decrypted save folder</b> or <b>encrypted save file</b> to import</div>'
+      + '<div style="font-size:11px;color:var(--dm);margin:6px 0">Folder: must contain sce_sys/param.sfo<br>Encrypted: PS4 drop image + .bin key together</div>'
+      + '<button class="bbtn" onclick="browseFolder()" style="margin-right:8px">Browse Folder</button>'
+      + '<button class="bbtn" onclick="browseEncFile()">Browse File</button></div>';
+    setupImportDZ('dz');
+
+  } else {
+    if (mt) {
+      c.className = 'ct';
+      renderF();
+    } else {
+      c.className = 'ct ctr';
+      c.innerHTML = '<div class="drop"><div class="dlbl">Select a save to browse<br><br>Tip: Drag & drop files onto a mounted save to add or replace them</div></div>';
+    }
+  }
+}
+
+/* ── Render toolbar ────────────────────────────────── */
+function renderTB() {
+  let h = '';
+  if (tab === 'browse' && mt) {
+    h += '<img src="/api/icon?t=' + Date.now() + '" '
+      + 'style="width:100px;height:56px;border-radius:6px;object-fit:cover" '
+      + 'onerror="this.style.display=\'none\'">';
+
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="font-size:16px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+      + (stitle ? esc(stitle) : 'Untitled') + '</div>';
+    h += '<div style="font-size:13px;color:var(--dm);margin-top:2px">'
+      + (mtid ? 'Title ID: <b style="color:var(--tx)">' + esc(mtid) + '</b>  ' : '')
+      + (aid ? 'Account ID: <b style="color:var(--tx)">' + esc(aid) + '</b>' : '')
+      + '</div>';
+    h += (mpt ? '<div style="font-size:11px;color:var(--dm);margin-top:2px;opacity:.5">FTP: ' + esc(mpt) + '</div>' : '');
+    h += '</div>';
+
+    const isUsb = si >= 0 && S[si] && S[si].usb;
+    if (!isUsb) {
+      h += '<button class="btn grn desk-btn" onclick="dlZip()" ' + (bsy ? 'disabled' : '') + '>Download Decrypted Zip</button>';
+      h += '<button class="btn desk-btn" onclick="dlBin()" ' + (bsy ? 'disabled' : '') + '>Download Encrypted</button>';
+      h += '<button class="btn desk-btn" onclick="dumpUsb()" ' + (bsy ? 'disabled' : '') + '>Dump to USB</button>';
+      h += '<button class="btn red desk-btn" onclick="um()" ' + (bsy ? 'disabled' : '') + '>Unmount</button>';
+    } else {
+      h += '<button class="btn desk-btn" style="background:#8b5cf6" onclick="importUsb()" ' + (bsy ? 'disabled' : '') + '>Import to System</button>';
+    }
+    h += '<div class="mob-opts">'
+      + '<button class="btn" onclick="toggleOpts()" ' + (bsy ? 'disabled' : '') + '>Options \u25BE</button>'
+      + '<div class="opts-menu" id="optsmenu">'
+      + (isUsb
+        ? '<div onclick="closeOpts();importUsb()" style="color:#8b5cf6">Import to System</div>'
+        : '<div onclick="closeOpts();dlZip()">Download Decrypted Zip</div>'
+          + '<div onclick="closeOpts();dlBin()">Download Encrypted</div>'
+          + '<div onclick="closeOpts();dumpUsb()">Dump to USB</div>'
+          + '<div onclick="closeOpts();ctxUpload()">Upload File</div>'
+          + '<div class="ctx-del" onclick="closeOpts();um()">Unmount</div>')
+      + '</div></div>';
+  }
+  $('tb').innerHTML = h;
+}
+
+/* ── Select save ───────────────────────────────────── */
+async function sel(i) {
+  if (bsy || tab !== 'browse') return;
+  si = i;
+  renderL();
+  await mountBrw(i);
+  /* Collapse drawer on mobile after selecting */
+  if (window.innerWidth <= 768 && drawerOpen) toggleDrawer();
+}
+
+/* ── Decrypt drop ──────────────────────────────────── */
+async function decDrop(files) {
+  if (bsy || !files.length) return;
+  /* Check first byte to detect PS4 (0x01) vs PS5 (0x02) */
+  const imgFile = files[0];
+  const hdr = new Uint8Array(await imgFile.slice(0, 1).arrayBuffer());
+  const isPS4 = (hdr[0] === 0x01);
+
+  let binFile = null;
+  if (isPS4) {
+    /* Look for .bin in the dropped files */
+    for (let i = 1; i < files.length; i++) {
+      if (files[i].name.endsWith('.bin')) { binFile = files[i]; break; }
+    }
+    if (!binFile) {
+      log('PS4 save detected — please drop both the save image and its .bin sealed key file together', 'err');
+      return;
+    }
+  }
+
+  bsy = true;
+  $('ct').innerHTML = '<div class="drop"><div class="dlbl">Uploading for decrypt...</div></div>';
+  try {
+    /* For PS4, upload .bin key first */
+    if (isPS4 && binFile) {
+      log('Uploading PS4 sealed key ' + binFile.name + '...');
+      const kxhr = await upload('/api/upload_key', binFile);
+      if (kxhr.status !== 200) throw new Error('Failed to upload .bin key');
+    }
+    log('Uploading ' + imgFile.name + ' (' + fmtB(imgFile.size) + ')...');
+    const xhr = await upload('/api/decrypt_upload' + (isPS4 ? '?ps4=1' : ''), imgFile, (loaded, total) => {
+      const pct = Math.round(loaded * 100 / total);
+      showProgress(pct, loaded, total);
+    });
+    if (xhr.status !== 200) {
+      const d = JSON.parse(xhr.responseText);
+      throw new Error(d.error || 'Failed');
+    }
+    log('Mounted — click Download to save decrypted files', 'ok');
+    const name = imgFile.name.replace(/\.[^.]+$/, '') + '_dec.zip';
+    $('ct').innerHTML =
+      '<div class="drop"><div class="dlbl">Decrypted successfully!</div>'
+      + '<a class="dlnk" href="/api/download" download="' + esc(name) + '">Download .zip</a>'
+      + '<br><button class="bbtn" style="margin-top:12px" onclick="fetch(\'/api/unmount\');renderCt()">Done</button></div>';
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+    renderCt();
+  }
+  bsy = false;
+}
+
+/* ── Encrypt drop ──────────────────────────────────── */
+async function encDrop(files, folderName) {
+  if (bsy || !files || !files.length) return;
+  const aidv = document.getElementById('eaid') ? document.getElementById('eaid').value.trim() : '';
+  const isPS4 = document.getElementById('eps4') ? document.getElementById('eps4').checked : false;
+  bsy = true;
+
+  try {
+    /* Calculate total size for PFS image sizing */
+    let totalSize = 0;
+    for (const f of files) totalSize += f.size;
+
+    /* Step 1: create fresh PFS image and mount it */
+    log('Creating ' + (isPS4 ? 'PS4' : 'PS5') + ' PFS image (' + fmtB(totalSize) + ' of files)...');
+    $('ct').innerHTML = '<div class="drop"><div class="dlbl">Creating PFS image...</div></div>';
+    let r = await fetch('/api/create_pfs?size=' + totalSize + (isPS4 ? '&ps4=1' : ''));
+    let d = await r.json();
+    if (d.error) throw new Error(d.error);
+    log('PFS image created and mounted', 'ok');
+
+    /* Step 2: upload each file */
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const path = f._path || f.webkitRelativePath || f.name;
+      /* Strip leading folder name */
+      const parts = path.split('/');
+      const relPath = parts.length > 1 ? parts.slice(1).join('/') : parts[0];
+
+      log('Uploading (' + (i + 1) + '/' + files.length + ') ' + relPath + ' (' + fmtB(f.size) + ')...');
+      $('ct').innerHTML = '<div class="drop" id="dz"><div class="dlbl">Uploading ' + esc(relPath)
+        + '<br>(' + (i + 1) + '/' + files.length + ')</div></div>';
+
+      const xhr = await upload('/api/upload_file?name=' + encodeURIComponent(relPath), f, (loaded, total) => {
+        const pct = Math.round(loaded * 100 / total);
+        showProgress(pct, loaded, total);
+      });
+      const rd = JSON.parse(xhr.responseText);
+      if (!rd.ok) throw new Error(rd.error || 'Upload failed for ' + relPath);
+    }
+    log('All ' + files.length + ' files uploaded', 'ok');
+
+    /* Step 3: patch AID if provided, unmount, download encrypted */
+    log('Encrypting and downloading...');
+    $('ct').innerHTML = '<div class="drop"><div class="dlbl">Encrypting save...</div></div>';
+    const name = (folderName || 'encrypted_save') + '_enc';
+    let dlUrl = '/api/download_new?name=' + encodeURIComponent(name);
+    if (aidv) dlUrl += '&aid=' + encodeURIComponent(aidv);
+    const a = document.createElement('a');
+    a.href = dlUrl;
+    a.download = isPS4 ? (name + '_ps4.zip') : name;
+    document.body.appendChild(a); a.click(); a.remove();
+    log('Encrypted save download started', 'ok');
+
+    if (isPS4) {
+      $('ct').innerHTML =
+        '<div class="drop"><div class="dlbl">PS4 Save: <b>sdimg_' + esc(name) + '</b> + <b>' + esc(name) + '.bin</b></div>'
+        + '<div style="color:#0f0">Download started (.zip)</div>'
+        + '<div style="font-size:11px;color:var(--dm);margin-top:8px">Extract and place both files in the same directory on PS5</div></div>';
+    } else {
+      $('ct').innerHTML =
+        '<div class="drop"><div class="dlbl">' + esc(name) + '</div>'
+        + '<div style="color:#0f0">Download started</div></div>';
+    }
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+    renderCt();
+  }
+  bsy = false;
+}
+
+/* ── Resign drop ───────────────────────────────────── */
+async function resignDrop(files) {
+  if (bsy || !files.length) return;
+  const aidv = document.getElementById('raid').value.trim();
+  if (!aidv) { log('Enter new Account ID first', 'err'); return }
+
+  /* Find image file (largest non-.bin) and detect PS4 */
+  let imgFile = null, binFile = null;
+  for (let i = 0; i < files.length; i++) {
+    if (files[i].name.endsWith('.bin')) binFile = files[i];
+    else if (!imgFile || files[i].size > imgFile.size) imgFile = files[i];
+  }
+  if (!imgFile) return;
+
+  const hdr = new Uint8Array(await imgFile.slice(0, 1).arrayBuffer());
+  const isPS4 = (hdr[0] === 0x01);
+
+  if (isPS4 && !binFile) {
+    log('PS4 save detected — please drop both the save image and its .bin sealed key file together', 'err');
+    return;
+  }
+
+  bsy = true;
+  $('ct').innerHTML = '<div class="drop"><div class="dlbl">Uploading for resign...</div></div>';
+  try {
+    /* For PS4, upload .bin key first */
+    if (isPS4 && binFile) {
+      log('Uploading PS4 sealed key ' + binFile.name + '...');
+      const kxhr = await upload('/api/upload_key', binFile);
+      if (kxhr.status !== 200) throw new Error('Failed to upload .bin key');
+    }
+
+    const uidv = document.getElementById('ruid') ? document.getElementById('ruid').value.trim() : '';
+    log('Uploading ' + imgFile.name + ' (' + fmtB(imgFile.size) + ') for resign...');
+    let rurl = '/api/resign?aid=' + encodeURIComponent(aidv);
+    if (isPS4) rurl += '&ps4=1';
+    if (uidv) rurl += '&uid=' + encodeURIComponent(uidv);
+    const xhr = await upload(rurl, imgFile, (loaded, total) => {
+      const pct = Math.round(loaded * 100 / total);
+      showProgress(pct, loaded, total);
+    });
+    const d = JSON.parse(xhr.responseText);
+    if (d.error) throw new Error(d.error);
+    log('Resigned ' + fmtB(d.size) + ', starting download...', 'ok');
+    const name = imgFile.name.replace(/\.[^.]+$/, '') + '_resigned';
+    const a = document.createElement('a');
+    a.href = '/api/resign_download?name=' + encodeURIComponent(name) + (isPS4 ? '&ps4=1' : '');
+    a.download = isPS4 ? (name + '.zip') : name;
+    document.body.appendChild(a); a.click(); a.remove();
+    $('ct').innerHTML =
+      '<div class="drop"><div class="dlbl">' + esc(name) + '<br>' + fmtB(d.size) + '</div>'
+      + '<div style="color:#0f0">Download started' + (isPS4 ? ' (.zip)' : '') + '</div>'
+      + '<button class="bbtn" style="margin-top:12px" onclick="switchTab(\'resign\')">Resign Another</button></div>';
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+    renderCt();
+  }
+  bsy = false;
+}
+
+/* ── Import drop ───────────────────────────────────── */
+async function importDrop(files, folderName) {
+  if (bsy || !files || !files.length) return;
+
+  /* Check for sce_sys/param.sfo in the dropped files */
+  let hasSfo = false;
+  for (const f of files) {
+    const p = f._path || f.webkitRelativePath || f.name;
+    if (p.match(/sce_sys\/param\.sfo$/i)) { hasSfo = true; break; }
+  }
+  if (!hasSfo) {
+    log('Folder must contain sce_sys/param.sfo', 'err');
+    return;
+  }
+
+  bsy = true;
+  try {
+    /* Calculate total size */
+    let totalSize = 0;
+    for (const f of files) totalSize += f.size;
+
+    /* Step 1: create PFS image */
+    log('Creating PFS image for import (' + fmtB(totalSize) + ' of files)...');
+    $('ct').innerHTML = '<div class="drop"><div class="dlbl">Creating PFS image...</div></div>';
+    let r = await fetch('/api/create_pfs?size=' + totalSize);
+    let d = await r.json();
+    if (d.error) throw new Error(d.error);
+    log('PFS image created and mounted', 'ok');
+
+    /* Step 2: upload each file */
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const path = f._path || f.webkitRelativePath || f.name;
+      const parts = path.split('/');
+      const relPath = parts.length > 1 ? parts.slice(1).join('/') : parts[0];
+
+      log('Uploading (' + (i + 1) + '/' + files.length + ') ' + relPath + ' (' + fmtB(f.size) + ')...');
+      $('ct').innerHTML = '<div class="drop" id="dz"><div class="dlbl">Uploading ' + esc(relPath)
+        + '<br>(' + (i + 1) + '/' + files.length + ')</div></div>';
+
+      const xhr = await upload('/api/upload_file?name=' + encodeURIComponent(relPath), f, (loaded, total) => {
+        const pct = Math.round(loaded * 100 / total);
+        showProgress(pct, loaded, total);
+      });
+      const rd = JSON.parse(xhr.responseText);
+      if (!rd.ok) throw new Error(rd.error || 'Upload failed for ' + relPath);
+    }
+    log('All ' + files.length + ' files uploaded', 'ok');
+
+    /* Check if save already exists */
+    r = await fetch('/api/import_check?uid=' + encodeURIComponent(curUid));
+    d = await r.json();
+    if (d.exists) {
+      const ok = await showConfirmModal('This will overwrite an existing save. Are you sure?');
+      if (!ok) {
+        log('Import cancelled');
+        try { await fetch('/api/unmount'); } catch(x) {}
+        renderCt(); bsy = false; return;
+      }
+    }
+
+    /* Step 3: finalize import (resign, unmount, copy to system, update DB) */
+    await doImportFinish();
+
+  } catch (e) {
+    log('Import error: ' + e.message, 'err');
+    /* Try to clean up by unmounting */
+    try { await fetch('/api/unmount'); } catch(x) {}
+    renderCt();
+  }
+  bsy = false;
+}
+
+function showImportSuccess(d) {
+  $('ct').innerHTML =
+    '<div class="drop"><div class="dlbl">'
+    + '<div style="color:var(--ok);font-size:16px;font-weight:700;margin-bottom:8px">Import Successful</div>'
+    + '<b>' + esc(d.main_title || d.title_id) + '</b><br>'
+    + esc(d.title_id) + ' / ' + esc(d.dir_name)
+    + (d.exists ? '<br><span style="color:var(--dm)">Existing save updated</span>' : '<br><span style="color:var(--dm)">New save added</span>')
+    + (d.warning ? '<br><span style="color:#c89b00">' + esc(d.warning) + '</span>' : '')
+    + '</div>'
+    + '<button class="bbtn" style="margin-top:12px" onclick="switchTab(\'import\')">Import Another</button></div>';
+}
+
+/* ── Import DZ setup (accepts both folders and files) ── */
+function setupImportDZ(id) {
+  const el = $(id);
+  if (!el) return;
+  el.ondragover = e => { e.preventDefault(); el.classList.add('over') };
+  el.ondragleave = e => { e.preventDefault(); el.classList.remove('over') };
+  el.ondrop = async e => {
+    e.preventDefault(); el.classList.remove('over');
+    const items = e.dataTransfer.items;
+    const entries = [];
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+        if (entry) entries.push(entry);
+      }
+    }
+    if (entries.length && entries[0].isDirectory) {
+      const all = await readEntryRecursive(entries[0], '');
+      if (all.length) importDrop(all, entries[0].name);
+    } else {
+      importEncrypted(e.dataTransfer.files);
+    }
+  };
+}
+
+function browseFolder() {
+  const i = document.createElement('input');
+  i.type = 'file'; i.webkitdirectory = true;
+  i.onchange = () => {
+    if (i.files.length) {
+      const prefix = i.files[0].webkitRelativePath.split('/')[0];
+      importDrop(Array.from(i.files), prefix);
+    }
+  };
+  i.click();
+}
+
+function browseEncFile() {
+  const i = document.createElement('input');
+  i.type = 'file'; i.multiple = true;
+  i.onchange = () => { if (i.files.length) importEncrypted(i.files) };
+  i.click();
+}
+
+/* ── Import encrypted save ─────────────────────────── */
+async function importEncrypted(files) {
+  if (bsy || !files.length) return;
+
+  /* Find image file (largest non-.bin) and detect PS4 */
+  let imgFile = null, binFile = null;
+  for (let i = 0; i < files.length; i++) {
+    if (files[i].name.endsWith('.bin')) binFile = files[i];
+    else if (!imgFile || files[i].size > imgFile.size) imgFile = files[i];
+  }
+  if (!imgFile) { log('No save file found', 'err'); return; }
+
+  const hdr = new Uint8Array(await imgFile.slice(0, 1).arrayBuffer());
+  const isPS4 = (hdr[0] === 0x01);
+
+  if (isPS4 && !binFile) {
+    log('PS4 save detected — drop both the save image and .bin key together', 'err');
+    return;
+  }
+
+  bsy = true;
+  $('ct').innerHTML = '<div class="drop"><div class="dlbl">Uploading encrypted save...</div></div>';
+  try {
+    /* Upload .bin key first if PS4 */
+    if (isPS4 && binFile) {
+      log('Uploading PS4 sealed key ' + binFile.name + '...');
+      const kxhr = await upload('/api/upload_key', binFile);
+      if (kxhr.status !== 200) throw new Error('Failed to upload .bin key');
+    }
+
+    log('Uploading ' + imgFile.name + ' (' + fmtB(imgFile.size) + ')...');
+    const xhr = await upload('/api/import_encrypted?uid=' + encodeURIComponent(curUid) + (isPS4 ? '&ps4=1' : ''), imgFile, (loaded, total) => {
+      showProgress(Math.round(loaded * 100 / total), loaded, total);
+    });
+    const d = JSON.parse(xhr.responseText);
+    if (d.error) throw new Error(d.error);
+
+    log('Save verified: ' + d.title_id + ' / ' + d.dir_name, 'ok');
+
+    /* Check if save already exists */
+    if (d.exists) {
+      const ok = await showConfirmModal('This will overwrite an existing save. Are you sure?');
+      if (!ok) {
+        log('Import cancelled');
+        try { await fetch('/api/unmount'); } catch(x) {}
+        renderCt(); bsy = false; return;
+      }
+    }
+
+    if (d.match) {
+      /* Account ID matches — proceed to import */
+      await doImportFinish();
+    } else {
+      /* Account ID mismatch — show modal */
+      const resign = await showConfirmModal(
+        'Account ID Mismatch!<br><br>'
+        + '<span style="font-size:13px;color:var(--dm)">'
+        + 'Save: <b style="color:var(--tx)">' + esc(d.save_aid) + '</b><br>'
+        + 'Your account: <b style="color:var(--tx)">' + esc(d.user_aid) + '</b></span><br><br>'
+        + 'Do you want to resign to your account ID?',
+        'Yes, Resign', 'Cancel');
+      if (resign) {
+        await doImportFinish();
+      } else {
+        log('Import cancelled');
+        try { await fetch('/api/unmount'); } catch(x) {}
+        renderCt();
+      }
+    }
+  } catch (e) {
+    log('Import error: ' + e.message, 'err');
+    try { await fetch('/api/unmount'); } catch(x) {}
+    renderCt();
+  }
+  bsy = false;
+}
+
+function showConfirmModal(msg, yesText, noText) {
+  return new Promise(resolve => {
+    const m = document.createElement('div');
+    m.id = 'confirmModal';
+    m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:999';
+    m.innerHTML =
+      '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:24px;max-width:400px;text-align:center">'
+      + '<div style="font-size:14px;color:var(--tx);margin-bottom:16px">' + msg + '</div>'
+      + '<button class="btn grn" style="margin-right:8px" id="cmYes">' + (yesText || 'Yes') + '</button>'
+      + '<button class="btn red" id="cmNo">' + (noText || 'Cancel') + '</button>'
+      + '</div>';
+    document.body.appendChild(m);
+    m.querySelector('#cmYes').onclick = () => { m.remove(); resolve(true); };
+    m.querySelector('#cmNo').onclick = () => { m.remove(); resolve(false); };
+  });
+}
+
+async function doImportFinish() {
+  log('Importing to system...');
+  $('ct').innerHTML = '<div class="drop"><div class="dlbl">Importing save to system...</div></div>';
+  const r = await fetch('/api/import_finish?uid=' + encodeURIComponent(curUid));
+  const d = await r.json();
+  if (d.error) throw new Error(d.error);
+  log('Import complete: ' + d.title_id + '/' + d.dir_name + (d.exists ? ' (updated)' : ' (new)'), 'ok');
+  showImportSuccess(d);
+}
+
+/* ── Mount & browse save ───────────────────────────── */
+async function mountBrw(i) {
+  if (bsy) return;
+  bsy = true;
+  const s = S[i];
+  try {
+    log('Mounting ' + s.title_id + '/' + s.save_name + '...');
+    let r = await fetch('/api/mount?idx=' + i);
+    let d = await r.json();
+    if (d.error) { log('Mount failed: ' + d.error, 'err'); bsy = false; renderCt(); return }
+    mt = true;
+    cf = d.files || [];
+    aid = d.account_id || '';
+    stitle = d.save_title || '';
+    mtid = d.title_id || '';
+    mpt = d.mount || '';
+    ex = new Set();
+    /* folders start collapsed */
+    log('Mounted ' + (mtid ? mtid + ' ' : '') + (stitle ? stitle + ' ' : '') + (aid ? '[' + aid + ']' : ''), 'ok');
+    renderF();
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+  bsy = false;
+  renderTB();
+}
+
+/* ── Render file tree ──────────────────────────────── */
+function renderF() {
+  $('ct').className = 'ct';
+  const isUsb = si >= 0 && S[si] && S[si].usb;
+  let h = '';
+  cf.forEach((f, i) => {
+    const ps = f.name.split('/');
+    ps.pop();
+    let pp = '', vis = true;
+    for (let j = 0; j < ps.length; j++) {
+      pp = j ? pp + '/' + ps[j] : ps[j];
+      if (!ex.has(pp)) { vis = false; break }
+    }
+    if (!vis) return;
+    const d = f.name.split('/').length - 1;
+    const nm = f.name.split('/').pop();
+    if (f.dir) {
+      const o = ex.has(f.name);
+      const fn = esc(f.name).replace(/'/g, "\\'");
+      h += '<div class="fi dir" style="padding-left:' + (16 + d * 16) + 'px" onclick="tog(' + i + ')">';
+      h += (o ? '\u25BE \u{1F4C1} ' : '\u25B8 \u{1F4C1} ') + esc(nm);
+      if (!isUsb) h += '<span class="dir-dots" onclick="event.stopPropagation();showDirMenu(event,\'' + fn + '\')">\u22EE</span>';
+      h += '</div>';
+    } else {
+      const fn = esc(f.name).replace(/'/g, "\\'");
+      const clickAttr = ' onclick="openEditor(\'' + fn + '\',' + f.size + ')" style="cursor:pointer;padding-left:' + (16 + d * 16) + 'px"';
+      if (isUsb) {
+        h += '<div class="fi"' + clickAttr + '>';
+      } else {
+        h += '<div class="fi"' + clickAttr + ' oncontextmenu="showCtxMenu(event,\'' + fn + '\')">';
+      }
+      h += '\u{1F4C4} ' + esc(nm) + '<span class="sz">' + fmtB(f.size) + '</span></div>';
+    }
+  });
+  if (!isUsb) h += '<div class="dh" style="opacity:1;font-size:12px">Tip: Drag & drop files here to add or replace them</div>';
+  $('ct').innerHTML = h || '<div class="empty">Empty</div>';
+  if (!isUsb) {
+    $('ct').oncontextmenu = e => {
+      if (!e.target.closest('.fi:not(.dir)')) { e.preventDefault(); showCtxMenu(e, null); }
+    };
+    setupDZ('ct', handleBrw);
+  }
+}
+
+/* ── Context menu for files ────────────────────────── */
+function closeCtxMenu() {
+  const m = document.getElementById('ctxmenu');
+  if (m) m.remove();
+}
+
+function showDirMenu(e, dirName) {
+  e.preventDefault();
+  closeCtxMenu();
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m.id = 'ctxmenu';
+  const fn = dirName.replace(/'/g, "\\'");
+  m.innerHTML = '<div onclick="uploadToDir(\'' + fn + '\')">Upload File Here</div>';
+  m.style.left = e.clientX + 'px';
+  m.style.top = e.clientY + 'px';
+  document.body.appendChild(m);
+  const r = m.getBoundingClientRect();
+  if (r.right > window.innerWidth) m.style.left = (window.innerWidth - r.width - 4) + 'px';
+  if (r.bottom > window.innerHeight) m.style.top = (window.innerHeight - r.height - 4) + 'px';
+}
+
+function uploadToDir(dirName) {
+  closeCtxMenu();
+  const i = document.createElement('input');
+  i.type = 'file'; i.multiple = true;
+  i.onchange = async () => {
+    if (!i.files.length || bsy || !mt) return;
+    bsy = true;
+    try {
+      for (let j = 0; j < i.files.length; j++) {
+        const file = i.files[j];
+        const relPath = dirName + '/' + file.name;
+        log('Uploading ' + relPath + ' (' + fmtB(file.size) + ')...');
+        const r = await fetch('/api/upload_file?name=' + encodeURIComponent(relPath), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: file
+        });
+        const d = await r.json();
+        if (d.ok) log('Added ' + relPath, 'ok');
+        else log(d.error, 'err');
+      }
+      const r2 = await fetch('/api/files');
+      const d2 = await r2.json();
+      cf = d2.files || [];
+      /* folders start collapsed */
+      renderF();
+    } catch (e) {
+      log('Error: ' + e.message, 'err');
+    }
+    bsy = false;
+  };
+  i.click();
+}
+
+function showTitleMenu(e, titleId) {
+  e.preventDefault();
+  closeCtxMenu();
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m.id = 'ctxmenu';
+  const tid = titleId.replace(/'/g, "\\'");
+  m.innerHTML = '<div onclick="showExportModal(\'' + tid + '\',false)">Export All Saves</div>'
+    + '<div onclick="showExportModal(\'' + tid + '\',true)">Export All Decrypted</div>'
+    + '<div class="ctx-del" onclick="deleteTitle(\'' + tid + '\')">Delete All Saves</div>';
+  m.style.left = e.clientX + 'px';
+  m.style.top = e.clientY + 'px';
+  document.body.appendChild(m);
+  const r = m.getBoundingClientRect();
+  if (r.right > window.innerWidth) m.style.left = (window.innerWidth - r.width - 4) + 'px';
+  if (r.bottom > window.innerHeight) m.style.top = (window.innerHeight - r.height - 4) + 'px';
+}
+
+async function showExportModal(titleId, decrypted) {
+  closeCtxMenu();
+  const label = decrypted ? 'Export All Decrypted' : 'Export All Saves';
+  let usbHtml = '<div style="color:var(--dm);font-size:12px;margin-top:8px">Checking USB drives...</div>';
+
+  const m = document.createElement('div');
+  m.id = 'exportModal';
+  m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:999';
+  m.innerHTML =
+    '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:24px;max-width:400px;width:90%">'
+    + '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:16px">' + label + '</div>'
+    + '<button class="btn grn" style="width:100%;margin-bottom:12px" id="emDl">Download</button>'
+    + '<div id="emUsb">' + usbHtml + '</div>'
+    + '<button class="btn red" style="width:100%;margin-top:12px" id="emCancel">Cancel</button>'
+    + '</div>';
+  document.body.appendChild(m);
+
+  m.querySelector('#emDl').onclick = () => {
+    m.remove();
+    const apiUrl = decrypted ? '/api/export_title_dec' : '/api/export_title';
+    log((decrypted ? 'Exporting all decrypted saves for ' : 'Exporting all saves for ') + titleId + '...');
+    window.location.href = apiUrl + '?id=' + encodeURIComponent(titleId);
+  };
+  m.querySelector('#emCancel').onclick = () => m.remove();
+
+  try {
+    const r = await fetch('/api/usb_list');
+    const d = await r.json();
+    const el = m.querySelector('#emUsb');
+    if (!el) return;
+    if (d.usb && d.usb.length > 0) {
+      el.innerHTML = '<div style="font-size:11px;color:var(--dm);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Dump to USB</div>'
+        + d.usb.map(u => '<button class="btn" style="width:100%;margin-bottom:6px;background:var(--bd);color:var(--tx)" onclick="dumpTitleUsb(\'' + titleId.replace(/'/g, "\\'") + '\',' + u + ',' + decrypted + ')">USB ' + u + '</button>').join('');
+    } else {
+      el.innerHTML = '<div style="color:var(--dm);font-size:12px">No USB drives detected</div>';
+    }
+  } catch(e) {
+    const el = m.querySelector('#emUsb');
+    if (el) el.innerHTML = '<div style="color:var(--er);font-size:12px">Failed to check USB drives</div>';
+  }
+}
+
+async function dumpTitleUsb(titleId, usbNum, decrypted) {
+  const m = document.getElementById('exportModal');
+  if (m) m.remove();
+  const apiUrl = decrypted ? '/api/dump_title_dec_usb' : '/api/dump_title_usb';
+  log((decrypted ? 'Dumping decrypted saves for ' : 'Dumping saves for ') + titleId + ' to USB ' + usbNum + '...');
+  try {
+    const r = await fetch(apiUrl + '?id=' + encodeURIComponent(titleId) + '&usb=' + usbNum);
+    const d = await r.json();
+    if (d.error) { log('Dump failed: ' + d.error, 'err'); return; }
+    log('Dumped ' + d.copied + ' save(s) to ' + d.path, 'ok');
+    load();
+  } catch(e) {
+    log('Dump failed: ' + e.message, 'err');
+  }
+}
+
+async function deleteTitle(titleId) {
+  closeCtxMenu();
+  const ok = await showConfirmModal('Delete all saves for ' + titleId + '? This cannot be undone.');
+  if (!ok) return;
+  log('Deleting all saves for ' + titleId + '...');
+  try {
+    const r = await fetch('/api/delete_title?id=' + encodeURIComponent(titleId));
+    const d = await r.json();
+    if (d.error) { log('Delete failed: ' + d.error, 'err'); return; }
+    log('Deleted ' + d.deleted + ' save(s) for ' + titleId, 'ok');
+    si = -1; mt = null; cf = [];
+    load();
+  } catch(e) {
+    log('Delete failed: ' + e.message, 'err');
+  }
+}
+
+function showSaveMenu(e, idx) {
+  e.preventDefault();
+  closeCtxMenu();
+  const s = S[idx];
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m.id = 'ctxmenu';
+  let items = '';
+  if (s.usb) {
+    items += '<div onclick="importSingleUsb(' + idx + ')">Import to System</div>';
+  }
+  items += '<div class="ctx-del" onclick="deleteSave(' + idx + ')">Delete</div>';
+  m.innerHTML = items;
+  m.style.left = e.clientX + 'px';
+  m.style.top = e.clientY + 'px';
+  document.body.appendChild(m);
+  const r = m.getBoundingClientRect();
+  if (r.right > window.innerWidth) m.style.left = (window.innerWidth - r.width - 4) + 'px';
+  if (r.bottom > window.innerHeight) m.style.top = (window.innerHeight - r.height - 4) + 'px';
+}
+
+async function importSingleUsb(idx) {
+  closeCtxMenu();
+  if (bsy) return;
+  const s = S[idx];
+  const exists = S.some((x, i) => i !== idx && !x.usb && x.title_id === s.title_id && x.save_name === s.save_name);
+  if (exists) {
+    const ok = await showConfirmModal('This will overwrite an existing save. Are you sure?');
+    if (!ok) return;
+  }
+  bsy = true;
+  try {
+    log('Importing ' + s.title_id + '/' + s.save_name + ' to system...');
+    let r = await fetch('/api/import_usb_save?idx=' + idx + '&uid=' + encodeURIComponent(curUid));
+    let d = await r.json();
+    if (d.error) throw new Error(d.error);
+    log('Imported ' + d.title_id + '/' + d.dir_name, 'ok');
+    await load();
+    renderL();
+  } catch(e) {
+    log('Import failed: ' + e.message, 'err');
+  }
+  bsy = false;
+}
+
+async function deleteSave(idx) {
+  closeCtxMenu();
+  const s = S[idx];
+  const ok = await showConfirmModal('Delete ' + s.title_id + '/' + s.save_name + '? This cannot be undone.');
+  if (!ok) return;
+  try {
+    log('Deleting ' + s.title_id + '/' + s.save_name + '...');
+    const r = await fetch('/api/delete_save?idx=' + idx);
+    const d = await r.json();
+    if (d.error) { log('Delete failed: ' + d.error, 'err'); return; }
+    log('Deleted ' + s.save_name, 'ok');
+    if (idx === si) { si = -1; mt = null; cf = []; }
+    load();
+  } catch(e) {
+    log('Delete failed: ' + e.message, 'err');
+  }
+}
+
+function showCtxMenu(e, fname) {
+  e.preventDefault();
+  closeCtxMenu();
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m.id = 'ctxmenu';
+  let items = '';
+  if (fname) {
+    const fn = esc(fname).replace(/'/g, "\\'");
+    items += '<div onclick="ctxDownload(\'' + fn + '\')">Download</div>';
+  }
+  items += '<div onclick="ctxUpload()">Upload File</div>';
+  if (fname) {
+    const fn = esc(fname).replace(/'/g, "\\'");
+    items += '<div class="ctx-del" onclick="ctxDelete(\'' + fn + '\')">Delete</div>';
+  }
+  m.innerHTML = items;
+  m.style.left = e.clientX + 'px';
+  m.style.top = e.clientY + 'px';
+  document.body.appendChild(m);
+  /* Keep menu within viewport */
+  const r = m.getBoundingClientRect();
+  if (r.right > window.innerWidth) m.style.left = (window.innerWidth - r.width - 4) + 'px';
+  if (r.bottom > window.innerHeight) m.style.top = (window.innerHeight - r.height - 4) + 'px';
+}
+
+document.addEventListener('click', closeCtxMenu);
+
+function ctxDownload(name) {
+  closeCtxMenu();
+  const a = document.createElement('a');
+  a.href = '/api/download_file?name=' + encodeURIComponent(name);
+  a.download = name.split('/').pop();
+  document.body.appendChild(a); a.click(); a.remove();
+  log('Downloading ' + name, 'ok');
+}
+
+function ctxUpload() {
+  closeCtxMenu();
+  const i = document.createElement('input');
+  i.type = 'file'; i.multiple = true;
+  i.onchange = () => { if (i.files.length) handleBrw(i.files) };
+  i.click();
+}
+
+async function ctxDelete(name) {
+  closeCtxMenu();
+  if (!confirm('Delete ' + name + '?')) return;
+  try {
+    const r = await fetch('/api/delete_file?name=' + encodeURIComponent(name));
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    log('Deleted ' + name, 'ok');
+    /* Refresh file list */
+    const r2 = await fetch('/api/files');
+    const d2 = await r2.json();
+    cf = d2.files || [];
+    ex = new Set();
+    /* folders start collapsed */
+    renderF();
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+}
+
+/* ── Toggle folder ─────────────────────────────────── */
+function tog(i) {
+  const n = cf[i].name;
+  if (ex.has(n)) ex.delete(n); else ex.add(n);
+  renderF();
+}
+
+/* ── Hex / Text Editor (server-side) ──────────────── */
+let edName = '';           /* file path relative to mount */
+let edTotal = 0;           /* total file size */
+let edMode = 'hex';        /* 'hex' or 'text' */
+let edOpen = false;        /* file open on server */
+let edRowH = 22;           /* row height in px */
+let edFontSize = 14;       /* hex editor font size */
+let edCache = {};          /* local cache: offset → Uint8Array */
+let edDirty = {};          /* dirty bytes: offset → value */
+let edTextDirty = false;   /* text mode has unsaved edits */
+let edTextLoaded = 0;      /* bytes loaded into textarea so far */
+let edTextLoading = false; /* currently fetching next chunk */
+const ED_TEXT_CHUNK = 65536; /* bytes per text chunk */
+
+async function openEditor(name, size) {
+  if (bsy) return;
+  edName = name; edTotal = size; edMode = 'hex';
+  edOpen = false; edCache = {}; edDirty = {}; edTextDirty = false; edTextLoaded = 0;
+  renderEditorShell();
+  try {
+    const r = await fetch('/api/editor/open?name=' + encodeURIComponent(name));
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    edTotal = d.size;
+    edOpen = true;
+    renderEditorShell();
+    if (edMode === 'hex') edRenderRows();
+    log('Opened ' + name + ' (' + fmtB(edTotal) + ')', 'ok');
+  } catch(e) { log('Error: ' + e.message, 'err'); }
+}
+
+/* Fetch a range of bytes from server, with caching */
+const ED_PAGE = 4096;
+async function edFetchRange(off, len) {
+  /* Align to page boundaries */
+  const pageStart = Math.floor(off / ED_PAGE) * ED_PAGE;
+  const pageEnd = Math.min(Math.ceil((off + len) / ED_PAGE) * ED_PAGE, edTotal);
+  /* Check if all pages cached */
+  let allCached = true;
+  for (let p = pageStart; p < pageEnd; p += ED_PAGE) {
+    if (!edCache[p]) { allCached = false; break; }
+  }
+  if (!allCached) {
+    try {
+      const r = await fetch('/api/editor/read?offset=' + pageStart + '&length=' + (pageEnd - pageStart));
+      const ab = await r.arrayBuffer();
+      const data = new Uint8Array(ab);
+      /* Split into pages */
+      for (let p = pageStart; p < pageEnd; p += ED_PAGE) {
+        const poff = p - pageStart;
+        const plen = Math.min(ED_PAGE, data.length - poff);
+        if (plen > 0) edCache[p] = data.slice(poff, poff + plen);
+      }
+    } catch(e) { return null; }
+  }
+  /* Assemble result from cache */
+  const result = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    const addr = off + i;
+    if (addr >= edTotal) break;
+    /* Check dirty bytes first */
+    if (edDirty[addr] !== undefined) { result[i] = edDirty[addr]; continue; }
+    const page = Math.floor(addr / ED_PAGE) * ED_PAGE;
+    const c = edCache[page];
+    if (c) result[i] = c[addr - page];
+  }
+  return result;
+}
+
+function edGetCachedByte(off) {
+  if (off >= edTotal) return null;
+  if (edDirty[off] !== undefined) return { v: edDirty[off], dirty: true };
+  const page = Math.floor(off / ED_PAGE) * ED_PAGE;
+  const c = edCache[page];
+  if (!c) return null;
+  const idx = off - page;
+  if (idx >= c.length) return null;
+  return { v: c[idx], dirty: false };
+}
+
+function edZoom(dir) {
+  edFontSize = Math.max(10, Math.min(24, edFontSize + dir));
+  edRowH = Math.round(edFontSize * 1.6);
+  renderEditorShell();
+  if (edMode === 'hex') edRenderRows();
+}
+
+function renderEditorShell() {
+  const c = $('ct');
+  c.className = 'ct';
+  const fname = edName.split('/').pop();
+  const isUsb = si >= 0 && S[si] && S[si].usb;
+  let bar = '<div class="editor-bar">'
+    + '<button class="ebtn" onclick="closeEditor()">\u2190 Back</button>'
+    + '<button class="ebtn' + (edMode==='hex'?' eact':'') + '" onclick="edSwitchMode(\'hex\')">Hex</button>'
+    + '<button class="ebtn' + (edMode==='text'?' eact':'') + '" onclick="edSwitchMode(\'text\')">Text</button>'
+    + '<span class="ename">' + esc(fname) + '</span>'
+    + '<span class="esz">' + fmtB(edTotal) + '</span>'
+    + '<button class="ebtn" onclick="edZoom(-1)" style="padding:4px 8px;font-size:14px">\u2212</button>'
+    + '<span style="font-size:11px;color:var(--dm);min-width:30px;text-align:center">' + edFontSize + 'px</span>'
+    + '<button class="ebtn" onclick="edZoom(1)" style="padding:4px 8px;font-size:14px">+</button>';
+  if (!isUsb) bar += '<button class="ebtn" style="border-color:var(--ok);color:var(--ok)" onclick="saveEditor()">Save</button>';
+  bar += '</div>';
+
+  if (edMode === 'hex') {
+    const totalRows = Math.ceil(edTotal / 16);
+    const totalH = totalRows * edRowH;
+    c.innerHTML = bar
+      + '<div class="hex-wrap" id="hexwrap" style="position:relative;font-size:' + edFontSize + 'px">'
+      + '<div id="hexspacer" style="height:' + totalH + 'px;pointer-events:none"></div>'
+      + '<div id="hexview" style="position:absolute;top:0;left:0;right:0"></div>'
+      + '</div>';
+    const wrap = $('hexwrap');
+    if (wrap) wrap.onscroll = edOnScroll;
+  } else {
+    c.innerHTML = bar
+      + '<div class="text-wrap">'
+      + '<pre id="texthl"></pre>'
+      + '<textarea id="textedit" spellcheck="false">Loading...</textarea>'
+      + '</div>'
+      + '<div id="etload" style="display:none;text-align:center;padding:4px;font-size:11px;color:var(--dm)">Loading more...</div>';
+    edTextLoaded = 0;
+    edLoadTextChunk();
+  }
+}
+
+let edScrollTimer = null;
+function edOnScroll() {
+  if (edScrollTimer) return;
+  edScrollTimer = setTimeout(() => { edScrollTimer = null; edRenderRows(); }, 16);
+}
+
+async function edRenderRows() {
+  const wrap = $('hexwrap');
+  const view = $('hexview');
+  if (!wrap || !view || !edOpen) return;
+
+  const scrollTop = wrap.scrollTop;
+  const viewH = wrap.clientHeight;
+  const firstRow = Math.max(0, Math.floor(scrollTop / edRowH) - 5);
+  const lastRow = Math.min(Math.ceil(edTotal / 16), Math.ceil((scrollTop + viewH) / edRowH) + 5);
+
+  /* Prefetch visible range */
+  const startOff = firstRow * 16;
+  const endOff = Math.min(lastRow * 16, edTotal);
+  await edFetchRange(startOff, endOff - startOff);
+
+  let h = '';
+  for (let row = firstRow; row < lastRow; row++) {
+    const off = row * 16;
+    const top = row * edRowH;
+    h += '<div class="hex-row" style="position:absolute;top:' + top + 'px;height:' + edRowH + 'px;left:0;right:0">';
+    h += '<span class="hex-off">' + off.toString(16).toUpperCase().padStart(8, '0') + '</span>';
+    h += '<span class="hex-bytes">';
+    for (let j = 0; j < 16; j++) {
+      const boff = off + j;
+      if (boff < edTotal) {
+        const b = edGetCachedByte(boff);
+        if (b) {
+          const cls = b.dirty ? ' class="dirty"' : '';
+          h += '<span' + cls + ' onclick="editByte(' + boff + ')">' + b.v.toString(16).toUpperCase().padStart(2, '0') + '</span> ';
+        } else {
+          h += '<span style="color:var(--bd)">??</span> ';
+        }
+      } else {
+        h += '   ';
+      }
+      if (j === 7) h += ' ';
+    }
+    h += '</span><span class="hex-sep"></span><span class="hex-ascii">';
+    for (let j = 0; j < 16; j++) {
+      const boff = off + j;
+      if (boff >= edTotal) break;
+      const b = edGetCachedByte(boff);
+      if (b) {
+        const ch = (b.v >= 32 && b.v <= 126) ? String.fromCharCode(b.v) : '.';
+        const cls = b.dirty ? ' class="dirty"' : '';
+        h += '<span' + cls + ' onclick="editByte(' + boff + ')">' + esc(ch) + '</span>';
+      } else {
+        h += '<span style="color:var(--bd)">.</span>';
+      }
+    }
+    h += '</span></div>';
+  }
+  view.innerHTML = h;
+}
+
+/* Load next text chunk from server and append */
+async function edLoadTextChunk() {
+  if (!edOpen || edTextLoading || edTextLoaded >= edTotal) return;
+  edTextLoading = true;
+  const loadEl = $('etload');
+  if (loadEl) loadEl.style.display = 'block';
+  const ta = $('textedit');
+  if (!ta) { edTextLoading = false; return; }
+  const len = Math.min(ED_TEXT_CHUNK, edTotal - edTextLoaded);
+  try {
+    const r = await fetch('/api/editor/read?offset=' + edTextLoaded + '&length=' + len);
+    const ab = await r.arrayBuffer();
+    const dec = new TextDecoder('utf-8', {fatal: false});
+    const chunk = dec.decode(new Uint8Array(ab));
+    if (edTextLoaded === 0) {
+      ta.value = chunk;
+      ta._origText = chunk;
+      edTextDirty = false;
+    } else {
+      const scrollPos = ta.scrollTop;
+      const selStart = ta.selectionStart;
+      const selEnd = ta.selectionEnd;
+      ta.value += chunk;
+      ta.scrollTop = scrollPos;
+      ta.setSelectionRange(selStart, selEnd);
+    }
+    /* Update highlighting */
+    const hl = $('texthl');
+    if (hl) {
+      try { hl.innerHTML = hlApply(ta.value); } catch(e) { hl.textContent = ta.value; }
+    }
+    ta.oninput = function() {
+      edTextDirty = true;
+      hlDebounce();
+    };
+    edTextLoaded += ab.byteLength;
+    ta.onscroll = function() {
+      const hl = $('texthl');
+      if (hl) { hl.scrollTop = this.scrollTop; hl.scrollLeft = this.scrollLeft; }
+      if (edTextLoaded < edTotal && !edTextLoading) {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 200) {
+          edLoadTextChunk();
+        }
+      }
+    };
+  } catch(e) {
+    if (edTextLoaded === 0) ta.value = 'Error: ' + e.message;
+  }
+  if (loadEl) loadEl.style.display = (edTextLoaded < edTotal) ? 'none' : 'none';
+  edTextLoading = false;
+}
+
+async function edFlushText() {
+  if (!edTextDirty) return;
+  const ta = $('textedit');
+  if (!ta) return;
+  const enc = new TextEncoder();
+  const data = enc.encode(ta.value);
+  try {
+    await fetch('/api/editor/patch?offset=0', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/octet-stream'},
+      body: data
+    });
+    edTextDirty = false;
+    edCache = {};
+  } catch(e) { log('Flush failed: ' + e.message, 'err'); }
+}
+
+/* ── Syntax highlighting ──────────────────────────── */
+function hlDetect(txt) {
+  const t = txt.trimStart();
+  if (t[0] === '{' || t[0] === '[') return 'json';
+  if (t[0] === '<') return 'xml';
+  return 'plain';
+}
+
+let edHlTimer = null;
+function hlApply(txt) {
+  const lang = hlDetect(txt);
+  try {
+    if (lang === 'json') return hlJSON(txt);
+    if (lang === 'xml') return hlXML(txt);
+  } catch(e) {}
+  return esc(txt) + '\n';
+}
+
+/* Debounced highlight update — avoids freezing on large files */
+function hlDebounce() {
+  if (edHlTimer) clearTimeout(edHlTimer);
+  edHlTimer = setTimeout(() => {
+    edHlTimer = null;
+    const ta = $('textedit');
+    const hl = $('texthl');
+    if (!ta || !hl) return;
+    try { hl.innerHTML = hlApply(ta.value); } catch(e) { hl.textContent = ta.value; }
+  }, 300);
+}
+
+function hlJSON(txt) {
+  return esc(txt).replace(
+    /(&quot;)((?:[^&]|&(?!quot;))*?)(&quot;)\s*:/g,
+    '<span class="hl-key">$1$2$3</span>:'
+  ).replace(
+    /:\s*(&quot;)((?:[^&]|&(?!quot;))*?)(&quot;)/g,
+    ': <span class="hl-str">$1$2$3</span>'
+  ).replace(
+    /(&quot;)((?:[^&]|&(?!quot;))*?)(&quot;)/g,
+    '<span class="hl-str">$1$2$3</span>'
+  ).replace(
+    /\b(-?\d+\.?\d*(?:[eE][+-]?\d+)?)\b/g,
+    '<span class="hl-num">$1</span>'
+  ).replace(
+    /\b(true|false)\b/g,
+    '<span class="hl-bool">$1</span>'
+  ).replace(
+    /\b(null)\b/g,
+    '<span class="hl-null">$1</span>'
+  ) + '\n';
+}
+
+function hlXML(txt) {
+  return esc(txt).replace(
+    /(&lt;!--)([\s\S]*?)(--&gt;)/g,
+    '<span class="hl-cmt">$1$2$3</span>'
+  ).replace(
+    /(&lt;\/?)([\w:.-]+)/g,
+    '$1<span class="hl-tag">$2</span>'
+  ).replace(
+    /\b([\w:.-]+)(=)(&quot;)((?:[^&]|&(?!quot;))*?)(&quot;)/g,
+    '<span class="hl-attr">$1</span>$2<span class="hl-aval">$3$4$5</span>'
+  ) + '\n';
+}
+
+function edHasEdits() {
+  if (Object.keys(edDirty).length > 0) return true;
+  if (edTextDirty) return true;
+  return false;
+}
+
+async function edSwitchMode(mode) {
+  if (mode === edMode) return;
+  /* If switching from text, flush current page edits */
+  if (edMode === 'text') await edFlushText();
+  /* If switching from hex with dirty bytes, send patches */
+  if (edMode === 'hex' && Object.keys(edDirty).length > 0) {
+    await edFlushDirty();
+  }
+  edMode = mode;
+  renderEditorShell();
+  if (mode === 'hex') edRenderRows();
+}
+
+async function edFlushDirty() {
+  const keys = Object.keys(edDirty).map(Number).sort((a,b) => a - b);
+  if (keys.length === 0) return;
+  /* Group consecutive dirty bytes into patches */
+  let start = keys[0], prev = keys[0];
+  const patches = [];
+  for (let i = 1; i <= keys.length; i++) {
+    if (i < keys.length && keys[i] === prev + 1) { prev = keys[i]; continue; }
+    const len = prev - start + 1;
+    const data = new Uint8Array(len);
+    for (let j = 0; j < len; j++) data[j] = edDirty[start + j];
+    patches.push({off: start, data: data});
+    if (i < keys.length) { start = keys[i]; prev = keys[i]; }
+  }
+  for (const p of patches) {
+    try {
+      await fetch('/api/editor/patch?offset=' + p.off, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/octet-stream'},
+        body: p.data
+      });
+    } catch(e) {}
+  }
+  /* Update cache with dirty values */
+  for (const k of keys) {
+    const page = Math.floor(k / ED_PAGE) * ED_PAGE;
+    if (edCache[page]) edCache[page][k - page] = edDirty[k];
+  }
+  edDirty = {};
+}
+
+function editByte(off) {
+  const isUsb = si >= 0 && S[si] && S[si].usb;
+  if (isUsb || !edOpen || off >= edTotal) return;
+  const b = edGetCachedByte(off);
+  const cur = b ? b.v.toString(16).toUpperCase().padStart(2, '0') : '00';
+  const val = prompt('Edit byte at 0x' + off.toString(16).toUpperCase() + ' (hex):', cur);
+  if (val === null) return;
+  const parsed = parseInt(val, 16);
+  if (isNaN(parsed) || parsed < 0 || parsed > 255) { log('Invalid byte value', 'err'); return; }
+  edDirty[off] = parsed;
+  edRenderRows();
+}
+
+async function saveEditor() {
+  if (bsy) return;
+  bsy = true;
+  try {
+    /* Flush any pending edits to server buffer */
+    if (edMode === 'text') await edFlushText();
+    if (edMode === 'hex') await edFlushDirty();
+
+    /* Tell server to write buffer to file */
+    log('Saving ' + edName + '...');
+    const r = await fetch('/api/editor/save');
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    log('Saved ' + edName + ' (' + fmtB(d.written) + ')', 'ok');
+    if (edMode === 'text') {
+      const ta = $('textedit');
+      if (ta) ta._origText = ta.value;
+    }
+  } catch(e) { log('Save failed: ' + e.message, 'err'); }
+  bsy = false;
+}
+
+async function closeEditor() {
+  if (edHasEdits()) {
+    if (!confirm('You have unsaved changes. Discard?')) return;
+  }
+  try { await fetch('/api/editor/close'); } catch(e) {}
+  edName = ''; edTotal = 0; edOpen = false; edCache = {}; edDirty = {}; edTextDirty = false;
+  renderF();
+}
+
+/* ── Confirm replace modal ─────────────────────────── */
+function confirmReplace(name) {
+  return new Promise(res => {
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML =
+      '<div class="modal"><h3>File already exists</h3>'
+      + '<p><b>' + esc(name) + '</b> already exists in this save. Replace it?</p>'
+      + '<div class="btns">'
+      + '<button class="mbtn-s" id="mskip">Skip</button>'
+      + '<button class="mbtn-r" id="mrep">Replace</button>'
+      + '</div></div>';
+    document.body.appendChild(bg);
+    $("mrep").onclick = () => { bg.remove(); res(true) };
+    $("mskip").onclick = () => { bg.remove(); res(false) };
+  });
+}
+
+/* ── Handle file drop in browse mode ───────────────── */
+async function handleBrw(files) {
+  if (bsy || !mt || tab !== 'browse') return;
+  bsy = true;
+  try {
+    for (let j = 0; j < files.length; j++) {
+      const file = files[j];
+      if (file.name.endsWith('.zip')) {
+        log('Extracting ' + file.name + ' (' + fmtB(file.size) + ')...');
+        const r = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: file
+        });
+        const d = await r.json();
+        log('Extracted ' + d.files + ' files', 'ok');
+      } else {
+        const ck = await fetch('/api/file_exists?name=' + encodeURIComponent(file.name));
+        const ce = await ck.json();
+        if (ce.exists) {
+          const ok = await confirmReplace(file.name);
+          if (!ok) { log('Skipped ' + file.name); continue }
+        }
+        log('Uploading ' + file.name + ' (' + fmtB(file.size) + ')...');
+        const r = await fetch('/api/upload_file?name=' + encodeURIComponent(file.name), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: file
+        });
+        const d = await r.json();
+        if (d.ok) log('Added ' + file.name, 'ok');
+        else log(d.error, 'err');
+      }
+    }
+    const r2 = await fetch('/api/files');
+    const d2 = await r2.json();
+    cf = d2.files || [];
+    ex = new Set();
+    /* folders start collapsed */
+    renderF();
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+  bsy = false;
+}
+
+/* ── Download as .zip ──────────────────────────────── */
+async function dlZip() {
+  if (bsy) return;
+  bsy = true; renderTB();
+  try {
+    log('Downloading zip...');
+    const r = await fetch('/api/download');
+    const b = await r.blob();
+    const s = si >= 0 ? S[si] : null;
+    dl(b, s ? (s.title_id + '_' + s.save_name + '.zip') : 'save.zip');
+    log('Downloaded ' + fmtB(b.size), 'ok');
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+  bsy = false; renderTB();
+}
+
+/* ── Download encrypted binary ─────────────────────── */
+async function dlBin() {
+  if (bsy || si < 0) return;
+  bsy = true; renderTB();
+  const s = S[si];
+  try {
+    log('Unmounting to finalize...');
+    await fetch('/api/unmount'); mt = false;
+    log('Downloading encrypted save...');
+    const isPS4 = s.type === 'ps4';
+    const r = await fetch('/api/download_raw?idx=' + si);
+    const b = await r.blob();
+    const fname = isPS4 ? (s.title_id + '_' + s.save_name + '_enc.zip') : (s.title_id + '_' + s.save_name);
+    dl(b, fname);
+    log('Downloaded ' + fmtB(b.size), 'ok');
+    si = -1; renderL(); renderTB(); renderCt();
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+  bsy = false;
+}
+
+/* ── Dump to USB with progress ─────────────────────── */
+async function dumpUsb() {
+  if (bsy || si < 0) return;
+  /* Detect connected USB drives */
+  try {
+    const ul = await fetch('/api/usb_list');
+    const ud = await ul.json();
+    if (!ud.usb || ud.usb.length === 0) { log('No USB drive detected', 'err'); return; }
+    if (ud.usb.length === 1) {
+      dumpUsbTo(ud.usb[0]);
+    } else {
+      /* Show USB selector */
+      closeCtxMenu();
+      const m = document.createElement('div');
+      m.className = 'ctx-menu'; m.id = 'ctxmenu';
+      m.innerHTML = '<div style="padding:4px 10px;font-size:10px;color:var(--dm);font-weight:600">Select USB</div>'
+        + ud.usb.map(u => '<div onclick="closeCtxMenu();dumpUsbTo(' + u + ')">USB ' + u + ' (usb' + u + ')</div>').join('');
+      m.style.left = '50%'; m.style.top = '50%';
+      m.style.transform = 'translate(-50%,-50%)'; m.style.position = 'fixed';
+      document.body.appendChild(m);
+    }
+  } catch (e) { log('Error detecting USB: ' + e.message, 'err'); }
+}
+
+async function dumpUsbTo(usbNum) {
+  if (bsy || si < 0) return;
+  bsy = true; renderTB();
+  const s = S[si];
+  try {
+    log('Mounting & dumping decrypted ' + s.title_id + '/' + s.save_name + ' to USB ' + usbNum + '...');
+    const r = await fetch('/api/dump_usb?idx=' + si + '&usb=' + usbNum);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    log('Dumped decrypted save to ' + d.path, 'ok');
+    mt = null; cf = []; renderTB(); renderF();
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+  bsy = false; renderTB();
+}
+
+/* ── Import USB save to system ─────────────────────── */
+async function importUsb() {
+  if (bsy || si < 0) return;
+  const s = S[si];
+  /* Check if a system save with same title_id and save_name exists */
+  const exists = S.some((x, i) => i !== si && !x.usb && x.title_id === s.title_id && x.save_name === s.save_name);
+  if (exists) {
+    const ok = await showConfirmModal('This will overwrite an existing save. Are you sure?');
+    if (!ok) return;
+  }
+  bsy = true; renderTB();
+  try {
+    log('Importing ' + s.title_id + '/' + s.save_name + ' to system...');
+    const r = await fetch('/api/import_usb_save?idx=' + si + '&uid=' + encodeURIComponent(curUid));
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    log('Imported ' + d.title_id + '/' + d.dir_name, 'ok');
+    await load();
+    renderL();
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+  bsy = false; renderTB();
+}
+
+/* ── Unmount ───────────────────────────────────────── */
+async function um() {
+  if (bsy) return;
+  bsy = true; renderTB();
+  try {
+    log('Unmounting...');
+    await fetch('/api/unmount'); mt = false;
+    si = -1; renderL(); renderTB(); renderCt();
+    log('Unmounted', 'ok');
+  } catch (e) {
+    log('Error: ' + e.message, 'err');
+  }
+  bsy = false;
+}
+
+/* ── Download helper ───────────────────────────────── */
+function dl(b, n) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = n;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove() }, 1e3);
+}
+
+/* ── Shutdown ──────────────────────────────────────── */
+async function shutdown() {
+  if (!confirm('Kill GarlicMgr?')) return;
+  log('Killing GarlicMgr...');
+  try { await fetch('/api/shutdown') } catch (e) {}
+  log('GarlicMgr killed', 'ok');
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.innerHTML =
+    '<div class="modal" style="text-align:center">'
+    + '<h3 style="font-size:18px;margin-bottom:16px">Thank you for using<br>Garlic SaveMgr!</h3>'
+    + '<p style="color:var(--dm);margin-bottom:12px">by earthonion</p>'
+    + '<iframe src="https://github.com/sponsors/earthonion/button" title="Sponsor earthonion" height="32" width="114" style="border:0;border-radius:6px"></iframe>'
+    + '</div>';
+  document.body.appendChild(bg);
+}
+
+/* ── Init ──────────────────────────────────────────── */
+if (window.innerWidth <= 768) $('drawer').classList.add('collapsed');
+else drawerOpen = true;
+updateDrawer();
+loadUsers().then(() => load());
+renderCt();
+renderTB();
+</script>
+</body>
+</html>

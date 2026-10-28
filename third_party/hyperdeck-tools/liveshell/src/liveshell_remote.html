@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>LiveShell Engine</title>
+<link rel="icon" href="/icon.png">
+<style>
+:root{--card:#151515;--card2:#1c1c1c;--chip:#232323;--line:#2e2e2e;--text:#fff;--dim:#8a8a8a;--faint:#4a4a4a}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#000;color:var(--text);font-family:"SST","SST Pro",-apple-system,"Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif;line-height:1.3}
+body{max-width:980px;margin:0 auto;padding:0 32px 60px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+button:focus{outline:none}
+button:focus-visible{box-shadow:0 0 0 2px var(--text)}
+
+/* top bar, as on the PS5: name left, wallpaper switch right */
+.top{display:flex;align-items:center;gap:12px;height:72px}
+.brand{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:600;letter-spacing:-.3px}
+.brand img{width:30px;height:30px;border-radius:7px}
+.brand small{font-size:12px;font-weight:600;color:#000;background:var(--text);border-radius:999px;padding:2px 8px;letter-spacing:0}
+.power{margin-left:auto;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;border-radius:999px;background:var(--card);font-size:14px;color:var(--dim)}
+.sw{width:40px;height:24px;border-radius:12px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);position:relative;transition:background .2s}
+.sw:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--dim);transition:transform .2s,background .2s}
+.power.on{color:var(--text)}
+.power.on .sw{background:var(--text)}
+.power.on .sw:after{transform:translateX(16px);background:#000}
+
+h2{display:flex;align-items:baseline;gap:8px;font-size:19px;font-weight:600;margin:24px 0 12px}
+h2 span{font-size:15px;color:var(--dim);font-weight:400}
+
+/* upload card */
+.drop{display:flex;align-items:center;gap:18px;padding:20px 22px;border-radius:14px;background:var(--card);cursor:pointer;transition:background .15s,box-shadow .15s}
+.drop:hover,.drop.over{background:var(--card2);box-shadow:0 0 0 2px var(--text)}
+.drop .ic{flex:none;width:48px;height:48px;border-radius:12px;background:var(--text);color:#000;display:flex;align-items:center;justify-content:center}
+.drop b{display:block;font-size:17px;font-weight:600}
+.drop span{display:block;margin-top:3px;font-size:13px;color:var(--dim)}
+.drop input{display:none}
+.jobs{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.job{background:var(--card);border-radius:12px;padding:12px 16px;font-size:14px}
+.job .row{display:flex;justify-content:space-between;gap:12px}
+.job .row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job .row span:last-child{color:var(--dim);flex:none}
+.bar{height:4px;border-radius:2px;background:var(--chip);margin-top:9px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--text);transition:width .2s}
+.job.err .row span:last-child{color:var(--text);font-weight:600}
+
+/* video cards, same as the PS5 window */
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.card{position:relative;display:flex;flex-direction:column;justify-content:flex-end;height:160px;padding:16px 18px;border-radius:14px;background:var(--card);overflow:hidden}
+.card .art{position:absolute;right:-6px;top:-28px;font-size:150px;font-weight:800;line-height:1;letter-spacing:-6px;color:rgba(255,255,255,.06);pointer-events:none}
+.card.on{background:var(--text);color:#000}
+.card.on .art{color:rgba(0,0,0,.08)}
+.badge{position:absolute;left:16px;top:14px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700}
+.badge i{width:7px;height:7px;border-radius:50%;background:#000;animation:breathe 2.4s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.3}}
+.name{position:relative;font-size:18px;font-weight:700;letter-spacing:-.2px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sub{position:relative;margin-top:5px;display:flex;gap:12px;font-size:13px;color:var(--dim)}
+.card.on .sub{color:#555}
+.acts{position:relative;display:flex;gap:8px;margin-top:12px}
+.act{height:34px;padding:0 14px;border-radius:999px;background:var(--chip);font-size:13px;font-weight:600}
+.act.play{background:var(--text);color:#000}
+.card.on .act{background:rgba(0,0,0,.08);color:#000}
+.act.armed{background:var(--text);color:#000}
+.card.on .act.armed{background:#000;color:#fff}
+.empty{color:var(--dim);font-size:15px;padding:20px;border-radius:14px;background:var(--card)}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:#000;font-weight:600;padding:10px 22px;border-radius:999px;font-size:14px;display:none;max-width:90vw;text-align:center}
+
+/* phones */
+@media (max-width:600px){
+ body{padding:0 16px 48px}
+ .top{height:64px}
+ .brand{font-size:18px}
+ .power span:first-child{display:none}
+ .list{grid-template-columns:1fr 1fr;gap:10px}
+ .card{height:150px;padding:12px 13px}
+ .card .art{font-size:110px;top:-18px}
+ .name{font-size:15px}
+ .sub{font-size:12px;gap:8px}
+ .act{height:32px;padding:0 11px;font-size:12px}
+ .drop{padding:16px}
+}
+@media (max-width:360px){.list{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.badge i{animation:none}.sw,.sw:after,.drop{transition:none}}
+</style></head><body>
+<div class="top">
+ <div class="brand"><img src="/icon.png" alt="">LiveShell Engine<small>Remote</small></div>
+ <button class="power" id="power"><span id="ptext">Wallpaper</span><span class="sw"></span></button>
+</div>
+
+<h2>Add videos</h2>
+<label class="drop" id="drop"><input type="file" id="file" accept="video/mp4,.mp4" multiple>
+ <span class="ic"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M11 15V4M6.5 8.5L11 4l4.5 4.5M4 15.5V18h14v-2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+ <div><b>Choose .mp4 files</b><span>Or drop them here. H.264 or HEVC (H.265), up to 1080p. 4K, AV1, VP9 and MPEG-4 do not play.</span></div></label>
+<div class="jobs" id="jobs"></div>
+
+<h2>Your videos<span id="cnt"></span></h2>
+<div class="list" id="list"></div>
+<div class="toast" id="toast"></div>
+<script>
+var S=null,busy=false,uploading=0,queue=[];
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function bare(n){return n.replace(/\.mp4$/i,'')}
+function nice(n){var t=bare(n).replace(/[-_.]+/g,' ').replace(/\b(moewalls|com|wallpaper|4k|1080p|hd)\b/gi,' ').replace(/\s+/g,' ').trim()||bare(n);return t.replace(/\b\w/g,function(c){return c.toUpperCase()})}
+function mb(b){return b>=1e9?(b/1e9).toFixed(1)+' GB':Math.max(1,Math.round(b/1e6))+' MB'}
+function toast(t){var e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(e.t);e.t=setTimeout(function(){e.style.display='none'},2800)}
+function get(u,cb){var x=new XMLHttpRequest();x.open('GET',u);x.onload=function(){var r;try{r=JSON.parse(x.responseText)}catch(e){r={ok:false}}cb(r)};x.onerror=function(){busy=false;toast('LiveShell Engine is not running on the PS5')};x.send()}
+function cur(){if(!S)return -1;for(var i=0;i<S.videos.length;i++)if(S.videos[i].path==S.current)return i;return -1}
+
+function render(){
+ $('power').className='power'+(S.enabled?' on':'');$('ptext').textContent=S.enabled?'Wallpaper on':'Wallpaper off';
+ $('cnt').textContent=S.videos.length||'';
+ var i=cur(),h='';
+ S.videos.forEach(function(v,n){
+  var on=n==i,t=nice(v.name);
+  h+='<div class="card'+(on?' on':'')+'"><span class="art">'+esc(t.charAt(0).toUpperCase())+'</span>'
+   +(on?'<span class="badge"><i></i>Playing</span>':'')
+   +'<div class="name">'+esc(t)+'</div><div class="sub"><span>'+esc(v.where)+'</span><span>'+mb(v.size)+'</span></div>'
+   +'<div class="acts">'+(on?'':'<button class="act play" onclick="play('+n+')">Play</button>')
+   +'<button class="act" id="del'+n+'" onclick="del('+n+')">Delete</button></div></div>';
+ });
+ $('list').innerHTML=h||'<div class="empty">No videos yet. Add one above.</div>';
+}
+function poll(){if(busy)return;get('/api/state',function(s){if(s.videos){S=s;render()}})}
+function play(n){if(busy||!S)return;busy=true;toast('Switching to '+nice(S.videos[n].name));get('/api/select?i='+n,function(r){busy=false;toast(r.ok?'Now playing on the PS5':(r.error||'That did not work'));poll()})}
+function del(n){var b=$('del'+n);if(!b||!S)return;if(b.className.indexOf('armed')<0){b.className+=' armed';b.textContent='Delete?';setTimeout(function(){if(b.parentNode){b.className='act';b.textContent='Delete'}},3000);return}
+ busy=true;get('/api/delete?i='+n,function(r){busy=false;toast(r.ok?'Deleted':(r.error||'That did not work'));poll()})}
+$('power').onclick=function(){if(!S||busy)return;var on=!S.enabled;S.enabled=on;busy=true;render();get(on?'/api/on':'/api/off',function(r){busy=false;if(!r.ok)S.enabled=!on;toast(r.ok?(on?'Wallpaper on':'Wallpaper off'):(r.error||'That did not work'));render();poll()})};
+
+// Uploads: one file at a time, raw body, progress per file.
+function addFiles(list){for(var k=0;k<list.length;k++){var f=list[k];if(!/\.mp4$/i.test(f.name)){toast(f.name+' is not an .mp4');continue}queue.push(f)}next()}
+function next(){
+ if(uploading||!queue.length)return;
+ var f=queue.shift();uploading=1;
+ var job=document.createElement('div');job.className='job';job.innerHTML='<div class="row"><span>'+esc(f.name)+'</span><span>0%</span></div><div class="bar"><i></i></div>';$('jobs').appendChild(job);
+ var pct=job.querySelector('.row span:last-child'),bar=job.querySelector('.bar i');
+ var x=new XMLHttpRequest();x.open('POST','/api/upload?name='+encodeURIComponent(f.name));
+ x.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded*100/e.total);pct.textContent=p+'%';bar.style.width=p+'%'}};
+ x.onload=function(){var r={};try{r=JSON.parse(x.responseText)}catch(e){}
+  if(r.ok){pct.textContent='Done';bar.style.width='100%';setTimeout(function(){job.parentNode&&job.parentNode.removeChild(job)},4000)}
+  else{job.className='job err';pct.textContent=r.error||'Failed'}
+  uploading=0;poll();next()};
+ x.onerror=function(){job.className='job err';pct.textContent='Connection lost';uploading=0;next()};
+ x.send(f);
+}
+$('file').onchange=function(){addFiles(this.files);this.value=''};
+var d=$('drop');
+d.ondragover=function(e){e.preventDefault();d.className='drop over'};
+d.ondragleave=function(){d.className='drop'};
+d.ondrop=function(e){e.preventDefault();d.className='drop';addFiles(e.dataTransfer.files)};
+poll();setInterval(poll,3000);
+</script></body></html>

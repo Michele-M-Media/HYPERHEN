@@ -93,6 +93,14 @@
 #define HV5XX_THEFLOW_POST_WRITE_ALL 0
 #endif
 
+#ifndef HV5XX_THEFLOW_POST_VERIFY_ALL
+#define HV5XX_THEFLOW_POST_VERIFY_ALL 0
+#endif
+
+#if HV5XX_THEFLOW_POST_WRITE_ALL && HV5XX_THEFLOW_POST_VERIFY_ALL
+#error "Select either post-write or read-only VMCB verification, not both"
+#endif
+
 #ifndef HV5XX_THEFLOW_POST_WRITE_VALUE
 #define HV5XX_THEFLOW_POST_WRITE_VALUE 0x8ULL
 #endif
@@ -882,6 +890,19 @@ int main(void)
     if (npt_all_confirmed) {
         notify_popup("NPT Disabled");
     }
+#endif
+#if HV5XX_THEFLOW_POST_VERIFY_ALL
+    errno = 0;
+    pin_to_core(HV5XX_KROP_CORE);
+    int all_verify_ok = 1;
+    for (int i = 0; i < HV_5XX_VMCB_COUNT; i++) {
+        uint64_t target = vmcb_target_va(dmap, i, HV_5XX_NESTED_CTRL_OFF);
+        uint64_t verify = kr64(target);
+        if (verify != (uint64_t)HV_5XX_NESTED_CTRL_VALUE) {
+            all_verify_ok = 0;
+        }
+    }
+    npt_all_confirmed = all_verify_ok;
 #endif
 #endif
 #if HV5XX_THEFLOW_KTEXT_PAGE_TEST

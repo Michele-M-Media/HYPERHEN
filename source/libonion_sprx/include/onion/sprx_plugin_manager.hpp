@@ -13,6 +13,7 @@ namespace onion::sprx {
 struct SprxTarget {
   pid_t pid = -1;
   std::string title_id;
+  std::string version;
 };
 
 class ISprxTargetProvider {
@@ -52,7 +53,7 @@ public:
   SprxCatalog catalog() const { return catalog_store_.snapshot(); }
 
 private:
-  SprxStartupReport start_locked();
+  SprxStartupReport start_locked(std::string_view manual_id = {});
 
   IRemoteSprxRuntime &runtime_;
   ITargetAccessPolicy &access_policy_;

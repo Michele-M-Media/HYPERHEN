@@ -268,6 +268,7 @@ void apply_shellcore_patches()
     FW(320);
     FW(321);
     FW(400);
+	    FW(402);
     FW(403);
     FW(450);
     FW(451);

@@ -23,7 +23,7 @@
   <circle cx="205" cy="330" r="170" fill="#2CEAFF" fill-opacity="0.11" filter="url(#glow)"/>
   <image href="../logo.png" x="55" y="180" width="300" height="300" preserveAspectRatio="xMidYMid meet"/>
   <text x="205" y="520" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="31" font-weight="800" letter-spacing="5">HYPERHEN</text>
-  <text x="205" y="552" text-anchor="middle" fill="#59EAFF" font-family="Arial, sans-serif" font-size="14" letter-spacing="3">v0.9.2</text>
+  <text x="205" y="552" text-anchor="middle" fill="#59EAFF" font-family="Arial, sans-serif" font-size="14" letter-spacing="3">v0.9.3</text>
 
   <text x="44" y="58" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="25" font-weight="600">Debug avanzato</text>
   <text x="44" y="88" fill="#8EA7CA" font-family="Arial, sans-serif" font-size="14" letter-spacing="1.8">HYPERHEN TOOLBOX · LINUX BOOT MODE</text>

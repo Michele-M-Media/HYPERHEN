@@ -44,6 +44,7 @@ along with this program; see the file COPYING. If not, see
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
 #include <onion/ready.h>
+#include <onion/firmware_capabilities.h>
 
 #include "image.h"
 #include "ufs_mount.h"
@@ -81,18 +82,37 @@ int sceKernelSetProcessName(const char *name);
 #define HYPERCORE_STARTING_PATH \
     ONION_READY_ROOT "/" ONION_READY_KSTUFF_STARTING
 #define HYPERCORE_FAILED_PATH ONION_READY_ROOT "/" ONION_READY_KSTUFF_FAILED
+#define HYPERCORE_940_READY_PATH \
+    ONION_READY_ROOT "/" ONION_READY_HYPERCORE_940
+#define HYPERCORE_ENTRY_ALREADY_ACTIVE 2
+
+void backpork_prepare_state(void);
+void backpork_publish_failure(void);
+
+static int hypercore_940_firmware(void) {
+    return onion_firmware_route(kernel_get_fw_version()) ==
+           ONION_FIRMWARE_ROUTE_HYPERVISOR_940;
+}
+
+static int hypercore_940_route(void) {
+    return hypercore_940_firmware() &&
+           access(ONION_READY_ROOT "/" ONION_READY_HYPERVISOR_940,
+                  F_OK) == 0;
+}
 
 static int publish_hypercore_loader_starting(void) {
     mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
     mkdir(ONION_READY_ROOT, 0777);
     unlink(HYPERCORE_READY_PATH);
     unlink(HYPERCORE_FAILED_PATH);
+    unlink(HYPERCORE_940_READY_PATH);
+    backpork_prepare_state();
     int fd = open(HYPERCORE_STARTING_PATH,
                   O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (fd < 0)
         return -1;
     char value[32];
-    int length = snprintf(value, sizeof(value), "%d\n", (int)getpid());
+    int length = snprintf(value, sizeof(value), "%d", (int)getpid());
     bool valid = length > 0 && (size_t)length < sizeof(value);
     ssize_t written = valid ? write(fd, value, (size_t)length) : -1;
     int close_result = close(fd);
@@ -104,27 +124,58 @@ static int publish_hypercore_loader_state(bool ready) {
     const char *stale = ready ? HYPERCORE_FAILED_PATH : HYPERCORE_READY_PATH;
     mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
     mkdir(ONION_READY_ROOT, 0777);
+    if (!ready)
+        unlink(HYPERCORE_940_READY_PATH);
     unlink(stale);
     int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (fd < 0)
         return -1;
-    const char value = '1';
-    ssize_t written = write(fd, &value, sizeof(value));
+    char value[32];
+    int length = snprintf(value, sizeof(value), "%d", (int)getpid());
+    ssize_t written = length > 0 && (size_t)length < sizeof(value)
+        ? write(fd, value, (size_t)length)
+        : -1;
     int close_result = close(fd);
     int result =
-        written == (ssize_t)sizeof(value) && close_result == 0 ? 0 : -1;
+        written == (ssize_t)length && close_result == 0 ? 0 : -1;
+    if (result == 0 && ready && hypercore_940_route()) {
+        int route_fd = open(HYPERCORE_940_READY_PATH,
+                            O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        if (route_fd < 0) {
+            result = -1;
+        } else {
+            char route_value[32];
+            int route_length = snprintf(route_value, sizeof(route_value),
+                                        "%d", (int)getpid());
+            ssize_t route_written =
+                route_length > 0 && (size_t)route_length < sizeof(route_value)
+                    ? write(route_fd, route_value, (size_t)route_length)
+                    : -1;
+            int route_close = close(route_fd);
+            if (route_written != (ssize_t)route_length || route_close != 0)
+                result = -1;
+        }
+    }
     if (result == 0)
         unlink(HYPERCORE_STARTING_PATH);
     return result;
 }
 
 static int hypercore_loader_failure(void) {
+    backpork_publish_failure();
     publish_hypercore_loader_state(false);
     return EXIT_FAILURE;
 }
 
 static int automount_disabled(void) {
     return access("/data/.kstuff_noautomount", F_OK) == 0;
+}
+
+static int hypercore_lite_route(void) {
+    return onion_firmware_route(kernel_get_fw_version()) ==
+               ONION_FIRMWARE_ROUTE_KSTUFF_LITE &&
+           access(ONION_READY_ROOT "/" ONION_READY_HYPERCORE_LITE,
+                  F_OK) == 0;
 }
 
 /* Never replace a title that the console already installed on extended storage. */
@@ -675,10 +726,10 @@ int main(void) {
         }
     }
 
-    int (*entry)(payload_args_t*, uint64_t,
-                 intptr_t (*)(int, uint32_t, const char*),
-                 int (*)(int, const char*, uint32_t*),
-                 kstuff_shellcore_imports_fn) =
+    void (*entry)(payload_args_t*, uint64_t,
+                  intptr_t (*)(int, uint32_t, const char*),
+                  int (*)(int, const char*, uint32_t*),
+                  kstuff_shellcore_imports_fn) =
         base + ehdr->e_entry;
     payload_args_t* args = payload_get_args();
 
@@ -692,31 +743,54 @@ int main(void) {
 
     loader_stage("prepare HyperCore", stage_ms);
     stage_ms = loader_now_ms();
-    int entry_result = entry(args, KSTUFF_DYNLIB_RESOLVER_MAGIC,
-                             kernel_dynlib_resolve, kernel_dynlib_handle,
-                             shellcore_import_got);
+    entry(args, KSTUFF_DYNLIB_RESOLVER_MAGIC,
+          kernel_dynlib_resolve, kernel_dynlib_handle,
+          shellcore_import_got);
     loader_stage("HyperCore entry", stage_ms);
     stage_ms = loader_now_ms();
-    if (entry_result != 0 || access(HYPERCORE_FAILED_PATH, F_OK) == 0)
+    int entry_result = *args->payloadout;
+    klog_printf("[HyperCore] entry result=%d\n", entry_result);
+    if ((entry_result != 0 &&
+         entry_result != HYPERCORE_ENTRY_ALREADY_ACTIVE) ||
+        access(HYPERCORE_FAILED_PATH, F_OK) == 0)
         return hypercore_loader_failure();
+    if (entry_result == HYPERCORE_ENTRY_ALREADY_ACTIVE) {
+        klog_printf("[HyperCore] kernel core was already active; restoring userland services\n");
+        *args->payloadout = 0;
+    }
     if(*args->payloadout == 0) {
         puts("patching app.db");
         *args->payloadout = patch_app_db();
     }
     loader_stage("app.db", stage_ms);
-    if (ppr_resume_start() != 0)
+    const int lite_route = hypercore_lite_route();
+    const int ppr_disabled_route = hypercore_940_firmware();
+    if (ppr_disabled_route) {
+        if (backpork_resume_start() != 0)
+            klog_printf("[BP] resume monitor unavailable on Byepervisor 9.40\n");
+    } else if (!lite_route && ppr_resume_start() != 0) {
         klog_printf("[PPR] resume: power monitor unavailable\n");
+    }
     start_shellui_patch_thread();
 
     /* BestPig/BackPork runs as a native thread in this ELF. */
-    extern void *backpork_thread_entry(void *);
-    pthread_t backpork_thread;
-    int bp_error = pthread_create(&backpork_thread, NULL,
-                                  backpork_thread_entry, NULL);
-    if (bp_error == 0)
-        pthread_detach(backpork_thread);
-    else
-        klog_printf("[BP] monitor start failed: %d\n", bp_error);
+    if (!lite_route) {
+        backpork_prepare_state();
+        extern void *backpork_thread_entry(void *);
+        pthread_t backpork_thread;
+        int bp_error = pthread_create(&backpork_thread, NULL,
+                                      backpork_thread_entry, NULL);
+        if (bp_error == 0) {
+            pthread_detach(backpork_thread);
+        } else {
+            klog_printf("[BP] monitor start failed: %d\n", bp_error);
+            backpork_publish_failure();
+            return hypercore_loader_failure();
+        }
+
+    } else {
+        klog_printf("[HyperCore] kstuff-lite route active; PPR resume and BackPork disabled\n");
+    }
 
     if (publish_hypercore_loader_state(true) != 0) {
         klog_printf("[HyperCore] readiness marker publish failed\n");

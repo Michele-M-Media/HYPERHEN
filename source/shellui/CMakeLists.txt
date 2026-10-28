@@ -70,12 +70,25 @@ set_source_files_properties(
 target_compile_definitions(${PROJECT_NAME} PRIVATE
 	HYPERHEN_SHELLUI_HYPE_VOICE_PCM="${_shellui_hype_voice_pcm}"
 )
+if(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
+	set(_hypershell_renderer
+		"${HYPERHEN_THIRD_PARTY_DIR}/hyperdeck-tools/liveshell/src/liveshell_shellui.cpp")
+	target_sources(${PROJECT_NAME} PRIVATE
+		"${_hypershell_renderer}")
+	set_source_files_properties("${_hypershell_renderer}" PROPERTIES
+		COMPILE_OPTIONS "-Wno-unused-function;-Wno-unused-variable")
+	target_compile_definitions(${PROJECT_NAME} PRIVATE
+		HYPERHEN_EXPERIMENTAL_HYPERSHELL=1
+		HYPERHEN_NATIVE_SHELLUI=1)
+	message(STATUS "shellui: experimental HyperShell native renderer enabled")
+endif()
 add_dependencies(${PROJECT_NAME} shellui_i18n_catalog hyperhen_version onion_ipc onion_settings onion_detour onion_proc onion_platform onion_ready onion_plugin_ui onion_plugin_bridge)
 onion_target_debug_define(${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"${D_CWD}/include"
 	"${I18N_GENERATED_DIR}"
 	"${HYPERHEN_THIRD_PARTY_DIR}/cjson"
+	"${HYPERHEN_THIRD_PARTY_DIR}/garlic-savemgr/src"
 	"${HYPERHEN_THIRD_PARTY_DIR}/sha1"
 	"${PROJECT_ROOT}/libonion_ipc/include"
 	"${PROJECT_ROOT}/libonion_settings/include"

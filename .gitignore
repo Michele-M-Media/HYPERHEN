@@ -47,6 +47,16 @@ third_party/kstuff-a53/ps5-kstuff/isa-l_crypto/bin/
 
 /scripts/__pycache__
 
+# Frozen binary inputs are distributed as checksum-pinned release assets.
+/build-release/
+/release-components/*
+!/release-components/SHA256SUMS
+!/release-components/MANIFEST.json
+/release-inputs/*
+!/release-inputs/SHA256SUMS
+!/release-inputs/MANIFEST.json
+/tests/__pycache__/
+
 # Machine-local helpers (firmware dump verifiers, etc.)
 /.local/
 /.workbuddy-ai/

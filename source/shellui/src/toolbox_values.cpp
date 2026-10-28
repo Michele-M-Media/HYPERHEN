@@ -146,21 +146,13 @@ const ExactValueEntry kExactValues[] = {
     /* Exact list id only — not id_toolbox_shortcut_N list_items. */
     {"id_toolbox_shortcut",
      +[]() -> std::string { return int_str(g_settings.toolbox_shortcut_opt); }},
-    {"id_debug_service_klog",
-     +[]() -> std::string {
-       return debug_tool_value("id_debug_service_klog");
-     }},
-    {"id_debug_service_ftp",
-     +[]() -> std::string {
-       return debug_tool_value("id_debug_service_ftp");
-     }},
-    {"id_debug_service_elfldr",
-     +[]() -> std::string {
-       return debug_tool_value("id_debug_service_elfldr");
-     }},
 };
 
 bool try_exact_value(const std::string &id, std::string &out) {
+  if (onion::shellui::debug_tools::find(id)) {
+    out = debug_tool_value(id.c_str());
+    return true;
+  }
   for (const auto &e : kExactValues) {
     if (id == e.id) {
       out = e.get();

@@ -217,7 +217,7 @@ void record_missing_param_failure(const char *path) {
   if (entry->missing_param_attempts < UINT8_MAX)
     entry->missing_param_attempts++;
 
-  log_debug("  [SCAN] missing/invalid param.json: %s", path);
+  log_debug("  [SCAN] missing/invalid param.json/param.sfo: %s", path);
   if (entry->missing_param_attempts == 1)
     notify_system_l10n(SM_L10N_MISSING_PARAM, path);
   if (entry->missing_param_attempts >= MAX_MISSING_PARAM_SCAN_ATTEMPTS &&

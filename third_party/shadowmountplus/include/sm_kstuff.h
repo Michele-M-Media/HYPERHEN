@@ -13,5 +13,7 @@ bool sm_kstuff_is_loaded(void);
 // Run mprotect for another process through kstuff's remote-syscall service.
 bool sm_kstuff_remote_mprotect(pid_t pid, uintptr_t address, size_t size,
                                int protection);
+// Retain another process's mapped pages through kstuff's remote-syscall service.
+bool sm_kstuff_remote_mlock(pid_t pid, uintptr_t address, size_t size);
 
 #endif

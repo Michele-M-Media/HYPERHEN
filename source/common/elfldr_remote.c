@@ -270,6 +270,19 @@ pid_t elfldr_remote_onion_launch_file_get_pid(const char *abs_path,
   return pid;
 }
 
+pid_t elfldr_remote_onion_launch_plugin_file_get_pid(const char *abs_path) {
+  if(!abs_path || abs_path[0] != '/' || strpbrk(abs_path, "\r\n?#%"))
+    return -1;
+  char line[1024];
+  int n = snprintf(line, sizeof(line), "hplg:%s\n", abs_path);
+  if(n <= 0 || (size_t)n >= sizeof(line)) return -1;
+  int fd = connect_port(ONION_ELFLDR_PORT);
+  if(fd < 0) return -1;
+  pid_t pid = send_all(fd, line, (size_t)n) ? read_pid_response(fd) : -1;
+  close(fd);
+  return pid;
+}
+
 pid_t elfldr_remote_onion_write_and_launch_get_pid_with_args(
     const char *abs_path, const uint8_t *elf, size_t size, const char *args) {
   if (!abs_path || !elf || size < 4)

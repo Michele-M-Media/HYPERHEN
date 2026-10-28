@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-drag",
+  "description": "Drag a file out of Files onto the desktop (tauri-plugin-drag). Desktop only: the plugin is not compiled for Android or iOS, so its permission must not appear in the capability those builds load.",
+  "windows": [
+    "main"
+  ],
+  "platforms": [
+    "macOS",
+    "windows",
+    "linux"
+  ],
+  "permissions": [
+    "drag:default"
+  ]
+}

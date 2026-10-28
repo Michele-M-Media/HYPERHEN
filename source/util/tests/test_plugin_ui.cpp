@@ -407,7 +407,6 @@ int test_bridge_protocol_and_actions(void) {
   TEST_ASSERT_EQ_U64(snapshot_bytes.size(), header.payload_size);
   header_bytes[12] = 1;
   TEST_ASSERT_TRUE(!plugin_bridge::decode_frame_header(header_bytes, header));
-
   plugin_bridge::ActionRequest action{registered.handle, "enabled", "false"};
   std::vector<uint8_t> action_bytes;
   TEST_ASSERT_TRUE(plugin_bridge::encode_action(action, action_bytes));

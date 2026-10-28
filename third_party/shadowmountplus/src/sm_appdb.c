@@ -565,10 +565,30 @@ static void copy_sqlite_text(sqlite3_stmt *stmt, int column, char *out,
 static bool copy_json_string(struct json_object *object, const char *key,
                              char *out, size_t out_size) {
   struct json_object *value = NULL;
-  if (!json_object_object_get_ex(object, key, &value) ||
-      !json_object_is_type(value, json_type_string)) {
-    return false;
+  if (!json_object_object_get_ex(object, key, &value)) {
+    struct json_object *fields = NULL;
+    if (!json_object_object_get_ex(object, "field_list", &fields) ||
+        !json_object_is_type(fields, json_type_array))
+      return false;
+
+    // Older app.db stores AppInfoJson values as {key, data} records.
+    size_t key_length = strlen(key);
+    size_t count = json_object_array_length(fields);
+    for (size_t i = 0; i < count; ++i) {
+      struct json_object *field = json_object_array_get_idx(fields, i);
+      struct json_object *name = NULL;
+      if (!json_object_is_type(field, json_type_object) ||
+          !json_object_object_get_ex(field, "key", &name) ||
+          !json_object_is_type(name, json_type_string) ||
+          (size_t)json_object_get_string_len(name) != key_length ||
+          memcmp(json_object_get_string(name), key, key_length) != 0)
+        continue;
+      (void)json_object_object_get_ex(field, "data", &value);
+      break;
+    }
   }
+  if (!json_object_is_type(value, json_type_string))
+    return false;
   const char *text = json_object_get_string(value);
   size_t length = (size_t)json_object_get_string_len(value);
   if (length == 0 || length >= out_size || memchr(text, '\0', length))

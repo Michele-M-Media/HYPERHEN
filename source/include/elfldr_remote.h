@@ -66,6 +66,9 @@ pid_t elfldr_remote_onion_write_and_launch_get_pid(const char *abs_path,
 pid_t elfldr_remote_onion_launch_file_get_pid(const char *abs_path,
                                               const char *args);
 
+/** Dedicated plugin ABI. Old loaders reject this protocol, never fall back. */
+pid_t elfldr_remote_onion_launch_plugin_file_get_pid(const char *abs_path);
+
 /**
  * Stage @elf at @abs_path and launch it through the private loader with
  * optional command-line @args. The staged file is left in place; callers that

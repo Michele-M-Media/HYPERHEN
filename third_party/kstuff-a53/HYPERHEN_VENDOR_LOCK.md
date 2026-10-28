@@ -22,11 +22,20 @@ stages the resulting ELF for build-time embedding.
 
 HyperHEN applies a source-only branding overlay to user notifications and
 diagnostic stage labels. It also recognizes the embedded Byepervisor readiness
-marker on its exact 13.00, 13.20, and 13.60 route: those revisions have no
+marker on its exact 12.70, 13.00, 13.20, and 13.60 route: those revisions have no
 supplied A53/PPR profile, so the loader continues into kstuff only after the
 hypervisor stage completed. The same handoff accepts the dedicated 5.xx marker
 only on 5.00, 5.02, 5.10, and 5.50. A53/PPR remains mandatory on every other
-non-legacy route.
+non-legacy route except the exact no-PPR profiles and the 13.40/13.42
+kstuff-lite route. The 12.70 compatibility release selects the separately
+embedded `hypercore_1270` image so its prerequisite map contains the new
+Byepervisor route without replacing the common core used elsewhere. The
+existing `hypercore_940` image remains byte-identical to the trusted prior
+release; only `hypercore_1270` and `hypervisor_1270` are added to that embedded
+component layout.
+The 13.40/13.42 route
+uses the supplied upstream kernel and ShellCore tables directly, skips the
+A53/PPR installer, and does not create the BackPork monitor thread.
 Upstream process names, build artifact names, lock/log paths, and protocol
 identifiers remain unchanged where renaming could break compatibility or
 runtime state detection.

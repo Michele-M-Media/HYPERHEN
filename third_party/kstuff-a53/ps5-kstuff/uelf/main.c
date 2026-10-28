@@ -139,7 +139,7 @@ void handle_syscall(uint64_t* regs, int allow_kekcall)
         handle_fself_syscall(regs);
         RETURN_HANDLE_SYSCALL();
     }
-    if(IS_PPR(get_ppr_sdk_compiled_version))
+    if(FWVER != 0x940 && IS_PPR(get_ppr_sdk_compiled_version))
     {
         METRIC_INC(syscall_fself_dispatches);
         observe_syscall_armed(KSTUFF_SYSCALL_GET_PPR_SDK_COMPILED_VERSION);

@@ -109,6 +109,7 @@ PROD_CXX_SRCS := \
 	$(REPO_ROOT)/source/libonion_lifecycle/source/app_lifecycle.cpp \
 	$(REPO_ROOT)/source/libonion_sprx/source/sprx_loader.cpp \
 	$(REPO_ROOT)/source/libonion_sprx/source/sprx_catalog.cpp \
+	$(REPO_ROOT)/source/libonion_sprx/source/plugin_metadata.cpp \
 	$(REPO_ROOT)/source/libonion_sprx/source/sprx_plugin_manager.cpp
 
 TEST_C_SRCS := \
@@ -134,6 +135,7 @@ TEST_C_SRCS := \
 	test_hijack_retry.c \
 	test_firmware_capabilities.c \
 	test_hyperlinux_profiles.c \
+	test_hypervisor_940_report.c \
 	stubs/host_stubs.c
 
 TEST_CXX_SRCS := \
@@ -210,6 +212,7 @@ PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_fps/fps_formula.o
 PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_lifecycle/app_lifecycle.o
 PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_sprx/sprx_loader.o
 PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_sprx/sprx_catalog.o
+PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_sprx/plugin_metadata.o
 PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_sprx/sprx_plugin_manager.o
 PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_plugin_ui/plugin_ui.o
 PROD_CXX_OBJS += $(BUILD_DIR)/prod/libonion_plugin_bridge/plugin_ui_bridge.o
@@ -371,6 +374,10 @@ $(BUILD_DIR)/prod/libonion_sprx/sprx_loader.o: $(REPO_ROOT)/source/libonion_sprx
 	$(HOST_CXX) $(CXXFLAGS) -c -o $@ $<
 
 $(BUILD_DIR)/prod/libonion_sprx/sprx_catalog.o: $(REPO_ROOT)/source/libonion_sprx/source/sprx_catalog.cpp | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	$(HOST_CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(BUILD_DIR)/prod/libonion_sprx/plugin_metadata.o: $(REPO_ROOT)/source/libonion_sprx/source/plugin_metadata.cpp | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	$(HOST_CXX) $(CXXFLAGS) -c -o $@ $<
 

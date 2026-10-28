@@ -1,27 +1,36 @@
 PS5_PAYLOAD_SDK ?= /opt/ps5-payload-sdk
 include $(PS5_PAYLOAD_SDK)/toolchain/prospero.mk
 
-VERSION_TAG := $(shell git describe --abbrev=6 --dirty --always --tags 2>/dev/null || echo unknown)
+VERSION_TAG := 1.7beta9-hyperhen
 BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+HYPERHEN_LITE ?= 0
 
 # Compiler and dependency flags
 HOMEBREW_ROOT := $(PS5_PAYLOAD_SDK)/target/user/homebrew
 HOMEBREW_CFLAGS := -I$(HOMEBREW_ROOT)/include
 MHD_LIB := $(HOMEBREW_ROOT)/lib/libmicrohttpd.a
 PNG_LIB := $(HOMEBREW_ROOT)/lib/libpng16.a
+JPEG_LIB := $(HOMEBREW_ROOT)/lib/libturbojpeg.a
 ZLIB_LIB := $(HOMEBREW_ROOT)/lib/libz.a
+SMB_LIB := $(HOMEBREW_ROOT)/lib/libsmb2.a
 CFLAGS := -O3 -flto=thin -DNDEBUG -ffunction-sections -fdata-sections -Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -Werror=strict-prototypes -Werror=missing-prototypes -D_BSD_SOURCE -std=gnu11 -Iinclude -Isrc
 CFLAGS += $(HOMEBREW_CFLAGS)
 CFLAGS += -DSHADOWMOUNT_VERSION=\"$(VERSION_TAG)\"
+CFLAGS += -DSM_VFS_ENABLED
+CFLAGS += -DSM_HYPERHEN_LITE=$(HYPERHEN_LITE)
 
 # Linker
 LDFLAGS := -flto=thin -Wl,--gc-sections
 
 # Libraries
-LIBS := -lSceNotification -lSceSystemService -lSceUserService -lSceAppInstUtil -lSceNet -lSceSsl -lSceHttp -lsqlite3 $(HOMEBREW_ROOT)/lib/libjson-c.a $(MHD_LIB) $(PNG_LIB) $(ZLIB_LIB) -lpthread -lm
+LIBS := -lSceNotification -lSceSystemService -lSceUserService -lSceAppInstUtil -lSceNet -lSceSsl -lSceHttp -lsqlite3 $(HOMEBREW_ROOT)/lib/libjson-c.a $(MHD_LIB) $(PNG_LIB) $(JPEG_LIB) $(ZLIB_LIB) $(SMB_LIB) -lpthread -lm
 PS5_SCE_STUBS_DIR ?= $(PS5_PAYLOAD_SDK)/src/sce_stubs
 KERNEL_SYS_STUB_SO := src/libkernel_sys_ext.so
-KERNEL_SYS_STUB_SRCS := $(PS5_SCE_STUBS_DIR)/libkernel_sys.c src/libkernel_sys_ext.c
+KERNEL_SYS_BASE_STUB := $(wildcard $(PS5_SCE_STUBS_DIR)/libkernel_sys.c)
+ifeq ($(KERNEL_SYS_BASE_STUB),)
+KERNEL_SYS_BASE_STUB := src/libkernel_sys_sdk_compat.c
+endif
+KERNEL_SYS_STUB_SRCS := $(KERNEL_SYS_BASE_STUB) src/libkernel_sys_ext.c
 
 ASSET_SRCS := src/notify_icon_asset.c src/config_ini_example_asset.c src/web_index_asset.c
 ASSET_SRCS += src/shell_icon_param_asset.c
@@ -44,7 +53,7 @@ shadowmountplus.elf: $(OBJS) $(KERNEL_SYS_STUB_SO)
 	$(PS5_PAYLOAD_SDK)/bin/prospero-strip --strip-all $@
 
 $(KERNEL_SYS_STUB_SO): $(KERNEL_SYS_STUB_SRCS)
-	test -f "$(PS5_SCE_STUBS_DIR)/libkernel_sys.c"
+	test -f "$(PS5_PAYLOAD_SDK)/target/lib/libkernel_sys.so"
 	$(CC) -shared -Wl,-soname=libkernel_sys.sprx -o $@ $^
 
 src/notify_icon_asset.c: smp_icon.png
@@ -59,6 +68,8 @@ src/web_index_asset.c: web/index.html
 src/shell_icon_param_asset.c: assets/shell_icon_param.json
 	xxd -i $< > $@
 
+src/sm_api_service.o src/sm_icon_thumb.o src/sm_gameinfo.o src/sm_pkg.o: CFLAGS += $(HOMEBREW_CFLAGS)
+src/sm_smb.o src/sm_vfs.o: CFLAGS += $(HOMEBREW_CFLAGS)
 src/main.o src/sm_image_index.o: CFLAGS += -DSHADOWMOUNT_BUILD_TIME=\"$(BUILD_TIME)\"
 src/main.o src/sm_image_index.o: FORCE
 

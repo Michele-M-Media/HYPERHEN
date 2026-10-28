@@ -25,6 +25,7 @@ static int (*hyper_snprintf)(char * restrict str, size_t size,
 
 #define HYPERCORE_READY_PATH ONION_READY_ROOT "/" ONION_READY_KSTUFF
 #define HYPERCORE_FAILED_PATH ONION_READY_ROOT "/" ONION_READY_KSTUFF_FAILED
+#define HYPERCORE_ENTRY_ALREADY_ACTIVE 2
 
 static int publish_hypercore_state(int ready)
 {
@@ -780,6 +781,7 @@ extern const unsigned char ppr_mount_940_blob_end[];
 #define SHELLCORE_GAME_MOUNT_MARKER       0x314D47454B504746ull
 #define SHELLCORE_GAME_UMOUNT_MARKER      0x315547454B504746ull
 #define SHELLCORE_PPR_UMOUNT_MARKER       0x315550504B504746ull
+#define SHELLCORE_GAME_SCOPE_START_MARKER 0x3154524154534746ull
 #define SHELLCORE_FPKG_WRAPPER_MAP_SIZE   0x4000
 #define SHELLCORE_LOCKED_PAGE_CAP         128
 
@@ -957,10 +959,12 @@ static int resolve_shellcore_syscall_trampoline(
 static int install_shellcore_ppr_hook(
     int pid, uint64_t shellcore_base, uint64_t text_end,
     uint64_t dmap, uint64_t cr3,
-    struct shellcore_locked_pages* locked)
+    struct shellcore_locked_pages* locked, int enable_ppr)
 {
-    const size_t blob_size = (size_t)(ppr_mount_940_blob_end
-                                    - ppr_mount_940_blob_start);
+    const size_t full_blob_size = (size_t)(ppr_mount_940_blob_end
+                                         - ppr_mount_940_blob_start);
+    const unsigned char* blob_source = ppr_mount_940_blob_start;
+    size_t blob_size = full_blob_size;
     static unsigned char prepared_blob[SHELLCORE_FPKG_WRAPPER_MAP_SIZE];
     uint64_t helper_target[3] = {0};
     uint64_t api_got[4] = {0}, api_target[4] = {0};
@@ -973,21 +977,46 @@ static int install_shellcore_ppr_hook(
     size_t game_umount_entry = 0;
     size_t ppr_umount_entry = 0;
 
-    const size_t api_count = sizeof(api_got) / sizeof(api_got[0]);
-    if(!blob_size || blob_size > sizeof(prepared_blob))
+    const size_t api_count = enable_ppr
+                           ? sizeof(api_got) / sizeof(api_got[0])
+                           : 2;
+    if(!full_blob_size || full_blob_size > sizeof(prepared_blob))
         return shellcore_ppr_fail("fpkg scope: invalid wrapper blob size");
+    if(!enable_ppr)
+    {
+        size_t game_scope_start = 0;
+        size_t ppr_umount_after_marker = 0;
+        if(find_shellcore_blob_entry(ppr_mount_940_blob_start,
+                                     full_blob_size,
+                                     SHELLCORE_GAME_SCOPE_START_MARKER,
+                                     &game_scope_start)
+        || find_shellcore_blob_entry(ppr_mount_940_blob_start,
+                                     full_blob_size,
+                                     SHELLCORE_PPR_UMOUNT_MARKER,
+                                     &ppr_umount_after_marker)
+        || ppr_umount_after_marker < sizeof(uint64_t))
+            return shellcore_ppr_fail(
+                "fpkg scope: game-only wrapper boundary mismatch");
+        size_t game_scope_end = ppr_umount_after_marker - sizeof(uint64_t);
+        if(game_scope_start >= game_scope_end)
+            return shellcore_ppr_fail(
+                "fpkg scope: invalid game-only wrapper range");
+        blob_source += game_scope_start;
+        blob_size = game_scope_end - game_scope_start;
+    }
 
     uint32_t required_mask = SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_MOUNT_GAME)
-                           | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_UMOUNT_GAME)
-                           | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_CLOSE)
-                           | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_OPEN)
-                           | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_PREAD)
-                           | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_MOUNT_PPR)
-                           | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_UMOUNT_PPR);
+                           | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_UMOUNT_GAME);
+    if(enable_ppr)
+        required_mask |= SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_CLOSE)
+                       | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_OPEN)
+                       | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_PREAD)
+                       | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_MOUNT_PPR)
+                       | SHELLCORE_IMPORT_BIT(SHELLCORE_IMPORT_UMOUNT_PPR);
     if(kstuff_shellcore_imports(pid, shellcore_base, required_mask,
                                 import_got))
         return shellcore_ppr_fail("fpkg scope: ShellCore imports unavailable");
-    for(size_t i = 0; i < 3; i++)
+    for(size_t i = 0; enable_ppr && i < 3; i++)
     {
         uint64_t lazy_plt;
         if(read_shellcore_import(pid, shellcore_base, text_end, import_got[i],
@@ -1039,40 +1068,42 @@ static int install_shellcore_ppr_hook(
         return shellcore_ppr_fail(
             "fpkg scope: libkernel syscall trampoline unavailable");
 
-    memcpy(prepared_blob, ppr_mount_940_blob_start, blob_size);
+    memcpy(prepared_blob, blob_source, blob_size);
     if(replace_shellcore_blob_u64(prepared_blob, blob_size,
                                   SHELLCORE_PPR_SYSCALL_PLACEHOLDER,
                                   syscall_target, 1)
-    || replace_shellcore_blob_u64(prepared_blob, blob_size,
-                                  SHELLCORE_PPR_CLOSE_PLACEHOLDER,
-                                  helper_target[0], 2)
-    || replace_shellcore_blob_u64(prepared_blob, blob_size,
-                                  SHELLCORE_PPR_OPEN_PLACEHOLDER,
-                                  helper_target[1], 1)
-    || replace_shellcore_blob_u64(prepared_blob, blob_size,
-                                  SHELLCORE_PPR_PREAD_PLACEHOLDER,
-                                  helper_target[2], 1)
-    || replace_shellcore_blob_u64(prepared_blob, blob_size,
-                                  SHELLCORE_PPR_MOUNT_PLACEHOLDER,
-                                  api_target[2], 1)
     || replace_shellcore_blob_u64(prepared_blob, blob_size,
                                   SHELLCORE_GAME_MOUNT_PLACEHOLDER,
                                   api_target[0], 1)
     || replace_shellcore_blob_u64(prepared_blob, blob_size,
                                   SHELLCORE_GAME_UMOUNT_PLACEHOLDER,
                                   api_target[1], 1)
-    || replace_shellcore_blob_u64(prepared_blob, blob_size,
-                                  SHELLCORE_PPR_UMOUNT_PLACEHOLDER,
-                                  api_target[3], 1)
     || find_shellcore_blob_entry(prepared_blob, blob_size,
                                  SHELLCORE_GAME_MOUNT_MARKER,
                                  &game_mount_entry)
     || find_shellcore_blob_entry(prepared_blob, blob_size,
                                  SHELLCORE_GAME_UMOUNT_MARKER,
-                                 &game_umount_entry)
-    || find_shellcore_blob_entry(prepared_blob, blob_size,
-                                 SHELLCORE_PPR_UMOUNT_MARKER,
-                                 &ppr_umount_entry))
+                                 &game_umount_entry))
+        return shellcore_ppr_fail("fpkg scope: wrapper placeholders mismatch");
+    if(enable_ppr
+    && (replace_shellcore_blob_u64(prepared_blob, blob_size,
+                                   SHELLCORE_PPR_CLOSE_PLACEHOLDER,
+                                   helper_target[0], 2)
+     || replace_shellcore_blob_u64(prepared_blob, blob_size,
+                                   SHELLCORE_PPR_OPEN_PLACEHOLDER,
+                                   helper_target[1], 1)
+     || replace_shellcore_blob_u64(prepared_blob, blob_size,
+                                   SHELLCORE_PPR_PREAD_PLACEHOLDER,
+                                   helper_target[2], 1)
+     || replace_shellcore_blob_u64(prepared_blob, blob_size,
+                                   SHELLCORE_PPR_MOUNT_PLACEHOLDER,
+                                   api_target[2], 1)
+     || replace_shellcore_blob_u64(prepared_blob, blob_size,
+                                   SHELLCORE_PPR_UMOUNT_PLACEHOLDER,
+                                   api_target[3], 1)
+     || find_shellcore_blob_entry(prepared_blob, blob_size,
+                                  SHELLCORE_PPR_UMOUNT_MARKER,
+                                  &ppr_umount_entry)))
         return shellcore_ppr_fail("fpkg scope: wrapper placeholders mismatch");
 
     uint64_t wrapper_base = remote_syscall(
@@ -1107,8 +1138,11 @@ static int install_shellcore_ppr_hook(
 
     api_wrapper[0] = wrapper_base + game_mount_entry;
     api_wrapper[1] = wrapper_base + game_umount_entry;
-    api_wrapper[2] = wrapper_base;
-    api_wrapper[3] = wrapper_base + ppr_umount_entry;
+    if(enable_ppr)
+    {
+        api_wrapper[2] = wrapper_base;
+        api_wrapper[3] = wrapper_base + ppr_umount_entry;
+    }
     size_t installed = 0;
     size_t touched = 0;
     for(; installed < api_count; installed++)
@@ -1262,10 +1296,13 @@ enum kit_type kit = get_kit_type();
     return patches;
 }
 
-static int patch_shellcore(const struct shellcore_patch* patches, size_t n_patches, uint64_t eh_frame_offset)
+static int patch_shellcore(const struct shellcore_patch* patches,
+                           size_t n_patches, uint64_t eh_frame_offset,
+                           uint32_t fwver)
 {
     shellcore_patch_failure = 0;
     int install_fpkg_hook = patches != 0;
+    const int enable_ppr_hook = fwver != 0x940;
     if(install_fpkg_hook && (!kstuff_dynlib_handle || !kstuff_dynlib_resolve
                          || !kstuff_shellcore_imports))
         return shellcore_ppr_fail("fpkg scope: SDK resolver unavailable");
@@ -1361,7 +1398,7 @@ static int patch_shellcore(const struct shellcore_patch* patches, size_t n_patch
     }
     if(install_fpkg_hook
     && install_shellcore_ppr_hook(pid, shellcore_base, text_end,
-                                  dmap, cr3, &locked))
+                                  dmap, cr3, &locked, enable_ppr_hook))
     {
         failure_reason = shellcore_patch_failure
                        ? shellcore_patch_failure
@@ -1419,6 +1456,12 @@ uint64_t bench(void)
 #define INT1_IST_INDEX 4
 #define INT3_IST_INDEX 7
 
+enum hypercore_entry_result {
+    HYPERCORE_ENTRY_R0GDB_FAILED = 10,
+    HYPERCORE_ENTRY_SHELLCORE_PROFILE_FAILED = 11,
+    HYPERCORE_ENTRY_SHELLCORE_PATCH_FAILED = 12,
+};
+
 int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
 {
     hyper_snprintf = dlsym((void*)0x2, "snprintf");
@@ -1428,7 +1471,7 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
 #ifndef FIRMWARE_PORTING
         notify("your firmware is not supported (prosper0gdb)");
         publish_hypercore_state(0);
-        return 1;
+        return HYPERCORE_ENTRY_R0GDB_FAILED;
 #endif
     }
 #ifdef PS5KEK
@@ -1441,7 +1484,7 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
     if(!kekcall(0, 0, 0, 0, 0, 0, 0xffffffff00000027))
     {
         notify("HyperCore is already loaded");
-        return 1;
+        return HYPERCORE_ENTRY_ALREADY_ACTIVE;
     }
 
     size_t n_shellcore_patches;
@@ -1454,7 +1497,7 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
 #else
         notify("your firmware is not supported (shellcore)");
         publish_hypercore_state(0);
-        return 1;
+        return HYPERCORE_ENTRY_SHELLCORE_PROFILE_FAILED;
 #endif
     }
 #ifdef FIRMWARE_PORTING
@@ -1696,8 +1739,9 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
     };
     static const int num_syscalls_to_hook_for_ps5 = sizeof(syscalls_to_hook_for_ps5) / sizeof(syscalls_to_hook_for_ps5[0]);
 
-    // Package mount interception is scoped to ShellCore. The four public
-    // sceFs*GamePkg/sceFs*PprPkg wrappers further gate the individual calls.
+    // Package mount interception is scoped to ShellCore. The public game
+    // wrappers gate the individual calls; PPR wrappers are omitted on the
+    // Byepervisor 9.40 route.
     // ioctl is likewise only used by ShellCore's npdrm hook.
     // TODO: handle npdrm hook in userland?
     static const int extra_syscalls_to_hook_for_shellcore[] = {
@@ -1730,6 +1774,8 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
     for (int i = 0; i < num_syscalls_to_hook_for_ps5; i++)
     {
         int syscall = syscalls_to_hook_for_ps5[i];
+        if (fwver == 0x940 && syscall == SYS_get_ppr_sdk_compiled_version)
+            continue;
         *((uint64_t*)(ps5_sv_table + sizeof(struct sysent) * syscall + __builtin_offsetof(struct sysent, sy_call))) = offsets.syscall_cfi_table_jmp_int3;
     }
 
@@ -1796,12 +1842,13 @@ int main(void* ds, int a, int b, uintptr_t c, uintptr_t d)
     {
         if (patch_shellcore(shellcore_patches,
                             n_shellcore_patches,
-                            shellcore_eh_frame_offset))
+                            shellcore_eh_frame_offset,
+                            fwver))
         {
             notify(shellcore_patch_failure ? shellcore_patch_failure
                                            : "failed to patch shellcore");
             publish_hypercore_state(0);
-            return 1;
+            return HYPERCORE_ENTRY_SHELLCORE_PATCH_FAILED;
         }
     }
 

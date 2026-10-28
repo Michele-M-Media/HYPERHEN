@@ -51,8 +51,8 @@ HyperHEN 是 PS5 的 All-in-One Homebrew Enabler，提供提权、后台服务�
 **启动顺序串行：** util → 固件前置阶段 → HyperCore → Automount → daemon。
 
 - util 先提供网络/IPC 等服务
-- 6.00–11.40 的精确配置先验证 A53/PPR；11.60–12.70 的精确配置显式禁用 PPR 相关功能，并在 kstuff 通过运行时检查后才继续
-- 13.00、13.20、13.60 先验证 Byepervisor 完成标记；13.40、13.42 仅启动 util，不启动 HyperCore、Automount、daemon/Toolbox、HyperDPI、插件或 Payload 自动启动
+- 6.00–11.40 的精确配置通常先验证 A53/PPR；9.40 使用独立 Byepervisor ELF，并仅在休眠恢复后的完整成功报告出现后继续字节保持不变的 `hypercore_940`；11.60、12.00、12.02、12.20、12.40、12.60 显式禁用 PPR 相关功能，并在 kstuff 通过运行时检查后才继续
+- 12.70 使用独立的 `hypervisor_1270` 与 `hypercore_1270`；13.00、13.20、13.60 保留共用 Byepervisor/HyperCore，并先验证 Byepervisor 完成标记。21 组件布局中仅前述两个 12.70 槽位为新增；13.40、13.42 使用独立 kstuff-lite 标记，仅启动 kstuff-lite 与 Automount，不启动 Byepervisor、A53/PPR、BackPork、daemon/Toolbox、HyperDPI、插件或 Payload 自动启动
 - daemon 启动插件管理器，发现并管理 `/data/HyperHEN/plugins/` 中的外部插件
 - daemon 再注入 Toolbox
 
@@ -65,7 +65,7 @@ shellui.elf ───────┐
 util.elf ──────────┼──► 嵌入 daemon.elf ──┐
 hyperhen_elfldr.elf ──┘                       │
                      util.elf ─────────────┼──► 嵌入 bootstrapper.elf
-                     HyperCore ────────────┤         │
+                     HyperCore（共用/9.40/12.70 独立镜像）──┤         │
                      hyperhen_elfldr.elf ─────┘         ▼ LZMA
                                                bootstrapper.elf.lzma
                                               │
@@ -389,7 +389,7 @@ struct IPCMessage {
 
 - 提权与分区 remount
 - 阻止系统更新（unmount `/update`）
-- **HyperCore**：source-built kstuff + A53/PPR + BackPork；组合路径仅在 FW 5.00 有运行日志验证。11.60–12.70 使用不含 PPR 功能的兼容路径，13.40/13.42 仅启用 util
+- **HyperCore**：source-built kstuff + A53/PPR + BackPork；组合路径仅在 FW 5.00 有运行日志验证。11.60、12.00、12.02、12.20、12.40、12.60 使用不含 PPR 功能的兼容路径；12.70 使用隔离的 `hypervisor_1270`/`hypercore_1270` 路径且不替换既有 `hypercore_940`；13.40/13.42 仅启用 kstuff-lite 与 Automount，不创建 PPR/BackPork 路径
 - App jailbreak（按设置启停；SceSysCore 生命周期事件触发 Running Big App 补扫，再跟沙盒 vnode 与白名单 TID。EXEC 身份未就绪或 NOTE_TRACK 跟丢时短重试，无沙盒常驻扫描）
 - 休息后 Toolbox 恢复（kstuff-lite：新 ShellUI PID + trophy sprx，再按 `rest_mode.resume_reinject_delay_seconds` 等待）
 - 休息后监听套接字重绑（ps5-payload-manager：IPC / TCP `accept` 失败自愈）

@@ -6,6 +6,7 @@
 
 #define DEFAULT_BACKPORTS_DIR_NAME "backports"
 #define DEFAULT_BACKPORT_SCAN_PATH "/data/homebrew"
+#define INSTALLED_BACKPORTS_PATH DEFAULT_BACKPORT_SCAN_PATH "/" DEFAULT_BACKPORTS_DIR_NAME
 #define DEFAULT_GLOBAL_FAKELIB_PATH "/data/shadowmount/fakelib"
 #define DEFAULT_EMULATORS_PATH "/data/shadowmount/emus"
 #define DEFAULT_AMPR_UPDATE_URL                                             \

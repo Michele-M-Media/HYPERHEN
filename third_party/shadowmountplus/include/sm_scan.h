@@ -24,6 +24,7 @@ int collect_scan_candidates_for_scan_root(const char *scan_root,
                                           int *total_found_out,
                                           bool *unstable_found_out);
 // Resolve the source directory of a title backport without mounting it.
+// Per root, prefer the exact title ID, then the first matching name in byte order.
 bool resolve_backport_path_for_title(const char *title_id,
                                      const char *owning_scan_root,
                                      char backport_path[MAX_PATH]);

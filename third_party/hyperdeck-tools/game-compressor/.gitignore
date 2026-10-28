@@ -1,0 +1,4 @@
+build/
+gen/
+game-compressor.elf
+.DS_Store

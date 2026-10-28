@@ -14,6 +14,8 @@ onion_module_prologue(C_STANDARD 17)
 add_library(${PROJECT_NAME} STATIC
   source/pt.c
   source/elfldr.c
+  "${HYPERHEN_THIRD_PARTY_DIR}/tachen-plugin-runtime/elf-image.c"
+  "${HYPERHEN_THIRD_PARTY_DIR}/tachen-plugin-runtime/elf-map.c"
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PROJECT_NAME}")
 
@@ -24,6 +26,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-builtin -nostdlib -Wall -fPIC -gfull -O
 target_include_directories(${PROJECT_NAME}
   PUBLIC  "${D_CWD}/include"
   PRIVATE "${D_CWD}/../include"
+  "${HYPERHEN_THIRD_PARTY_DIR}/tachen-plugin-runtime"
   "${PROJECT_ROOT}/libonion_platform/include"
 )
 

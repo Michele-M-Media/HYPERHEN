@@ -2,7 +2,7 @@
 
 /* Fallback for non-CMake tooling; PS5 builds shadow this with a generated file. */
 #ifndef HYPERHEN_VERSION
-#define HYPERHEN_VERSION "v0.9.2"
+#define HYPERHEN_VERSION "v0.9.3"
 #endif
 
 #ifndef HYPERHEN_AUTHOR

@@ -324,6 +324,36 @@ static void begin_scan_locked(const char *path, const struct stat *st) {
   g_image_index_dirty = true;
 }
 
+// Caller holds g_image_index_mutex. A retained link alone cannot prove that a
+// replaced image still contains the same title.
+static bool indexed_source_has_title(const char *path, const char *title_id) {
+  int entry_index = find_entry(path);
+  if (entry_index < 0 || !g_image_index[entry_index].complete)
+    return false;
+
+  for (int i = 0; i < MAX_IMAGE_TITLES; ++i) {
+    if (g_image_titles[i].valid &&
+        g_image_titles[i].image_index == (uint16_t)entry_index &&
+        strcmp(g_image_titles[i].title_id, title_id) == 0) {
+      struct stat st;
+      return stat(path, &st) == 0 && S_ISREG(st.st_mode) &&
+             stamp_matches(&g_image_index[entry_index], &st);
+    }
+  }
+  return false;
+}
+
+bool sm_image_index_source_has_title(const char *path, const char *title_id) {
+  if (!path || !title_id || path[0] == '\0' || title_id[0] == '\0')
+    return false;
+
+  pthread_mutex_lock(&g_image_index_mutex);
+  load_index();
+  bool found = indexed_source_has_title(path, title_id);
+  pthread_mutex_unlock(&g_image_index_mutex);
+  return found;
+}
+
 static bool cached_titles_ready(int entry_index,
                                 const struct AppDbTitleList *app_db_titles,
                                 bool app_db_titles_ready) {
@@ -334,18 +364,18 @@ static bool cached_titles_ready(int entry_index,
       continue;
     }
     const char *title_id = g_image_titles[i].title_id;
-    if (!is_installed(title_id) || !has_appmeta_data(title_id))
+    if ((app_db_titles_ready &&
+         !app_db_title_list_contains(app_db_titles, title_id)) ||
+        !is_installed(title_id) || !has_appmeta_data(title_id)) {
       return false;
+    }
     char runtime_path[MAX_PATH];
     char linked_image[MAX_PATH];
     if (!read_mount_link(title_id, runtime_path, sizeof(runtime_path)) ||
         !is_under_image_mount_base(runtime_path) ||
         !read_mount_image_link(title_id, linked_image, sizeof(linked_image)) ||
-        strcmp(linked_image, image_path) != 0) {
-      return false;
-    }
-    if (app_db_titles_ready &&
-        !app_db_title_list_contains(app_db_titles, title_id)) {
+        (strcmp(linked_image, image_path) != 0 &&
+         !indexed_source_has_title(linked_image, title_id))) {
       return false;
     }
   }

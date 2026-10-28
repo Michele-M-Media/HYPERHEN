@@ -1,0 +1,1674 @@
+/*
+ * The console page's styles. Colours, radii and shadows are the PC app's
+ * dark-theme tokens (the :root block of src/index.css, pulled in by the
+ * virtual:pc-tokens.css module in vite.console.config.ts), so the two look
+ * alike without a copy of any value. Plain CSS, no Tailwind: the page is
+ * small and its own.
+ *
+ * Old-WebKit notes (safari13 floor): no flex `gap` (Safari 14.1), so flex
+ * rows space with margins; grid `gap` is fine. Focus uses :focus, not
+ * :focus-visible (Safari 15.4), since a controller is the only pointer here.
+ */
+
+html {
+  /*
+   * TV type that scales with the viewport: the PS5 browser's page is 1540×700
+   * (26 px here, 27 rem tall), a 1920×1080 window gets ~34 px. The smaller of
+   * the width and height rules wins, so a short window never pushes a
+   * section's primary actions below the fold. clamp/min: Safari 13.1+.
+   */
+  font-size: 22px;
+  font-size: clamp(16px, min(1.75vw, 3.75vh), 44px);
+  background: var(--atmosphere-base);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--atmosphere-base);
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+#root {
+  height: 100vh;
+}
+
+/* Every focusable control: the mockups' 2px accent ring plus a soft accent fill. */
+.cw-focusable {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  border-radius: var(--radius-field);
+}
+.cw-focusable:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0;
+  background: var(--color-accent-soft);
+}
+
+.cw-app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+}
+
+/* ---- top bar ---- */
+.cw-top {
+  display: flex;
+  align-items: center;
+  padding: 0.35rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.cw-top img {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 28%;
+  margin-right: 0.6rem;
+}
+.cw-brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+.cw-chip {
+  margin-left: auto;
+  padding: 0.2rem 0.8rem;
+  border-radius: var(--radius-control);
+  background: var(--color-good-soft);
+  /* The body text colour, not the status colour: small text on a tinted pill must read on a TV in every theme. */
+  color: var(--color-text);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.cw-chip.is-off {
+  background: var(--color-surface-3);
+  color: var(--color-muted);
+}
+
+/* ---- body: rail + content ---- */
+.cw-body {
+  display: flex;
+  min-height: 0;
+}
+.cw-rail {
+  width: 6.5rem;
+  flex: none;
+  padding: 0.6rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--color-canvas);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+}
+.cw-rail-item {
+  width: 100%;
+  padding: 0.5rem 0.2rem;
+  margin-bottom: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.cw-rail-item svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+.cw-rail-item[aria-current="page"] {
+  color: var(--color-text);
+  background: var(--color-pill);
+}
+.cw-rail-item[aria-current="page"]:focus {
+  background: var(--color-accent-soft);
+}
+
+.cw-content {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 1.2rem 1rem;
+  overflow-y: auto;
+}
+.cw-h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+/* ---- hint bar ---- */
+.cw-hints {
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 1rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  border-top: 1px solid var(--color-border);
+}
+.cw-hint {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 1.4rem;
+}
+.cw-glyph {
+  display: inline-block;
+  min-width: 1.3rem;
+  height: 1.3rem;
+  padding: 0 0.3rem;
+  margin-right: 0.35rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-3);
+  color: var(--color-text);
+  text-align: center;
+  line-height: 1.3rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* ---- reload banner ---- */
+.cw-banner {
+  position: fixed;
+  left: 50%;
+  top: 1.2rem;
+  transform: translateX(-50%);
+  width: min(36rem, calc(100vw - 2rem));
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-panel);
+  background: var(--color-float);
+  box-shadow: var(--shadow-3);
+  border: 1px solid var(--color-warn);
+  z-index: 10;
+}
+.cw-banner h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.1rem;
+}
+.cw-banner p {
+  margin: 0 0 0.8rem;
+  color: var(--color-muted);
+}
+
+/* ---- shared buttons ---- */
+.cw-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 1.1rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-3);
+}
+.cw-button.is-primary {
+  background: var(--accent-fill);
+  color: var(--color-accent-contrast);
+}
+.cw-button.is-primary:focus {
+  background: var(--accent-fill);
+  box-shadow: 0 0 0 4px var(--color-accent-soft);
+}
+.cw-button svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.cw-button svg + span {
+  margin-left: 0.4rem;
+}
+.cw-button[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.cw-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: var(--radius-control);
+}
+.cw-icon-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+/* Tinted, not a solid fill: white text on the dark themes' light red is under 3:1. */
+.cw-button.is-danger {
+  background: var(--color-bad-soft);
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 2px var(--color-bad);
+}
+.cw-button.is-danger:focus {
+  background: var(--color-bad-soft);
+  /* An opaque red ring: the soft glow vanished next to the orange accent in Light and Peach. */
+  box-shadow: inset 0 0 0 2px var(--color-bad), 0 0 0 3px var(--color-bad);
+}
+
+/* ---- shared text ---- */
+.cw-h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.cw-dim {
+  color: var(--color-muted);
+}
+.cw-mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
+.cw-tag {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  margin-left: 0.6rem;
+  border-radius: var(--radius-control);
+  background: var(--color-pill);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.cw-tag.is-pc {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* ---- progress bar ---- */
+.cw-bar {
+  height: 0.4rem;
+  margin: 0.35rem 0;
+  border-radius: 0.2rem;
+  background: var(--color-surface-3);
+  overflow: hidden;
+}
+.cw-bar-fill {
+  height: 100%;
+  border-radius: 0.2rem;
+  background: var(--accent-fill);
+}
+.cw-bar-fill.is-warn {
+  background: var(--color-warn);
+}
+.cw-bar-fill.is-unknown {
+  opacity: 0.4;
+}
+
+/* ---- confirm dialog ---- */
+.cw-scrim {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-scrim, rgba(0, 0, 0, 0.6));
+  z-index: 20;
+}
+.cw-dialog {
+  width: 32rem;
+  max-width: calc(100vw - 2rem);
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--radius-panel);
+  background: var(--color-float);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-3);
+}
+.cw-dialog h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+}
+.cw-dialog p {
+  margin: 0 0 1rem;
+  color: var(--color-muted);
+}
+.cw-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+}
+.cw-dialog-buttons .cw-button {
+  margin-left: 0.8rem;
+}
+
+/* ---- Home ---- */
+.cw-msg {
+  margin: 0 0 0.8rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-field);
+  background: var(--color-surface-2);
+}
+.cw-msg.is-error {
+  background: var(--color-bad-soft);
+  color: var(--color-bad);
+}
+.cw-msg.is-info {
+  background: var(--color-good-soft);
+  color: var(--color-good);
+}
+.cw-quick {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.cw-quick .cw-button {
+  margin: 0 0.7rem 0.5rem 0;
+}
+.cw-card {
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.cw-game {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.8rem;
+}
+.cw-game-cover {
+  flex: none;
+  width: 4rem;
+  height: 4rem;
+  margin-right: 0.9rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  object-fit: cover;
+}
+.cw-game .cw-button {
+  flex: none;
+  margin-left: 0.7rem;
+}
+.cw-tasks-more {
+  margin: 0;
+}
+.cw-game-icon {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  margin-right: 0.9rem;
+  color: var(--color-muted);
+}
+.cw-game-text {
+  flex: 1;
+  min-width: 0;
+}
+.cw-game-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-home-section {
+  margin-bottom: 0.8rem;
+}
+.cw-home-section > p {
+  margin: 0;
+}
+.cw-tasks,
+.cw-volumes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cw-task {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  padding-right: 0.8rem;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.cw-task-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.45rem 0.9rem;
+  text-align: left;
+}
+.cw-task-icon {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.8rem;
+  color: var(--color-muted);
+}
+.cw-task-text {
+  flex: 1;
+  min-width: 0;
+}
+.cw-task-title {
+  font-weight: 600;
+}
+.cw-task-sub {
+  font-size: 0.85rem;
+}
+.cw-task.is-failed .cw-task-sub {
+  color: var(--color-bad);
+}
+.cw-task.is-done .cw-task-sub {
+  color: var(--color-good);
+}
+.cw-task > .cw-button {
+  flex: none;
+  margin-left: 0.8rem;
+}
+.cw-volumes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  grid-gap: 0.6rem;
+  gap: 0.6rem;
+}
+.cw-volume-item {
+  display: flex;
+}
+.cw-volume {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.cw-volume-head {
+  display: flex;
+  align-items: center;
+}
+.cw-volume-head svg {
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-right: 0.5rem;
+  color: var(--color-muted);
+}
+.cw-volume-name {
+  font-weight: 600;
+}
+.cw-volume-free {
+  font-size: 0.85rem;
+}
+
+/* ---- Files ---- */
+.cw-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+.cw-toolbar > .cw-button,
+.cw-toolbar > .cw-icon-button,
+.cw-toolbar > .cw-tag {
+  margin: 0 0.6rem 0.4rem 0;
+}
+.cw-toolbar-path {
+  flex: 1;
+  min-width: 10rem;
+  margin: 0 0.8rem 0.4rem 0;
+}
+.cw-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-toolbar-free {
+  margin: 0 0 0.4rem auto;
+  font-size: 0.85rem;
+}
+.cw-pin.is-pinned svg {
+  color: var(--color-accent);
+  fill: currentColor;
+}
+/* Path bar: Up, then the folder as buttons (✕ jumps there). */
+.cw-pathbar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  min-width: 0;
+}
+.cw-pathbar > .cw-button {
+  flex: none;
+  margin-right: 0.6rem;
+}
+.cw-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cw-crumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.cw-crumb-sep {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0 0.15rem;
+  color: var(--color-muted);
+}
+.cw-crumb-button {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-control);
+  color: var(--color-muted);
+  font: inherit;
+}
+.cw-crumb-button.is-current {
+  color: var(--color-text);
+  font-weight: 600;
+  background: var(--color-surface-3);
+}
+/* Drive list groups: Pinned, Drives, Mounted images, Recent. */
+.cw-places + .cw-places {
+  margin-top: 0.9rem;
+}
+.cw-places > .cw-h2 {
+  font-size: 0.95rem;
+  color: var(--color-muted);
+}
+.cw-file-icon.is-pinned {
+  color: var(--color-accent);
+  fill: currentColor;
+}
+.cw-file-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-goto-pinned {
+  margin-top: 0.6rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+.cw-goto-pinned > .cw-dim {
+  margin: 0 0 0.3rem;
+}
+.cw-row-action {
+  flex: none;
+  margin: 0 0.4rem;
+}
+.cw-files,
+.cw-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cw-file {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  padding-right: 0.5rem;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.cw-file.is-plain {
+  padding-right: 0;
+}
+.cw-file.is-selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.cw-file-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.55rem 0.9rem;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.cw-file-icon {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-right: 0.8rem;
+  color: var(--color-muted);
+}
+.cw-file-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cw-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.cw-file-meta {
+  flex: none;
+  min-width: 6rem;
+  margin-left: 0.8rem;
+  text-align: right;
+  font-size: 0.85rem;
+}
+.cw-file-meta .cw-bar {
+  display: block;
+  width: 9rem;
+}
+.cw-file-meta .cw-bar-fill {
+  display: block;
+}
+.cw-more {
+  margin-top: 0.4rem;
+}
+.cw-msg-action {
+  margin-left: 0.8rem;
+}
+.cw-sheet-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-sheet-items {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.8rem;
+}
+.cw-sheet-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.cw-sheet-item svg {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-right: 0.7rem;
+}
+.cw-sheet-item .cw-mono {
+  margin-left: auto;
+}
+.cw-sheet-item.is-danger {
+  color: var(--color-bad);
+}
+.cw-sheet-item:disabled,
+.cw-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.cw-picker {
+  width: 40rem;
+}
+.cw-picker-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.cw-picker-bar .cw-path {
+  flex: 1;
+  min-width: 0;
+  margin-right: 0.8rem;
+}
+.cw-picker-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: 0.8rem;
+}
+.cw-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.8rem;
+}
+.cw-input {
+  margin-top: 0.3rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-2);
+  color: inherit;
+  font: inherit;
+  cursor: text;
+}
+.cw-field-error {
+  color: var(--color-bad);
+}
+.cw-info {
+  margin: 0 0 1rem;
+}
+.cw-info > div {
+  display: flex;
+  padding: 0.25rem 0;
+}
+.cw-info dt {
+  flex: none;
+  width: 9rem;
+}
+.cw-info dd {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  word-break: break-all;
+}
+.cw-viewer {
+  width: calc(100vw - 4rem);
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+}
+.cw-viewer-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+.cw-viewer-head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0 0.8rem 0 0;
+}
+.cw-viewer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.cw-viewer-body img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0 auto;
+}
+.cw-viewer-text {
+  margin: 0;
+  padding: 0.1rem 0.4rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  cursor: default;
+}
+
+/* ---- Settings ---- */
+.cw-setting {
+  margin-bottom: 0.8rem;
+}
+.cw-setting-note {
+  margin: 0.3rem 0 0;
+}
+.cw-tag.is-on {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+.cw-settings .cw-quick .cw-button[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+/* ---- Home: compact, so the game, two task rows and the drives fit 1540x700 without scrolling ---- */
+.cw-home .cw-h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.cw-home .cw-h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+}
+.cw-home .cw-game {
+  padding: 0.4rem 0.8rem;
+  margin-bottom: 0.5rem;
+}
+.cw-home .cw-game-cover {
+  width: 3.2rem;
+  height: 3.2rem;
+}
+.cw-home .cw-game-title {
+  font-size: 1.05rem;
+}
+.cw-home .cw-task-main {
+  padding: 0.2rem 0.8rem;
+}
+.cw-home .cw-task {
+  margin-bottom: 0.3rem;
+}
+.cw-home .cw-home-section {
+  margin-bottom: 0.5rem;
+}
+.cw-home .cw-volumes {
+  grid-template-columns: repeat(3, 1fr);
+}
+.cw-home .cw-volume {
+  padding: 0.35rem 0.7rem;
+}
+.cw-home .cw-volume-path {
+  display: none;
+}
+.cw-home .cw-home-section:last-of-type {
+  margin-bottom: 0;
+}
+.cw-home .cw-home-section {
+  position: relative;
+}
+.cw-home .cw-tasks-more {
+  position: absolute;
+  top: -0.35rem;
+  right: 0;
+  min-height: 0;
+  padding: 0.2rem 0.9rem;
+}
+
+/* ---- Cheats: three columns of equal rows, so a game's usual dozen-plus cheats fit 1540x700 ---- */
+/* The rail names the section (as on Home): the heading stays for screen readers only. */
+.cw-cheats-section .cw-h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.cw-cheats-section .cw-game {
+  padding: 0.4rem 0.8rem;
+  margin-bottom: 0.6rem;
+}
+.cw-cheats-section .cw-game-cover {
+  width: 3.2rem;
+  height: 3.2rem;
+}
+.cw-cheats-how {
+  font-size: 0.85rem;
+}
+.cw-cheats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-gap: 0.5rem 0.8rem;
+  gap: 0.5rem 0.8rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cw-cheat-item {
+  display: flex;
+  min-width: 0;
+}
+.cw-cheat {
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+  min-height: 3.3rem;
+  padding: 0.35rem 0.9rem;
+  text-align: left;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+/* On is the filled tag, never a ring: a ring is what focus looks like. */
+.cw-cheat .cw-tag.is-on {
+  background: var(--accent-fill);
+  color: var(--color-accent-contrast);
+  box-shadow: none;
+}
+.cw-cheat[aria-disabled="true"] {
+  cursor: progress;
+}
+.cw-cheat[aria-disabled="true"]:not([aria-busy="true"]) {
+  opacity: 0.6;
+}
+.cw-cheat-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cw-cheat-name,
+.cw-cheat-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-cheat-name {
+  font-weight: 600;
+}
+.cw-cheat-desc {
+  font-size: 0.8rem;
+}
+.cw-cheat .cw-tag {
+  flex: none;
+  min-width: 3.2rem;
+  text-align: center;
+}
+.cw-cheats-note {
+  margin: 0.6rem 0 0;
+}
+.cw-cheats-empty {
+  max-width: 44rem;
+  padding: 1rem 1.2rem;
+}
+.cw-cheats-empty p {
+  margin: 0 0 0.6rem;
+}
+.cw-cheats-empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.cw-cheats-empty.is-error .cw-cheats-empty-title {
+  color: var(--color-bad);
+}
+.cw-cheats-game-buttons {
+  display: flex;
+  flex: none;
+  margin-left: auto;
+}
+.cw-cheats-empty-buttons {
+  display: flex;
+}
+.cw-cheats-empty-buttons .cw-button + .cw-button {
+  margin-left: 0.7rem;
+}
+
+/* ---- Cheats: Find cheats (a modal list of the repos' files for the running game) ---- */
+.cw-finder {
+  width: 52rem;
+}
+.cw-dialog p.cw-finder-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+}
+.cw-finder-version {
+  margin-right: 1.2rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+.cw-finder-list {
+  max-height: 50vh;
+  margin: 0 0 0.8rem;
+  padding: 0.2rem;
+  overflow-y: auto;
+  list-style: none;
+}
+.cw-finder-item + .cw-finder-item {
+  margin-top: 0.4rem;
+}
+.cw-finder-entry {
+  width: 100%;
+  min-width: 0;
+  padding: 0.45rem 0.9rem;
+  text-align: left;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+.cw-finder-entry.is-match {
+  box-shadow: inset 0 0 0 1px var(--color-good);
+}
+.cw-finder-entry > svg {
+  flex: none;
+  margin-right: 0.8rem;
+}
+.cw-finder-entry[aria-disabled="true"] {
+  cursor: progress;
+}
+.cw-finder-entry[aria-disabled="true"]:not([aria-busy="true"]) {
+  opacity: 0.6;
+}
+.cw-finder-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.cw-finder-name {
+  font-weight: 600;
+}
+.cw-finder-meta {
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-finder-entry > .cw-tag {
+  flex: none;
+}
+
+/* ---- rail: Help at the bottom ---- */
+.cw-rail-help {
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+/* ---- guides: help overlay, tour, Controls ---- */
+.cw-help h2,
+.cw-tour h2 {
+  margin: 0 0 0.6rem;
+}
+.cw-help-list {
+  list-style: none;
+  margin: 0 0 0.8rem;
+  padding: 0;
+}
+.cw-help-list .cw-hint {
+  display: flex;
+  margin: 0 0 0.45rem;
+}
+.cw-help-list.is-dim {
+  color: var(--color-muted);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 1rem;
+  font-size: 0.85rem;
+}
+.cw-dialog.cw-help {
+  width: 46rem;
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+}
+.cw-help-sub {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+}
+.cw-dialog-buttons .cw-button:first-child {
+  margin-left: 0;
+}
+.cw-tour {
+  width: 40rem;
+}
+.cw-tour-step {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+}
+.cw-tour-lines {
+  margin: 0 0 1.1rem;
+  padding: 0 0 0 1.1rem;
+}
+.cw-tour-lines li {
+  margin: 0 0 0.45rem;
+}
+
+/* The guides' float colour over the page's solid base: nothing behind shows through (light themes'
+   float is 97% opaque, enough to ghost the page's text through a full-screen panel). */
+.cw-dialog.cw-controls,
+.cw-dialog.cw-help,
+.cw-dialog.cw-tour {
+  background: linear-gradient(var(--color-float), var(--color-float)), var(--atmosphere-base);
+}
+.cw-dialog.cw-controls {
+  width: calc(100vw - 2rem);
+  height: calc(100vh - 1.4rem);
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem 1.2rem 0.6rem;
+}
+.cw-ctl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cw-ctl-head h2 {
+  margin: 0;
+}
+.cw-dialog .cw-ctl-lead {
+  margin: 0.3rem 0 0.5rem;
+  color: var(--color-text);
+  font-size: 0.85rem;
+}
+.cw-dialog .cw-ctl-last {
+  min-height: 1.3rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-good);
+}
+.cw-dialog .cw-ctl-last.is-received {
+  color: var(--color-warn);
+}
+.cw-ctl-last .cw-glyph {
+  margin: 0 0.35rem 0 0.45rem;
+}
+.cw-ctl-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.cw-ctl-stage {
+  flex: 0 0 33%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-card);
+}
+/* Focus on the drawing is the ring only: the accent fill washed out the body and the soft button
+   fills (high contrast especially). */
+.cw-ctl-stage:focus {
+  background: transparent;
+}
+.cw-ctl-picture {
+  width: 100%;
+  max-height: 100%;
+}
+.cw-ctl-body {
+  fill: var(--color-surface-2);
+  stroke: var(--color-border-strong);
+  stroke-width: 2;
+}
+.cw-ctl-btn rect,
+.cw-ctl-btn circle {
+  fill: var(--color-surface-3);
+  stroke: var(--color-border-strong);
+  stroke-width: 2;
+}
+.cw-ctl-picture text {
+  fill: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+/* Works: green; received but not acted on yet: amber. A thicker stroke so the state reads in high
+   contrast too, where the soft fills are faint. */
+.cw-ctl-btn.is-works rect,
+.cw-ctl-btn.is-works circle {
+  fill: var(--color-good-soft);
+  stroke: var(--color-good);
+  stroke-width: 4;
+}
+.cw-ctl-btn.is-received rect,
+.cw-ctl-btn.is-received circle {
+  fill: var(--color-warn-soft);
+  stroke: var(--color-warn);
+  stroke-width: 4;
+}
+.cw-ctl-btn.is-system rect,
+.cw-ctl-btn.is-system circle {
+  stroke-dasharray: 4 3;
+}
+.cw-ctl-btn.is-system text {
+  fill: var(--color-muted);
+}
+.cw-ctl-btn.is-lit rect,
+.cw-ctl-btn.is-lit circle {
+  fill: var(--color-accent);
+  stroke: var(--color-accent);
+}
+.cw-ctl-btn.is-lit text {
+  fill: var(--color-accent-contrast);
+}
+.cw-ctl-legend {
+  flex: 1;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(11, auto);
+  grid-auto-flow: column;
+  column-gap: 1rem;
+  align-content: start;
+  font-size: 0.62rem;
+  overflow-y: auto;
+}
+.cw-ctl-legend li {
+  display: flex;
+  align-items: center;
+  padding: 0.06rem 0.4rem;
+  margin-bottom: 0.04rem;
+  border-radius: var(--radius-field);
+  min-width: 0;
+}
+.cw-ctl-legend .cw-glyph {
+  flex: none;
+  min-width: 2.7rem;
+  height: 1.15rem;
+  line-height: 1.15rem;
+  font-size: 0.55rem;
+  margin-right: 0.45rem;
+}
+/* Up to two lines (longer translations), never cut mid-word on one line. */
+.cw-ctl-job {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.cw-ctl-state {
+  flex: none;
+  max-width: 42%;
+  margin-left: 0.4rem;
+  line-height: 1.2;
+  text-align: end;
+  color: var(--color-muted);
+}
+.cw-ctl-legend li.is-works .cw-ctl-state {
+  color: var(--color-good);
+  font-weight: 600;
+}
+.cw-ctl-legend li.is-received .cw-ctl-state {
+  color: var(--color-warn);
+  font-weight: 600;
+}
+.cw-ctl-legend li.is-lit {
+  background: var(--color-accent-soft);
+}
+.cw-ctl-foot {
+  margin: 0.4rem 0 0;
+  font-size: 0.6rem;
+}
+
+/* ---- Files: sort, filter, status ---- */
+.cw-listbar {
+  margin-bottom: 0.3rem;
+}
+.cw-status {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+}
+.cw-sheet-gap {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-right: 0.7rem;
+}
+
+/* ---- Files: one toolbar row, more rows on screen ---- */
+.cw-files-screen .cw-h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.cw-toolbar-one {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+.cw-toolbar-one .cw-pathbar {
+  flex: 1;
+  margin: 0 0.8rem 0 0;
+}
+.cw-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+.cw-tool {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.4rem;
+  margin-left: 0.3rem;
+  color: inherit;
+  background: var(--color-surface-3);
+}
+.cw-tool svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+.cw-tool[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.cw-tool.is-pinned svg {
+  fill: currentColor;
+}
+.cw-tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.cw-files-screen .cw-status {
+  margin: 0 0 0.4rem;
+}
+.cw-files-screen .cw-file {
+  margin-bottom: 0.2rem;
+}
+.cw-files-screen .cw-file-main {
+  padding: 0.3rem 0.9rem;
+}
+.cw-files-screen .cw-file .cw-icon-button {
+  width: 2rem;
+  height: 2rem;
+}
+.cw-hint-tip {
+  margin-left: auto;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* ---- Files: clipboard bar (in the status line) and paste conflicts ---- */
+.cw-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2rem;
+  margin: 0 0 0.4rem;
+}
+.cw-files-screen .cw-status-row .cw-status {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-clip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-left: auto;
+  padding: 0.15rem 0.2rem 0.15rem 0.8rem;
+  border-radius: var(--radius-control);
+  background: var(--color-accent-soft);
+  font-size: 0.85rem;
+}
+.cw-clip-text {
+  max-width: 26rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-clip-button {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.8rem;
+}
+.cw-conflict {
+  max-width: 44rem;
+}
+.cw-conflict p {
+  margin: 0 0 0.8rem;
+  overflow-wrap: anywhere;
+}
+.cw-conflict-all {
+  margin-bottom: 1rem;
+}
+.cw-conflict-all[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* ---- bulk rename, verify, decompress, folder size ---- */
+.cw-dialog.cw-bulk-rename {
+  width: 64rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.cw-br-modes {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.cw-br-mode {
+  margin: 0 0.5rem 0.4rem 0;
+}
+.cw-br-mode.is-on {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.cw-br-body {
+  display: flex;
+  align-items: flex-start;
+}
+.cw-br-fields {
+  flex: 0 0 22rem;
+  margin-right: 1.2rem;
+}
+.cw-br-hint {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+}
+.cw-br-preview {
+  flex: 1;
+  min-width: 0;
+}
+.cw-dialog .cw-br-preview p {
+  margin: 0 0 0.4rem;
+}
+.cw-br-rows {
+  list-style: none;
+  margin: 0 0 0.8rem;
+  padding: 0.4rem 0.6rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
+}
+.cw-br-row {
+  display: flex;
+  align-items: center;
+  padding: 0.15rem 0;
+}
+.cw-br-row svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0 0.5rem;
+  color: var(--color-muted);
+}
+.cw-br-from,
+.cw-br-to {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-br-from {
+  color: var(--color-muted);
+}
+.cw-br-row.is-bad .cw-br-to {
+  color: var(--color-bad);
+}
+.cw-dialog.cw-verify,
+.cw-dialog.cw-unpack {
+  width: 46rem;
+}
+.cw-verify p,
+.cw-unpack p {
+  overflow-wrap: anywhere;
+}
+.cw-verify .cw-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.cw-size-go {
+  margin-bottom: 1rem;
+}
+.cw-dialog.cw-sheet.is-two {
+  width: 44rem;
+}
+.cw-sheet.is-two .cw-sheet-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  column-gap: 0.6rem;
+}
+.cw-dialog .cw-field-error {
+  color: var(--color-bad);
+}
+
+/* ---- offline screen and error screen (OfflinePage, ErrorBoundary) ---- */
+.cw-offline {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  background: var(--color-canvas);
+}
+.cw-offline h1 {
+  margin: 0 0 0.8rem;
+  font-size: 1.8rem;
+}
+.cw-offline p {
+  max-width: 40rem;
+  margin: 0 0 1.4rem;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+.cw-offline .cw-dialog-buttons {
+  justify-content: center;
+}
+.cw-error-detail {
+  max-width: 40rem;
+  max-height: 6rem;
+  overflow: hidden;
+  margin: 0 0 1.4rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-3);
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---- long names scroll while focused (ui/marquee.ts) ---- */
+@keyframes cw-marquee {
+  0%,
+  15% {
+    text-indent: 0;
+  }
+  85%,
+  100% {
+    text-indent: calc(-1 * var(--cw-marquee, 0px));
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cw-file-name.cw-marquee {
+    text-overflow: clip;
+    animation: cw-marquee var(--cw-marquee-s, 6s) ease-in-out infinite alternate;
+  }
+}
+
+/* ---- continue on your phone (ui/PhoneHandoff.tsx) ---- */
+.cw-phone {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 0.9rem 0 1rem;
+  padding: 0.6rem;
+  border-radius: 12px;
+  background: var(--color-surface-3);
+  text-align: start;
+}
+.cw-phone svg {
+  flex: none;
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 4px;
+}
+.cw-phone strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+.cw-phone p {
+  margin: 0 0 0.3rem;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+.cw-phone code {
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+/* ---- first moment while the helper is asked (main.tsx) ---- */
+.cw-splash {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-canvas);
+  color: var(--color-muted);
+  font-size: 1.4rem;
+}
+
+/* A phone over the LAN (PS5Upload Minion opened from another device): nothing pushes the page sideways.
+ * The folder's tools wrap under the path, the rail and rows tighten, long names and the status chip
+ * cut with an ellipsis, and dialogs (the viewer and its editor too) fit the screen. */
+@media (max-width: 40rem) {
+  .cw-brand {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cw-chip {
+    min-width: 0;
+    max-width: 40vw;
+    margin-left: 0.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cw-rail {
+    width: 4.6rem;
+    padding: 0.5rem 0.25rem;
+  }
+  .cw-rail-item {
+    font-size: 0.72rem;
+  }
+  .cw-content {
+    padding: 0.6rem 0.6rem 1rem;
+  }
+  .cw-toolbar-one {
+    flex-wrap: wrap;
+  }
+  .cw-toolbar-one .cw-pathbar {
+    flex: 1 1 100%;
+    min-width: 0;
+    margin: 0 0 0.3rem;
+  }
+  .cw-tools {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+  .cw-crumb-button {
+    max-width: 40vw;
+  }
+  .cw-file-main {
+    padding: 0.5rem 0.6rem;
+  }
+  .cw-file-icon {
+    margin-right: 0.5rem;
+  }
+  .cw-file-meta {
+    min-width: 0;
+    margin-left: 0.5rem;
+  }
+  .cw-dialog {
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100% - 1rem);
+    overflow-y: auto;
+  }
+  .cw-viewer {
+    width: calc(100vw - 1rem);
+    height: calc(100% - 1rem);
+    padding: 0.8rem;
+  }
+}

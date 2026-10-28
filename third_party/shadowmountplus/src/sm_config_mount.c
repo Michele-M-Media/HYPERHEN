@@ -316,6 +316,12 @@ runtime_config_t runtime_config(void) {
   pthread_mutex_lock(&g_runtime_state_mutex);
   runtime_config_t cfg = g_runtime_state.cfg;
   pthread_mutex_unlock(&g_runtime_state_mutex);
+  if (sm_hyperhen_lite_profile()) {
+    cfg.backport_fakelib_enabled = false;
+    cfg.global_fakelib_enabled = false;
+    cfg.update_emulators_enabled = false;
+    cfg.auto_update_ampr_enabled = false;
+  }
   return cfg;
 }
 
@@ -505,24 +511,28 @@ bool is_fakelib_excluded_for_title(const char *title_id) {
   return get_fakelib_mode_for_title(title_id) == SM_FAKELIB_DISABLED;
 }
 
+bool sm_config_title_global_fakelib_excluded(const runtime_config_t *cfg,
+                                            const char *title_id) {
+  if (!cfg || !title_id)
+    return false;
+
+  for (uint32_t i = 0; i < cfg->global_fakelib_exclude_title_count; ++i) {
+    if (strcasecmp(cfg->global_fakelib_exclude_title_ids[i], title_id) == 0)
+      return true;
+  }
+  return false;
+}
+
 bool is_global_fakelib_excluded_for_title(const char *title_id) {
   ensure_runtime_config_ready();
-
   char normalized[MAX_TITLE_ID];
   if (!normalize_title_id_value(title_id, normalized))
     return false;
-
   pthread_mutex_lock(&g_runtime_state_mutex);
-  const runtime_config_t *cfg = &g_runtime_state.cfg;
-  for (uint32_t i = 0; i < cfg->global_fakelib_exclude_title_count; ++i) {
-    if (strcmp(cfg->global_fakelib_exclude_title_ids[i], normalized) == 0) {
-      pthread_mutex_unlock(&g_runtime_state_mutex);
-      return true;
-    }
-  }
-
+  bool excluded = sm_config_title_global_fakelib_excluded(&g_runtime_state.cfg,
+                                                         normalized);
   pthread_mutex_unlock(&g_runtime_state_mutex);
-  return false;
+  return excluded;
 }
 
 bool upsert_image_sector_size_autotune(const char *filename,
@@ -1608,7 +1618,9 @@ bool reload_runtime_config_if_changed(bool *reloaded_out) {
   return true;
 }
 
-bool sm_config_set_title_fakelib_mode(const char *title_id, sm_fakelib_mode_t mode) {
+static bool write_title_fakelib_policy(const char *title_id,
+                                      sm_fakelib_mode_t mode,
+                                      bool global_only) {
   char normalized[MAX_TITLE_ID];
   if (!normalize_title_id_value(title_id, normalized) ||
       !is_supported_game_title_id(normalized) || !sm_config_fakelib_mode_name(mode)) {
@@ -1665,8 +1677,17 @@ bool sm_config_set_title_fakelib_mode(const char *title_id, sm_fakelib_mode_t mo
     char *value = NULL;
     char parsed_title[MAX_TITLE_ID];
     sm_fakelib_mode_t parsed_mode;
-    bool rule = parse_ini_line(parsed, &key, &value) &&
-                parse_title_fakelib_rule(key, value, parsed_title, &parsed_mode);
+    bool rule = false;
+    if (parse_ini_line(parsed, &key, &value)) {
+      if (global_only) {
+        rule = (strcasecmp(key, "global_fakelib_exclude") == 0 ||
+                strcasecmp(key, "global_fakelib_exclude_title") == 0) &&
+               normalize_title_id_value(value, parsed_title);
+        parsed_mode = SM_FAKELIB_DISABLED;
+      } else {
+        rule = parse_title_fakelib_rule(key, value, parsed_title, &parsed_mode);
+      }
+    }
     bool skip = rule && strcmp(parsed_title, normalized) == 0;
     if (rule && !skip)
       (void)set_title_fakelib_rule(rules, &count, parsed_title, parsed_mode);
@@ -1697,7 +1718,9 @@ bool sm_config_set_title_fakelib_mode(const char *title_id, sm_fakelib_mode_t mo
   if (saved_errno == 0 && last_written != '\n' && fputc('\n', out) == EOF)
     saved_errno = config_io_error();
   if (mode != SM_FAKELIB_DEFAULT && saved_errno == 0) {
-    int result = mode == SM_FAKELIB_DISABLED
+    int result = global_only
+                     ? fprintf(out, "global_fakelib_exclude=%s\n", normalized)
+                     : mode == SM_FAKELIB_DISABLED
                      ? fprintf(out, "fakelib_exclude=%s\n", normalized)
                      : fprintf(out, "fakelib_mode=%s:%s\n", normalized,
                                sm_config_fakelib_mode_name(mode));
@@ -1721,8 +1744,17 @@ bool sm_config_set_title_fakelib_mode(const char *title_id, sm_fakelib_mode_t mo
     // still applies any other config edits through its normal reload path.
     pthread_mutex_lock(&g_runtime_load_mutex);
     pthread_mutex_lock(&g_runtime_state_mutex);
-    g_runtime_state.cfg.fakelib_rule_count = count;
-    memcpy(g_runtime_state.cfg.fakelib_rules, rules, sizeof(rules));
+    if (global_only) {
+      g_runtime_state.cfg.global_fakelib_exclude_title_count = count;
+      memset(g_runtime_state.cfg.global_fakelib_exclude_title_ids, 0,
+             sizeof(g_runtime_state.cfg.global_fakelib_exclude_title_ids));
+      for (uint32_t i = 0; i < count; ++i)
+        (void)strlcpy(g_runtime_state.cfg.global_fakelib_exclude_title_ids[i],
+                      rules[i].title_id, MAX_TITLE_ID);
+    } else {
+      g_runtime_state.cfg.fakelib_rule_count = count;
+      memcpy(g_runtime_state.cfg.fakelib_rules, rules, sizeof(rules));
+    }
     pthread_mutex_unlock(&g_runtime_state_mutex);
     pthread_mutex_unlock(&g_runtime_load_mutex);
   } else {
@@ -1733,9 +1765,20 @@ bool sm_config_set_title_fakelib_mode(const char *title_id, sm_fakelib_mode_t mo
     errno = saved_errno;
     return false;
   }
-  log_debug("  [CFG] fakelib for %s %s; applies on next launch", normalized,
+  log_debug("  [CFG] %sfakelib for %s %s; applies on next launch",
+            global_only ? "global " : "", normalized,
             sm_config_fakelib_mode_name(mode));
   return true;
+}
+
+bool sm_config_set_title_fakelib_mode(const char *title_id, sm_fakelib_mode_t mode) {
+  return write_title_fakelib_policy(title_id, mode, false);
+}
+
+bool sm_config_set_title_global_fakelib_excluded(const char *title_id,
+                                                bool excluded) {
+  return write_title_fakelib_policy(
+      title_id, excluded ? SM_FAKELIB_DISABLED : SM_FAKELIB_DEFAULT, true);
 }
 
 bool sm_config_set_title_fakelib_enabled(const char *title_id, bool enabled) {

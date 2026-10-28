@@ -36,6 +36,12 @@ bool LoadSettings(bool force) {
     return true;
   }
 
+  int system_language = -1;
+  if (sceSystemServiceParamGetInt(1, &system_language) < 0)
+    system_language = -1;
+  if (system_language >= 0)
+    onion_notify_set_language(onion_notify_resolve_language(0, system_language));
+
   if (newest == 0) {
     LOG_ERROR("[Daemon] Config file not found. Creating default schema...");
     if (onion::settings_ensure_default()) {
@@ -80,9 +86,6 @@ bool LoadSettings(bool force) {
     (void)restore_automatic_fan();
   }
 
-  int system_language = 1;
-  if (s.ui_lang == onion::kUiLanguageSystem)
-    (void)sceSystemServiceParamGetInt(1, &system_language);
   onion_notify_apply_ui_language(s.ui_lang, system_language);
   config_state.last_modified = onion::settings_config_newest_mtime();
   config_state.ever_loaded = true;

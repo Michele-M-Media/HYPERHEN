@@ -1,0 +1,7415 @@
+# Changelog
+
+What's new in ps5upload, written for humans.
+
+---
+
+## 7.1.5
+
+- **Uploading many small files no longer gets stuck (#475).** Picking hundreds of files in Files
+  (for example a Switch firmware folder) stopped after about 30 files with "the console is busy"
+  and never recovered. The console now lets go of each finished upload, so every file goes
+  through: a 240-file, 347 MB folder uploaded in about 2 minutes 20 seconds in testing.
+- **PS5Upload Files is now PS5Upload Minion.** Same page and tile, new name; the tile on the
+  home screen picks up the new name the next time the helper starts.
+- **Payload catalog fixes.** websrv's newest release showed an error instead of the release,
+  because its release notes are empty. A payload whose GitHub page has been taken down (such as
+  Ghostpad) now says so plainly and keeps offering the version saved in the app. How long ago a
+  release was saved reads like "saved 3 days ago" instead of a count of seconds.
+
+---
+
+## 7.1.4
+
+- **Cheats no longer crash the console.** Switching a cheat on or off could crash the game or the
+  whole console on newer firmware (seen with Marvel's Wolverine). Cheats are now written straight
+  into the game's memory, the way that works on these firmwares, instead of changing the game's
+  memory protection. A cheat now goes on completely or not at all: if any part can't be written,
+  the parts already written are put back. Cheats can only change the game itself, never the
+  system, and turning one cheat off no longer breaks another that shares code with it. Cheat
+  files too large to read are refused instead of being applied in part.
+- **Find and download cheats on the console.** In PS5Upload Files, Cheats has **Find cheats**:
+  it lists the cheat files for the running game from the same collections the PC app uses,
+  marks the one for your game's version, and downloads it straight to the console, where its
+  cheats show up at once. If the PS5 can't reach GitHub (for example when DNS blocking is on),
+  the page says so.
+- **Save backups are named after the game too.** A backup saved on your computer is now named
+  like `PPSA01234-Game Name-User.zip`.
+
+---
+
+## 7.1.3
+
+- **Payloads: one place for what's on your PS5.** The Payloads screen now has three tabs:
+  Catalog, Send and **On your PS5**. On your PS5 shows a card for each payload that is running
+  or installed on the console, with its status, Open (for payloads with a web page), Update when a
+  newer release is out, and Stop. **Manage** opens that payload's tools in the card:
+  ShadowMount+ mounts, the nanoDNS editor, Payload Manager and HearBridge. Old links to the
+  separate tabs still work.
+- **HearBridge in the catalog and on your PS5.** HearBridge plays the PS5's audio on ordinary
+  Bluetooth headphones or speakers. Its card shows the connected headset, battery, link quality,
+  latency, volume and the game's profile; Manage sets volume and mute, reconnects, switches
+  between saved headsets, scans for new ones, turns night mode on or off, sets latency, and stops
+  it. Pairing, EQ and everything else open in HearBridge's own page.
+- **Processes & ports.** The Processes screen now has a Ports tab next to it, showing which ports
+  are open on the console and what usually listens there (HearBridge and PS5Upload Files
+  included).
+- **PS5Upload Files: permissions, new files and text editing.** Info → Permissions sets read,
+  write and execute for owner, group and others (or the number, like 755), for a folder's
+  contents too; drives that don't keep permissions (exFAT, FAT) say so. Create a new file, and
+  edit text files up to 1 MiB with the on-screen keyboard. Saving never leaves a half-written
+  file, keeps the file's permissions and line endings, and warns when the file changed since
+  you opened it.
+- **PS5Upload Files: upload and download from your phone or computer.** When you open the page
+  from another device (Settings → Allow other devices), Files has **Upload here** to send files
+  and folders to the console and **Download** for a file, or a whole folder as one .tar file.
+  The usual Skip / Replace / Keep both choices apply, a cancelled upload leaves nothing behind,
+  and a stalled connection is let go so the page stays responsive. On a home network this
+  moved about 75 MB/s up and 110 MB/s down.
+
+---
+
+## 7.1.2
+
+- **Save data on a shared PS5 shows whose save is whose.** Each save is labelled with its
+  owner's name instead of a number, and the screen starts on the user who is signed in at the
+  console; "Whose saves" switches to another user or to everyone. Back up all and Restore all
+  act on the saves shown. A backup saved on your computer is named after the game and the user
+  (`PPSA01234-Alice.zip`).
+- **USB backups are kept per user.** Backups to a USB drive on the console now go into a folder
+  per user (`<game>/<name>-<user id>/<date>/`). Before, every user's backups of a game shared one
+  folder, so on a shared console "Restore all from USB" could put one user's latest backup into
+  another user's save. Backups made before this update are still used when only one user on the
+  console has a save of that game.
+
+---
+
+## 7.1.1
+
+- **The app scrolls again on macOS Big Sur.** On Big Sur's older built-in web engine the app
+  window lost its fixed height, so no screen could scroll, and the side bar's rows lost their
+  left padding. The app's styles now carry the older forms that engine understands.
+
+---
+
+## 7.1.0
+
+- **PS5Upload Files: manage your files from the couch.** A new PS5Upload Files tile on the
+  PS5 home screen opens a page in the PS5 browser that fills the TV. It has four sections:
+  **Home** (the running game with Close game, the tasks that are running with Cancel, and your
+  drives), **Files**, **Cheats** (switch the running game's cheats on and off) and **Settings**.
+  The PS5Upload helper must be loaded. If it isn't, the page tries to show a note that says so
+  (from a copy the PS5 browser keeps) and opens by itself once the helper answers. After an
+  update, a banner offers to reload.
+- **Made for the controller.** ✕ selects, ○ steps back, △ opens an item's actions, and the PS5's
+  own pointer works too. Every action also has a button on screen. Three short tips show the
+  first time, Help lists the buttons that work on the current screen, and Controls shows which
+  buttons your PS5 passes on to the page. Dark, Light, OLED and Peach themes, high contrast,
+  the language and full screen are in Settings.
+- **Browse and organise.** A path bar with Go to path, pinned and recent folders, and your
+  drives, with Eject for USB drives and Unmount for game images (refused while a game is
+  running). Sort, filter, show hidden files and select all. Copy, cut and paste, with Replace,
+  Keep both or Skip when a name is taken (and Apply to all); rename one item or many at once
+  with a pattern (a change of letter case alone works too); new folder; delete; Fix permissions.
+- **Look inside files.** Info with folder size; Verify (BLAKE3 and CRC32); Decompress a
+  `.ffpfsc` back to its image, with progress. The viewer shows text (with find), JSON, a
+  summary of a game's `param.json`, hex, and pictures (step through a folder's images); a game
+  folder shows its banner. Search finds files by name in this folder or on all drives (the first
+  search builds an index), and Disk usage shows what takes the space.
+- **Works with the app on your PC.** File System shows the folders pinned on the console
+  ("Pinned on console"), and **Show on console** opens a folder on the TV; **Show on PC** on the
+  console opens it in the PC app. Files being uploaded from your PC show an Uploading badge.
+  These need the 7.1.0 helper; with an older one the app simply doesn't show them.
+- **Only the console can open it by default.** Settings → Allow other devices lets a phone or
+  computer on your network open the page too. There is no password, so anyone on your network
+  can then manage your files; turn it off when you're done. While it's on, text boxes on the
+  console show a "Continue on your phone" code to type there instead.
+- **The tile is yours to remove.** Settings → Show PS5Upload Files on the home screen removes or
+  restores it. The tile is left out of the app's game list (an older engine or Docker image may
+  still list PSUP00001).
+- **Big app databases no longer hide installed games.** The console's app database was read
+  only up to its first 256 entries, and a long list could be cut shorter still, with nothing
+  saying so. On a console with many entries, a game installed by a homebrew installer (no
+  home-screen metadata folder) that sorted past that point was missing from Games. The app now
+  reads the whole database page by page. If the database still can't be read in full, games
+  whose folder and registration are on the console are listed anyway, and the app logs a warning
+  that the list may be incomplete (#473).
+
+---
+
+## 7.0.34
+
+- **Unity games no longer crash when they run as a folder.** Some game dumps name a file
+  `Il2cppUserAssemblies.prx` while the game loads `Il2CppUserAssemblies.prx`. An exFAT image
+  ignores the difference, so the game played from its `.exfat`. The console's internal storage
+  does not: the same game uploaded as a folder, or converted to one, crashed a second after it
+  started. Uploading a game folder, and Convert's game-folder and `.ffpkg` outputs, now give each
+  such file the spelling the game loads. Your copy on the computer is left as it is, and
+  Convert's checks list what was renamed. Four affected games (PPSA22999, PPSA30883, PPSA31909,
+  PPSA33090) launched and stayed running on a PS5 Pro (FW 13.60) once renamed.
+
+## 7.0.33
+
+- **A PS5 update package installs even when its base game isn't there.** The app refused any
+  update whose base game wasn't installed ("Install the base game first"), but some PS5 updates
+  carry the whole app: a YouTube update package installed fine through the PS5's own debug
+  Package Installer while ps5upload refused it. For PS5 packages the app now warns ("the PS5 may
+  still accept it") and lets the PS5 decide; if it can't, the PS5's own error still shows. PS4
+  updates are still refused, since there Sony accepts the request and installs nothing.
+  Stream-installed on both consoles (FW 13.60) with YouTube removed first.
+- **An install counts as done when its exact bytes are on the console.** Such a package lands as
+  the app, not in the updates folder, so the app looked in the wrong place: it called an
+  installed copy "not installed" and could not confirm a finished install.
+- **About links to the website.** About now has a Website link to ps5upload.phantomptr.com, and
+  the author's name opens phantomptr.com.
+
+## 7.0.32
+
+- **Rest mode is found on a computer with Wi-Fi and a cable at once.** A Mac on both, sending
+  through Wi-Fi, got "Host is down" from a sleeping PS5 and showed it as not answering, though
+  the same console answered "standby" over the cable. The app now asks every network connection
+  on the computer that shares the console's network, and treats "Host is down" as a reason to ask.
+  Wake goes out the same way, so it now reaches a sleeping console from such a computer too
+  (Mac, Linux and Android; Windows still uses its default connection).
+- **Wake is offered whenever the console isn't awake.** The PS5 power card showed Wake only when
+  it had confirmed rest mode; it now shows whenever wake is set up and the console isn't known
+  to be awake. The card says "In rest mode" or "Not answering", and greys out Rest mode, Reboot
+  and Shut down while the console sleeps, since those need the helper.
+
+## 7.0.31
+
+- **Rest mode is shown as rest mode, not as a problem.** A PS5 in rest mode used to look the
+  same as one that was off or broken: a red "Not connected", "Helper isn't running" on every
+  console screen, and Connection's Check blaming the jailbreak or a VPN. The app now asks the
+  console the way Remote Play does (it answers "standby" while it sleeps), and shows a calm,
+  blue "In rest mode" in the status bar, the console tabs, Home and the game page. Console screens
+  say "Your PS5 is in rest mode" with a Wake button when wake is set up. A console that answers
+  nothing at all reads "Not answering", with the setting it needs to stay reachable in rest mode
+  (Settings › System › Power Saving › Features Available in Rest Mode).
+- **Nothing fights a sleeping console.** The automatic reconnect no longer pokes a console in rest
+  mode every 30 seconds all night; it waits, and sends the helper again once the console is
+  awake. Uploads that meet rest mode wait ("Waiting for the PS5 to wake") and carry on after the
+  wake, without using up their retries; in the browser version they used to fail. Keep-awake skips
+  a sleeping console. Measured on both consoles on FW 13.60, including a full rest → wake →
+  helper back → rest cycle on the Pro.
+
+## 7.0.30
+
+- **Files fits on a phone (#470).** On a narrow screen every file and folder row carried up to
+  nine action buttons, which pushed the name out entirely, even at the smallest text size. Each
+  row now shows its name and size with one ⋮ button that opens the same actions as a menu. The
+  selection bar stays on one line, with its actions in a strip you can scroll sideways. The
+  Recent paths list is solid instead of see-through (on every screen size). The toolbar, drive
+  chips and path bar are tighter, so the list starts higher up. The desktop layout is unchanged.
+- **Stop helper (#471).** Connection has a "Stop helper" button next to Send helper. It turns
+  the helper off on that console and keeps it off: the automatic reconnect leaves the console
+  alone until you send the helper again or start something that needs it. The loader stays up,
+  so sending payloads still works. It is refused while an upload, download or install is
+  running on that console. Measured on a PS5 Pro: the helper exits in under a second.
+
+## 7.0.29
+
+- **Turn a game image or package back into a folder (#469).** Convert → What to make has a third
+  choice, "A game folder". It takes any image Convert reads (`.exfat`, `.ffpkg`, `.ffpfs`,
+  `.ffpfsc`) or a `.pkg` made with the default debug passcode (Convert's own packages, and fake
+  packages from other tools when they used that passcode), wherever it is: this computer, a saved server or the PS5. It writes the game's
+  files as a plain folder on this computer, empty folders and the package's icons included,
+  checks them against the source, and only then gives the folder its name, so a stopped or failed
+  run never leaves a folder that looks finished. A 125 GB exFAT image unpacked in 81 s, and a
+  Minecraft package came back file-for-file equal however it was compressed. A retail package, or
+  a fake one made with another passcode, can't be opened and is refused with that reason.
+
+## 7.0.28
+
+- **Android: transfers keep going when you leave the app, and you get told when they finish
+  (#457).** Android pauses an app soon after it leaves the screen, and the notices that a job
+  finished lived in the app's page, which pauses with it. Now, while anything is uploading,
+  downloading or installing, ps5upload runs as a foreground service with a progress
+  notification ("Uploading … 42% · 1.2 of 2.9 GB · 38 MB/s"), and posts "Upload complete" or
+  "Upload failed" when it ends. A queue moves on to the next item in the background too.
+  Measured on Android 16: a 1.8 GB upload with the screen off for 12 minutes finished, with one
+  "complete" notification. On a computer, a finished job is announced right away while the
+  window is minimised or hidden, and the queue no longer waits for the window to come back.
+- **Decompress a .ffpfsc on the console (#453).** Files → right-click a `.ffpfsc` →
+  "Decompress to .exfat…" writes the game image it holds next to it, on the console, with
+  progress and Stop: no download and re-upload through a computer. The console's own kernel
+  does the decoding (the way ShadowMount+ reads these files), so nothing extra runs in the
+  helper; a first version that decoded in the helper made it crash and was pulled from 7.0.23.
+  Measured on both consoles: a 4.5 GB image in 40-65 s, byte-identical to the source. Needs the
+  7.0.28 helper.
+- **Console to console: pick up a send from another device, and test the connection first
+  (#444).** Tasks lists sends between your consoles that another phone or computer started,
+  with Watch (follow a direct send), Take over, and Resume here for one that was paused or
+  whose device went away. Pausing now stops both consoles' halves, so any device can resume it
+  straight away. "Test connection" in Send to another console checks that the sending console
+  can reach the other one on the route and address you chose (handy for a ps5-tailscale
+  forward), optionally with a small real send. Watching or taking over a send that is still
+  running needs the 7.0.28 helper on both consoles.
+- **A large .7z upload is no longer called "damaged" when the phone just failed to read it
+  (#446).** The 7z decoder turns any failed read of the archive file into "dist overflow", the
+  same error a broken archive gives, and since 7.0.22 a broken archive is never retried. So one
+  read that failed on a busy phone ended a 70 GB upload as corrupt. A failed read is now reported
+  as itself, and the upload retries it. An 84 GiB single-block archive made with 7-Zip's
+  defaults decoded cleanly well past 40 GB in testing.
+- **"Helper not running" says what to do next everywhere.** Status checks used the old "not
+  running or an old version" text; they now say, like a job does, whether the app can send the
+  helper (the loader is up) or the jailbreak's loader needs starting first.
+
+## 7.0.27
+
+- **A stream install no longer fails on the PS5 after ps5upload says it's done.** The PS5
+  downloads a package in pieces and re-reads some of them; ps5upload added up every byte it
+  sent, repeats included, and took that total as "the console has it all". On a small package
+  the repeats made up the size of a part never sent, so ps5upload closed the download link
+  first: the app's tile appeared and could even open, but the PS5's Downloads showed it failed,
+  Retry failed too and Cancel removed it. ps5upload now keeps the link open until every byte has
+  been sent at least once. Seen with a 37 MB package on FW 13.60; any size could hit it.
+- **"Nothing answered on the ELF loader port :9021" when starting a stream install, then fine
+  on a retry, is fixed.** When an install starts, the app also replaces the console's stock
+  elfldr with its own fixed build, and the loader port is closed for about a second during that
+  swap. An install that started in that second failed. It now waits for the swap to finish, and
+  a loader port that is closed for a moment is tried again for a few seconds before the install
+  gives up.
+
+## 7.0.26
+
+- **Uploaded game and homebrew folders show up with ShadowMount+ again.** ShadowMount+
+  registers a folder as soon as its `sce_sys` has been still for 10 seconds; an upload sends
+  those small files first, so it tried while `eboot.bin` was still on its way, failed twice and
+  gave up on the title for good (measured on a 13.60 console). A game's `param.json` (and a PS4
+  game's `param.sfo`) is now put in place only when everything else has arrived, so the folder
+  becomes a game exactly when it is complete. Needs the 7.0.26 helper.
+- **A stalled or stopped upload can be continued.** A row that has moved no data for 90 seconds
+  says so and offers **Restart transfer**; a row that was stopped, or interrupted by closing the
+  app, says so and offers **Resume**. Both pick up from what the PS5 already has. **Retry
+  failed uploads** now runs them (it only put them back in the list), and its label no longer
+  reads "the retry failed" in most languages.
+- **Large solid .rar uploads no longer fail over and over on a retry.** Resuming one reads
+  through everything the PS5 already has before sending anything new; the console took that
+  silence for a stalled sender and ended the job after 15 minutes, every time. The app now
+  tells the console it is still working. Needs the 7.0.26 helper.
+- **A .rar's unpacked size is right** when it holds entries of unknown size (RAR5), which made
+  the free-space check before an upload add up to nonsense.
+- **Payload Manager: update what you stored.** Payloads stored from the Catalog are remembered,
+  and the Payload Manager tab offers **Update** when the catalogue has a newer release: it
+  stores the new one in its place and keeps its spot in the boot list. Payloads Payload Manager
+  installed from its own repository are left to it. (Desktop and Android, where the catalogue
+  is.)
+- **Files: drag to move.** Drag a folder onto another folder, or onto the path above the list,
+  to move it there (across drives it copies, then removes). Files move the same way in the web
+  UI and on Android; on the desktop a dragged file still goes out to your computer. Not in the
+  Windows app, where the window takes every drag for its own file drop; use Move to… there.
+- **A deleted Collection folder no longer breaks the Collection (#461).** Saving the folder
+  list checked that every folder still existed, so once one was gone nothing could be saved,
+  removing that folder included. Only a folder being added is checked now. A scan skips a
+  folder it can't open instead of failing, and Collection names it, marked "Not found" in
+  Folders, so you can remove it or plug the drive back in.
+
+## 7.0.25
+
+- **Profile no longer offers "Create User" (#460).** The PS5 has no create-user call a payload
+  can use, and the old button only ever tried to rename the console's first user, which fails
+  on a jailbroken console with "sceUserServiceGetInitialUser failed". Profile now says to add
+  users on the PS5 (Switch User, then Add User). Renaming and deleting users are unchanged.
+
+## 7.0.24
+
+- **Payloads → Ports: see what is listening on the PS5.** Every port in use, TCP and UDP, with
+  what usually listens there (elfldr, ftpsrv, Payload Manager, nanodns, the ps5upload helper,
+  Remote Play) and whether a PC can reach it or only the console itself. Ports with a web page
+  open in your browser from there. The helper finds them by binding each port and letting go
+  at once, so no payload ever sees a connection; a full pass takes about a second. Needs the
+  7.0.24 helper.
+- **Folder games on a USB drive are no longer described as /data/homebrew folders (#452).**
+
+## 7.0.23
+
+- **Payload Manager 0.6 works again (#458).** 0.6 refuses changes without its request marker
+  and wants POST for launch and delete, and keeps payloads in slots. The fallback launch,
+  storing, deleting and "Load at boot" now work with 0.6.1 as well as 0.5.2.
+- **Games is smooth with a big library (#450).** Covers come as small cached thumbnails
+  (about 20 KB instead of 300-700 KB), and screenshot thumbnails load two at a time and stop
+  when you leave the screen instead of filling every connection to the console.
+- **Hidden home-screen icons stay hidden (#450).** The console shows an app's icon again every
+  time it starts; the helper now hides it again a couple of seconds later. Icons hidden with
+  earlier versions are picked up.
+- **The game page shows where the game runs from (#452):** the image on your external drive,
+  not a leftover folder in /data/homebrew.
+- **Sending the helper no longer hangs for 15 s** when an old copy is stuck and serving nothing.
+- **Android save backups are no longer 0 bytes (#451).** They go to Downloads as
+  `<title>-<date>.zip`, and the message says where.
+- **Tasks shows speed and ETA (#444)** for transfers, like the Files queue.
+- **Convert:** "backported" only for real backports (an older SDK than declared is no longer
+  called one), the game's ampr_emu 0.3.x version is read (#449), and when LZ4 needs the newer
+  runtime it points at the checkbox that adds it.
+- **Fast verification by default (#459, thanks quer3q).** Convert checks structure, sizes and
+  small files in full and a seeded sample of the rest; "Full verification" re-reads every byte.
+- **"Last seen" is translated (#454, thanks EnriqueWood).**
+- **Payloads: export and import playlists**, with the auto-loader choice and your custom repos,
+  to share a working setup.
+- **Linux packages: the update command to copy (#456).** On Bazzite and other rpm-ostree
+  systems, Settings → Updates shows `rpm-ostree uninstall ps5-upload --install <rpm>`; dnf and
+  apt installs get theirs.
+- **Helper crash reports say where.** A fault now logs the address and instruction.
+
+## 7.0.22
+
+- **HDR PNG carries the capture's ICC profile (#448).** 7.0.15 wrote the cICP tag only;
+  viewers that go by the ICC profile (and the reporter's) showed the image as SDR. Sony's
+  "ScreenCapturePQ" profile is now read out of the .jxr and embedded as iCCP in both HDR
+  variants, with cICP beside it in the tagged one.
+
+## 7.0.21
+
+- **Fix: the image format could not be changed.** Picking .exfat or .ffpfs snapped back to
+  .ffpkg (7.0.20 wrote the old format back a moment after the new one).
+- **An image can become another image.** An .exfat, .ffpkg or .ffpfs on this computer, a
+  saved server or the PS5 can be rewritten in another format (an .exfat into a .ffpkg, say);
+  the output is named after the source without its old extension, and never overwrites it.
+
+## 7.0.20
+
+- **Convert remembers what it is making.** Leaving the screen during an image build and
+  coming back showed "A package" selected and package stage names while the image kept
+  building. What to make and the image choice are now remembered, follow the build that is
+  running, and an image build's stages read "Plan image", "Write image", "Read the image
+  back".
+- **Fix: the game page could crash on "Measure how it plays".** When the engine's reply had
+  no state (an engine without the route, or a test stand-in), the card threw and the whole
+  game page fell back to the error screen. It now treats that as nothing recorded.
+
+## 7.0.18
+
+- **LZ4 packs for games whose ampr_emu is missing or too old.** When the check finds a game
+  that reads through AMPR but ships no `fakelib/libSceAmpr.sprx`, or one that predates asset
+  packs, the LZ4 option now offers "Put ampr_emu 0.4.2.1 into the image": the engine fetches
+  drakmor's release once (checked against a known digest, never bundled) and writes it into
+  the image, keeping the game's own copy beside it as `libSceAmpr.sprx.orig`. This is the
+  runtime gap behind #449.
+- **A game that does not use AMPR is told so.** The LZ4 option explains that nothing in such a
+  game could serve asset packs, and points at .ffpfsc, which ShadowMount+ decompresses for any
+  game, instead of just refusing.
+
+## 7.0.17
+
+- **Open a save and edit its files.** Save data has an Open save button per save: the helper
+  copies the save image under `/data`, unseals its key through the console's own pfsmgr and
+  mounts the image decrypted, and Files opens on it. Read, replace or add files; Close &
+  write back unmounts it and copies the image back into the real save only if something
+  changed, so a look leaves the save untouched. One save open at a time. PS5 saves verified
+  on FW 13.60 (an untouched open keeps the image's timestamp); PS4 saves (`sdimg_*` with the
+  key in `<name>.bin`) follow the same path but have not been tried. The recipe is
+  earthonion's garlic-savemgr, credited in the README. Needs the 7.0.17 helper.
+
+## 7.0.16
+
+- **Measure how a game plays, then pack it that way.** A game's page has a new card for a
+  folder game on the connected console: Start measuring puts drakmor's measuring build of
+  ampr_emu into the game's `fakelib2` (ShadowMount+ loads it over `fakelib`, nothing the
+  game ships is touched), you play, and each session is recorded when the game closes (or
+  with Record session). Build profile turns the sessions into a per-game LZ4 profile: block
+  size, layout and hot flag per file from how it was actually read, and the decoded cache,
+  physical cache and worker counts from an LRU simulation of those reads. Convert's LZ4
+  option picks the profile up for that title ("measured from N play sessions"). Stop
+  measuring removes the measuring build again. The generator is a port of drakmor's
+  `ampr_pack_profile.py` and matches its output byte for byte on a reference trace.
+
+## 7.0.15
+
+- **Game images of a libSceAmpr game get a fresh ampr_emu.index (#449).** A dump's index is
+  often stale (files added, trimmed or resized since it was written), and a plain .exfat,
+  .ffpkg or .ffpfs image carried it as it was, which crashes the game the moment it touches a
+  file the index has wrong. The image now carries one generated from its files, as a package
+  and an LZ4 image already did.
+- **Connection says which of three things is wrong (#447).** "The helper is not running or is
+  an old version" sent people in circles. The app now tells them apart: the helper is down
+  but the console's payload loader answers (so Update helper will work); nothing answers at
+  all (run your jailbreak's loader first); or an older helper is running (Update helper).
+- **HDR screenshots as HDR PNG (#448).** Screenshots has a "Convert as" choice: SDR PNG as
+  before (tone-mapped, opens everywhere), HDR PNG (16-bit BT.2020 PQ with a cICP tag, which
+  HDR-aware viewers and browsers show as captured) or HDR PNG without the tag, for apps that
+  refuse it. Desktop app only, like the converter itself.
+
+## 7.0.14
+
+- **A game on the PS5 or a saved server can become a game image.** Convert refused to write
+  an image unless the game folder was on this computer, while a package build happily read a
+  `ps5://` or `remote://` folder in place. Images now take the same sources: the game is read
+  through the helper (or from the server) as it is written, nothing is copied first.
+- **Convert walks you through it.** Four steps that read in order: ① the game, ② what to
+  make, ③ its options, ④ build & install. "What to make" explains a package and a game image
+  side by side and marks the one that suits the game on your PS5 (a PS5 game on firmware
+  above 11.60 installs as a package but will not play, so the image is marked there; a PS4
+  game or an older firmware marks the package). Options show only what applies: Kraken
+  compression and game language for a package; filesystem, .ffpfsc compression, LZ4 packs
+  and the read-back check for an image. Build & install says in one line what it will make,
+  of which game, where. The queue has the whole width below.
+
+## 7.0.13
+
+- **Game image builds: the read-back check is no longer the slow part.** After writing an
+  .exfat image the engine reads it back and hash-checks every file. The exFAT reader fetched
+  one 64 KiB cluster per read and, for a big file, walked its chain from the start on every
+  read, so the check crawled on fast drives. It now keeps the FAT in memory, continues where
+  the last read stopped and reads whole runs of clusters in one call, and hashing uses every
+  core. Measured on a 10 GB image in cache: 169 MiB/s before, 3.7 GiB/s after. Convert has a
+  new **read-back check, per read** choice (1 to 32 MiB) for anyone whose disk prefers a
+  different size; 8 MiB measured fastest and is the default. The check itself is unchanged.
+- **The game page is lighter.** The Overview card that repeated the hero (title id, name,
+  size, path) is gone: the path, last played and Screenshots & clips now sit in the hero. Each
+  copy on your drives is one compact row: its facts on one line, the path under it, the one
+  action most people want (Send to PS5 or Install) as a button and the rest (copy path, copy
+  install link, Convert, show in file manager, move to Trash) behind a ⋯ menu.
+- **7z uploads: a damaged archive stops instead of retrying (#446).** When the LZMA decoder
+  gives up on a cut-short or corrupt stream ("dist overflow"), the job used to fail as if the
+  connection had dropped, so the queue retried it again and again, decoding the same bytes to
+  the same end. It is now a corrupt-archive failure that names the entry and how far into it
+  the decoder got, and asks you to test the archive with 7-Zip before trying again. The
+  archive in the report was not available to us; if yours passes 7-Zip's test and still fails,
+  say so on the issue.
+- **Console to console: choose the route and the address (#444).** Send to another console…
+  has a **Change…** link under the route note: **Auto** (as before), **Direct only** (never
+  through this device, for a phone on mobile data; if the consoles cannot connect the send
+  fails and says why) or **Through this device**. With Auto or Direct only you can also give
+  the address the sending console dials to reach the other one, for setups where the address
+  this device uses is not the one the consoles use between themselves: with ps5-tailscale, a
+  local forward on the sending console (127.0.0.1:19120 → the other console:9120). The choice
+  is remembered per pair of consoles. The consoles' keys and the one-time ticket still decide
+  who may send, not the address. Taking over a running send from another device, and a
+  "test direct connection" button, are not in this release.
+
+## 7.0.12
+
+- **Convert: a "Stored" package option (no compression).** Reports of packages that install but
+  will not start on FW 8.60 and 10.40 arrived while compressed packages have only been proven
+  to play on FW 5.10. Stored writes the same block layout with every block uncompressed, the
+  one form that has played on hardware; the package is the game's size. Pick it under
+  Compression if a compressed package installs but will not launch, and please say so on
+  GitHub, with your firmware, so the default can be set right.
+- **Helper mismatch notice** now says there is nothing to do on the PS5 itself: Reload helper
+  sends the matching helper from the app.
+- **RAR errors keep the library's reason** after the advice, so a report can be diagnosed.
+
+---
+
+## 7.0.11
+
+- **Game page: Install on a package card.** "On your drives" showed a package with only Copy
+  path and Copy install link; packages now have Install, which queues them streamed from the
+  drive (or server) they sit on, like the console row's offers.
+- **Settings → Accessibility → Reduce transparency (#443).** Turns off the frosted-glass blur
+  behind panels, the one thing that keeps the graphics card busy while an upload redraws its
+  progress on Windows. It follows the OS "transparency effects" setting until you change it.
+  (Motion → Reduced already did this as a side effect and still does.)
+
+---
+
+## 7.0.10
+
+7.0.9 was tagged but never published: its Android build failed on a desktop-only permission
+(the file drag-out plugin), caught before the release existed. Everything below ships here.
+
+- **The app no longer sends the helper into a console that is still booting.** With the app
+  open while the PS5 started, the automatic helper restore fired the moment the loader port
+  answered, which on a cold boot is before kstuff and the rest of the jailbreak chain are
+  loaded; an FW 11.40 console crashed three times out of three. The automatic restore now
+  waits 90 seconds after the loader first appears. Your own sends from the Connection screen
+  are not held.
+- **Payloads → Payload Manager.** A new tab for itsPLK's Payload Manager on the console: what
+  it stores, Launch and Delete, and its boot list (load at boot, order). On the Catalog tab,
+  **Store in Payload Manager** keeps a downloaded payload on the PS5 under its own name; an
+  existing folder is confirmed first, because Payload Manager replaces that folder's other
+  files. Payload Manager itself and LZ4 Compression (on-console game compression by
+  theghostonline) are in the catalogue, and the Connection screen's scene tools open their
+  web pages.
+- **Files: drag a file out of the window** onto your desktop or file manager (desktop app).
+  The first drag fetches the file into a staging folder; keep holding the mouse button, or
+  drag it again once it says it is ready. Files over 4 GB keep using right-click → Download.
+- **Volumes: Eject a USB drive.** Unmounts `/mnt/usbN` so it can be unplugged safely. The
+  PS5's own services usually hold the drive open, so the app offers "Eject anyway", which
+  flushes the drive first; just make sure no game or app is reading from it.
+- **Stopped uploads resume for 7 days, and Stop says so (#440).** Stop has kept what already
+  reached the PS5 and Start continued from there since 6.0; the app forgot a one-shot
+  upload's resume id after 24 hours though, while the console keeps the data for 7 days.
+  Both now agree on 7 days, and the Stop buttons explain what is kept.
+- **Home at a large Text size.** The action tiles squeezed their labels to one letter per line
+  ("U p l o a d") once the text was big enough. Home's grids now answer to their own width,
+  so they drop to fewer columns, and a tile too narrow for icon and label side by side
+  stacks them.
+- **"Coffee or tokens"** replaces "Buy me a coffee" on Home, About and the site.
+- README and DISCLAIMER say how the project is built (with AI coding tools, directed and
+  tested by the maintainer) and what that means for you.
+
+---
+
+## 7.0.8
+
+- **Hide an icon from the PS5 home screen.** For shortcuts and loaders you set up once and never
+  open again: Games → ⋯ → **Hide from home screen**. It stays installed and playable, a
+  "Hidden" badge marks it, "N hidden from the home screen" at the top finds them, and ⋯ →
+  **Show on home screen** brings it back. Only the icon's visibility changes (the same flag the
+  PS5 uses for its own hidden apps); system apps can't be hidden, and the console's app list is
+  backed up before the first change. The home screen updates the next time you open and close
+  any app.
+- **Upload: "Limited by" names the right cause.** When the console was idle waiting for data, the
+  upload said "console memory"; it now says "network" (for example a PC sharing its connection
+  with the PS5 while it is busy converting).
+
+---
+
+## 7.0.6
+
+- **Your PS5 got a new address? The app finds it.** When the router gives the console a new IP,
+  the saved address stops answering. While it does, the desktop and Android apps look for the
+  same paired console on your network and, once it proves who it is, show "Your PS5 now answers
+  at …" with **Switch**. A different PS5 is never offered. (It needs the helper running at the
+  new address; after a reboot, use Find PS5s on Connection.)
+
+---
+
+## 7.0.5
+
+- **OLED theme is back, and there's a new Peach theme.** OLED is dark on pure black, so an OLED
+  screen's pixels stay off; Peach is a warmer light theme with a cream window and a burnt-peach
+  accent. Pick from four in Settings → Appearance. The sun/moon button flips between the light
+  and dark you last picked, so OLED goes to Light and back to OLED. If you used OLED before 7.0,
+  pick it once more.
+- **Remote Play: the pxplay number is right.** It was worked out with the account ID's bytes in
+  the wrong order, so pxplay refused it. The account ID field now takes the hex ID (with or
+  without 0x), the base64 ID or the pxplay number. The PIN itself was always correct.
+- **7z uploads on 32-bit Android:** archives with more than 4 GiB in one block (most game
+  backups) failed with "dist overflow", and files over 4 GiB inside an archive were cut short.
+  They upload in full now.
+- **Upload's buttons say what they do.** The next step is the one blue button: "Start upload"
+  in the confirm is blue again, Retry is blue after a failure, and Add to queue is blue while
+  the queue runs (Upload waits then). "Cancel" before an upload has started is now "Change
+  source", and "Build the image, then upload it" is no longer a second blue button competing
+  with Upload.
+- Remote Play names the signed-in account by its slot ("Slot 7"), the same as Profile.
+- **Upload: the "exfat" destination is a folder, not a conversion.** Its hint is now shown as
+  text (phones have no hover) and says so, and sending a game folder there warns that it will
+  arrive as a folder and points to "Or send it as one game image", which builds the .exfat.
+
+---
+
+## 7.0.1
+
+- **Collection scans show their progress:** what the scan is doing (finding games, reading
+  each item, finding names and covers, saving), how far it is, the item it is reading and how
+  long it has taken; afterwards, when the last scan finished and how long it took.
+- **One scan at a time, shared:** pressing Scan while one is already running (the automatic
+  refresh, or another window) follows that scan instead of saying the collection could not be
+  read.
+- "Import from PS Game Library" is gone.
+
+---
+
+## 7.0.0
+
+A new look for the whole app, a better Android app, and a long list of fixes.
+
+- **New look, modelled on macOS 27.** Light and dark themes with a calm neutral window, a sidebar
+  that runs to the window edge, rounded cards, one blue accent and your system's own typeface.
+  Home has simple action tiles and a console panel that stays beside the page; every screen,
+  desktop and phone, was brought into the new style. Your old theme choice carries over.
+- **Android catches up.** Install or download from a link, install straight from a saved server,
+  community cheat search and online covers now work on Android too, and the app icon is the
+  PS5Upload logo. Layout fixes for phones throughout.
+- **Convert:** AMPR LZ4 asset packs for exFAT game images (for games that use ampr_emu 0.4 or
+  newer), one place to choose what to make and what happens after, and a queue that only adds
+  real games and takes several game folders at once.
+- **Captures:** view the app's own screenshots large, page through and delete them; delete PS5
+  screenshots and clips too.
+- **Game page:** install updates and DLC right where they are listed.
+- **Sturdier:** uploads, installs, builds, link downloads and PS5 to PS5 copies recover from
+  missed checks, crashes and interruptions instead of failing or hanging; status checks no
+  longer slow transfers down.
+- **Easier to use:** keyboard focus stays inside dialogs, right-to-left languages are mirrored,
+  narrow windows no longer clip, error cards have Retry, and every string is translated into
+  all 21 languages.
+- **Under the hood:** the payload is built with PS5 Payload SDK v0.44 (`make update-sdk` moves
+  to the latest), and the engine refuses console actions that don't name a console.
+
+---
+
+## 6.8.2
+
+A clean-up release: every screen was gone through for things that no longer make sense, and
+the code nothing used was removed.
+
+### Fixed
+
+- **The upload speed limit was up to 8× too high.** It held each of a transfer's connections to
+  the limit instead of the whole transfer, so 10 MB/s could run at 80. It now limits the whole
+  upload, and also applies to uploads from Files and to single files, which ignored it before.
+- **Stop on Upload and on Files downloads now really cancels.** It only stopped watching
+  before; the transfer kept running.
+- **First-time setup and "Bring up PS5" now pair with a new console** instead of timing out:
+  they send the helper the same way the rest of the app does.
+- **Home's Servers card** could show twice or vanish once you had activity; it shows once.
+- **Kill on Running apps** now uses the same close as Close game, which works on firmware where
+  the plain close fails. The game page can close a running game too.
+- **Fan presets were labelled backwards** (the quiet one said it was louder). Fixed, and fan
+  changes ask first.
+- **Profile, Shell and Payloads in the web UI**: Profile's confirms work there, Shell is hidden
+  there (it can't run), and Payloads offers the ShadowMount+ and nanoDNS tabs that do work.
+- **Send payload** no longer says an unreadable or empty file "looks OK".
+- **Cheats**: Refresh only re-reads the list; re-applying to the running game is its own button.
+- **Reset all settings & data** now names everything it deletes (pairings, the Collection,
+  saved servers and passwords, backport libraries and more).
+- Search results open the folder in Files.
+
+### Changed
+
+- **Bug report** sits right under Home in the sidebar and can't be hidden.
+- **Removed screens that only repeated others:** Dashboard (Home has it all), Fan Curve (the
+  console only takes one target temperature; the Console screen sets it), the speed test
+  (Health has it), and the typed "From another PS5" card on Upload (Files → Send to another
+  console does it better). Stats is a tab of Tasks.
+- **Game page:** fewer tabs (Media, Storage and Play Time repeated the overview); play time
+  everywhere comes from the console's helper.
+- **Settings:** grouped by what they affect (Console, Installs, Files & saves, Backporting);
+  options that did nothing (Color blind palette, Screen reader hints, Density, the PS5 power
+  tick) are gone; desktop-only options are hidden in the web UI.
+- "Connections" is now **Servers**; "Backup" is **Console snapshots**, and says the snapshots stay
+  on the PS5.
+- Many texts were corrected to say what the app does today (no FTP, current screen names).
+- **Removed dead code** across the app, engine and console helper, including the old FTP server
+  and the FTX2 upgrade shims, and 415 unused translations.
+
+---
+
+## 6.8.1
+
+### Fixed
+
+- **Convert's queue always made a package.** Picking a game image (.ffpkg, .exfat or .ffpfs, or
+  compressed into a .ffpfsc) and then queueing the game still built a .pkg: the queue only ever
+  made packages. The queue now has a **Make** choice, a package or a game image, and choosing
+  image options under ③ switches it to the image you picked. Each queued game shows the file it
+  becomes (.pkg, .ffpfsc, ...) and is built as exactly that. A queued image can be kept or sent
+  to the PS5 through the Upload queue. Only game folders on this computer can become images;
+  others are skipped with a note.
+
+---
+
+## 6.8.0
+
+### New
+
+- **Send files from one console to another (#433).** In Files, select files or folders and choose
+  **Send to another console…** (in the toolbar or a row's menu). Pick the console and the folder
+  on it; before anything runs you see whether it fits and which names already there get replaced.
+  Each item is queued on that console as a copy, and the originals stay where they are. The queue
+  row says where it came from.
+- **Straight between the consoles (Beta).** When the two consoles can reach each other, the copy
+  now goes directly from one to the other instead of through this computer, so the computer's
+  network and disk no longer slow it down. When they can't (different networks, an older helper,
+  a firewall), it goes through this computer as before, and the queue row says which way it went
+  and why. Both routes pick up where the other left off. Both consoles need the 6.8.0 helper for
+  the direct route.
+
+---
+
+## 6.7.4
+
+### Fixed
+
+- **Send helper took 20 to 40 seconds.** The console showed the helper arriving at once, but the
+  app kept waiting. When you pressed Send helper while the app was also re-sending the helper on
+  its own (after a reconnect, or to update it), two helpers started together and spent that time
+  fighting over which one stays. The app now sends one helper per console at a time: a press
+  during an automatic send waits for that helper instead of starting a second.
+
+---
+
+## 6.7.3
+
+### Fixed
+
+- **A failed or interrupted conversion no longer leaves files behind (#432).** Making a game image
+  wrote a temporary `.partial` file the size of the image into the output folder. If the build
+  failed (on Windows the cleanup often lost to an antivirus still reading the file) or was cut
+  short, it stayed there, taking up the drive with nothing showing where. Each conversion now
+  clears those leftovers and unpacked archives that no running job is using, before it starts and
+  after it fails. Only the app's own temporary files are touched.
+
+---
+
+## 6.7.2
+
+### Fixed
+
+- **Collection covers, for real this time.** 6.7.1 let the covers through the engine's guard only
+  in a form the desktop app's window never uses, so they stayed blank there. The app now fetches
+  them the same way it already fetches console icons when the window can't load them directly,
+  so every game read from your drives shows its cover in the Collection and on its page.
+
+---
+
+## 6.7.1
+
+**Fixes: Collection covers, multi-part RAR uploads, and a full drive's leftover file.**
+
+### Fixed
+
+- **Collection covers.** The engine refused the app's requests for the covers it had read out of
+  your games, so a game with no online cover showed its initials and the game's page showed a
+  broken image. They show now.
+- **Cheats on a game's page** no longer shows "no cheat files found" as an error when a game simply
+  has none.
+- **Multi-part RAR uploads (#429).** Resuming an upload from a `.part1.rar`/`.r00` set failed with
+  "the archive lists its entries in a different order than it extracts them" whenever a file
+  already sent was split across two parts. Resuming works now.
+- **When the PS5's drive fills up during an upload,** what was sent is kept so Retry continues it,
+  but nothing said so and it holds its whole size. The failed upload now names that partial file
+  and offers to delete it.
+- **Stopping a stream install right after it started** removed it from the list but left it
+  running; it is stopped now.
+- **0x80B21104** explains that this console will not take this package, and links to the FAQ.
+- **Can't reach the PS5?** The Connection screen now suggests turning a VPN off.
+- **Sending a new helper** now also ends any stray copy of the old one still running on the PS5,
+  once the old one has had time to finish exiting.
+
+---
+
+## 6.7.0
+
+**One page per game: every console and every copy, wherever you open it from.**
+
+### New
+
+- **A page for every game.** Open a game from Ready to play, Game files, the Collection,
+  Upload, Install Package's package menu, or the command palette, and you get one page that shows:
+  - **Each of your consoles:** installed or not, which version, and how old that is ("now" for
+    the one you're connected to, "as of 2 h ago" for the others). A refresh button checks a
+    console again.
+  - **Every copy on your drives,** with Send, Convert, Copy install link and Move to Trash.
+  - **What each console could take from your drives:** the game with its update and DLC, a
+    newer update, or missing DLC. Install it on any console, not only the connected one. The
+    console's row shows how it's going, and Open goes to that console's activity.
+- **The app remembers what each console has,** so the page works while a console is asleep. It
+  forgets a console you remove or move to a new address.
+- **Updates and Add-ons** on a game's page now also list newer packages from your drives.
+- **The command palette** finds games in your Collection by name or title ID.
+
+### Changed
+
+- Clicking a game in the Collection opens its page instead of a pop-up.
+- "Open library" now says "Open Games". Install Package says "screen" (not "tab") for the
+  Connection and File System screens.
+- On a phone, the Games tab stays highlighted while you're in the Collection, and screen readers
+  are told which section is open.
+
+### Fixed
+
+- The Collection's "Progress shows in Install Package" link went to Home.
+
+---
+
+## 6.6.3
+
+**Housekeeping.** No changes to the app. The engine's own tests now clean up their temporary
+files when they finish.
+
+---
+
+## 6.6.2
+
+**Fixes: the Windows app connects again, one game goes to two consoles, and bug reports work on
+desktop.**
+
+### Fixed
+
+- **Windows: "engine failed to start" and no connection (#427).** An older engine still running
+  in the background, or an antivirus scan, kept the app from writing its new engine, so it never
+  connected. The app now starts its engine anyway, and the error says why if it still fails. An
+  engine that crashes while starting is reported straight away instead of after 30 seconds, and
+  a leftover engine from an older version is shut down more reliably.
+- **The same game to two consoles.** A game being sent or installed on one PS5 showed as busy on
+  every PS5, so it could not go to a second one; the engine also refused to stream a package that
+  another console was still installing, and Convert refused the same game for a second console.
+  Each console is now separate.
+- **Bug reports on desktop.** Creating a report failed every time with "Duplicate filename:
+  README.txt". Two screenshots with the same name no longer fail it either. Switching consoles
+  keeps each console's draft, and a failed Download zip now says so.
+- **Leftover files.** A browser upload that stops halfway no longer leaves the partial package on
+  this computer for a week, and a link download that fails can be retried.
+
+---
+
+## 6.6.1
+
+**A new Bug report page that gathers everything we need, and two or more consoles no longer
+step on each other.**
+
+### New
+
+- **Bug report.** Open it from the command palette, or from the link on any error. One page:
+  say what went wrong, add screenshots, check your setup (filled in for you), and pick how far
+  back the logs go (the last 15 minutes up to the last 7 days, or a time you choose). Everything
+  the app, the engine and the PS5 recorded in that time goes in. Then post it as a GitHub issue,
+  copy it for the Discord #bugs-report channel, or download the zip. IP addresses, serials, MAC
+  addresses, home folders and keys are removed before anything leaves your computer.
+- **Screenshots for reports.** The Capture button at the bottom right of the desktop app takes a
+  picture of any screen. The Bug report lists your captures to pick from and adds one you take
+  while writing it. You can also add, drop or paste any image.
+- **The app now keeps a timeline.** Connection drops, reconnects, helper crashes, failed installs
+  and engine restarts are noted as they happen, along with the helper's own log from each PS5,
+  so a report shows what happened even when the console has since restarted. It also notes when
+  the web UI reloads itself and why (#418).
+- **Buy me a coffee** is now on Home too, under the connection badge.
+
+### Fixed
+
+- **Switching consoles mid-task.** A check, a payload send, a bring-up or a folder pick that
+  finishes after you switched to another PS5 now lands on the console it started on, not the
+  one on screen.
+
+## 6.5.2
+
+**The helper no longer crashes on the Hardware screen, and a crash no longer locks it out until
+you restart the PS5.**
+
+### Fixed
+
+- **Helper crash on FW 13.60 (#417).** Opening Hardware could crash the helper ("signal 11 while
+  serving frame 88"). The console health readout now reads its values safely, and a reading the
+  firmware doesn't support shows as unavailable instead of taking the helper down.
+- **After a crash the helper can be sent again right away.** A crashed helper used to keep its
+  port, so the next one failed with "ports still held" until the PS5 was restarted. It now exits
+  cleanly and frees the port.
+
+### New
+
+- **Files: New folder in the right-click menu.** Right-click a file or folder, or the empty space
+  in the list, to create a folder there. The empty-space menu also has Paste here and Refresh.
+- **Payloads: "Send file" is now "Send payload".**
+
+## 6.5.1
+
+**Send games from the Collection in one click, and stop an install you no longer want.**
+
+### New
+
+- **Collection: Send to PS5.** A game kept as a folder, image or archive goes to the PS5 from its
+  details: pick the copy, send a game folder as it is or as one compressed image, choose the
+  drive and folder (it tells you if it won't fit), and it starts right away. The details and the
+  game's card show how it is going.
+- **Bring this PS5 up to date** is now a bar on the Collection whenever updates or DLC are
+  waiting, not hidden in a menu.
+
+### Fixed
+
+- **Stop an install that is running.** A running install now has Stop, and the queue lets it go
+  within seconds. Use it after cancelling the download on the PS5, which the app can't see: it
+  no longer stays stuck until you restart the app. After a minute with no data asked for, the
+  install says so and points to Stop.
+- **Starting one thing doesn't start everything.** Installing, sending from the Collection,
+  Upload's "add and start", retrying a task and uploading a built image start only what you
+  just added; other uploads waiting for Start keep waiting.
+- **Covers** show after a scan even when the first try came too early.
+- **Screens no longer freeze (can't scroll)** after a dialog closes on one console while you look
+  at another, for example with an upload running on one PS5 and the other PS5's Upload open.
+- **Pair another device from a paired one:** **Connection → Let another device pair** opens the
+  PS5 to a new device for five minutes, the way out when a web UI (or a new phone) is refused
+  with "not accepting new pairings". When the PS5's loader isn't running, Send helper now says
+  so instead of "Connection refused". For Docker: map `/data` to a host folder so the pairing
+  key survives a container update (FAQ).
+
+## 6.5.0
+
+**The Collection, Move to…, and a big round of fixes: Android connects again, the helper starts
+on FW 5.50, and the web UI can pair.** Update the app; it updates the helper by itself.
+
+### New
+
+- **Collection:** every game in the folders you add (packages, game folders, game images,
+  archives, PS3 packages), grouped by game with its updates and DLC, duplicates and their size.
+  Search, filters, grid or table, covers, exports, automatic rescan. Folders on a NAS (SMB, FTP,
+  FTPS, SFTP) are scanned in place without mounting. **Import from PS Game Library** brings its
+  index over; PS Game Library is now part of ps5upload.
+- **What this PS5 has:** each game shows whether the selected console has it and at which
+  version. Install a game with its update and DLC, just the update or the missing DLC, or
+  **Bring this PS5 up to date** in one go.
+- **Copy install link:** host a package for a console (or any device you allow) to fetch itself;
+  **Serving** lists the links and stops them.
+- **Organize packages** renames and files packages the way PS Game Library does, with a preview
+  and undo. **Move to Trash**, **Keep the largest copy** and **Clean up junk files** (`._`,
+  `.DS_Store` and friends) tidy the drives.
+- **Send a game folder as one image:** Upload builds a compressed `.ffpfsc` (or `.ffpkg` /
+  `.exfat`) and uploads it by itself. Convert writes `.ffpkg`, `.ffpfs` and `.exfat`, compresses
+  while writing and checks every image afterwards (writers from PS5 Dump Forge, thanks quer3q).
+- **Files: Move to…** picks a drive's homebrew folder, a recent folder or any folder and tells
+  you first whether it moves instantly or copies to another drive, and whether it fits.
+- **Files: Set permissions (777)** for any file or folder.
+- **Sign in to PlayStation Network (offline)** in Profile, for Remote Play.
+
+### Fixed
+
+- **Android:** 6.x could not connect on Android 17 ("Port 9021 is not open"). The app now asks
+  for local network access and shows a red bar until you allow it.
+- **Helper on FW 5.50:** every 6.x helper stopped before it started on some firmware (5.36
+  worked). Fixed for the helper, the installer and the patched elfldr.
+- **Web UI pairing:** the self-hosted web UI can now send the helper (which pairs it), and no
+  longer says "ready" while it isn't paired.
+- **Screenshots crash loop on Linux:** a damaged capture can no longer close the app; each one
+  is decoded on its own.
+- **Installs started your queued uploads:** an install now runs by itself; uploads you queued
+  wait for **Start**.
+- **Moves to another drive** check each copied file before removing the original (Cut and
+  Paste too), so a short copy never costs the original.
+- **An install that finished while the app was closed** shows as done instead of "interrupted".
+- **The app can't reach its engine:** every screen now says why and offers **Restart engine**.
+- **Health check** starts the package installer if it isn't running yet.
+
+### Better
+
+- **"The PS5 declined the install"** now shows Sony's error code with what it means, and how far
+  the console got (refused at once, part-way, or after downloading everything).
+- **`0x80B21104`** explains what to try. **Free space a big upload seems to lose** is explained
+  in the FAQ (it's the PS5's own reserve).
+- **Connection screen:** a failed step shows its full message, and **Load elfldr first** is hard
+  to miss.
+- **Keep awake** covers every upload and install, Stream installs included.
+- **Games cards** are larger, with Play and Close up front and the rest in one menu.
+
+---
+
+## 6.4.0
+
+**Install is two tabs, links say what they ask of you, and Home tells you when something is
+wrong.** Update the app; the helper only gets a small timing fix.
+
+- **Install: Stream & install and Upload & install are separate tabs**, each saying when to
+  use it. Progress stays in the queue and in Tasks when you open another screen.
+- **Install from a link** shows the three ways side by side with what each one needs (this
+  computer awake or not, disk space or not, where progress shows). The warning now matches
+  the way you picked, and **Skip the certificate check** appears only where this computer
+  makes the connection, and now really takes effect there. Picking a way also works again
+  while a second console is open (the choices used to fight each other across consoles).
+- **Name your links** (optional). The name shows in the queue, in Tasks and in recent links,
+  so you can find and retry the right one.
+- **"Stream through this computer" really streams through this computer**, so it works for
+  links only this computer can reach. PS5 packages from a link are recognised as packages.
+- **Archives:** install packages from a **.zip, .7z or .rar**, including multi-part RARs with
+  a password. The archive can also come from download links, one per part.
+- **Convert Games** (was Convert to FPKG) can also write a game folder as a **game image**
+  (`.exfat`, or the smaller `.ffpfsc`) that ShadowMount+ mounts.
+- **Health check on Home:** Home shows anything unhealthy for the selected console. The check
+  now covers ports, the connection in both directions, the installer and the web/Docker
+  setup. A **speed test** measures the real transfer speed to and from the PS5, and
+  **Clean up** removes leftovers ps5upload made and no longer needs.
+- **FAQ:** section tabs, topics, ranked search with excerpts, and a link to any answer.
+- **Captures:** screenshots and video clips are one screen with two tabs. **Payloads** moved
+  under Setup. The Saves automatic-backups card fits the page.
+- **Plainer words:** Volumes says what the package-copy drive is for, and every screen's
+  description says what it is and how to use it.
+
+---
+
+## 6.3.1
+
+**"The PS5 declined the install" (`0x80B2116F`) is fixed.** Update the app; it sends its new
+installer to the console by itself on the next install.
+
+- **`0x80B2116F` was our bug.** The install request ps5upload handed the PS5 was a few bytes
+  short, so the PS5 read leftover memory and sometimes took a full package for a patch. That
+  refused every **Upload & install**, and made **Stream** installs fail at random after a few
+  attempts. Measured on two consoles on FW 13.60: refused every time before, accepted every
+  time after, including a 3.6 GB game installed over itself and its patch. FW 9.60, 11.20 and
+  5.10 showed the same refusal and should be fixed by the same change; we could not test them.
+- **Console tabs keep their screens:** switching to another console and back keeps what you
+  typed, opened and loaded for each one (the last three consoles).
+- **Volumes: "Kept by ps5upload"** lists the folders the app itself writes on each drive and
+  how much they hold, with **Clean up** for temp and test files. Your package library and
+  save backups are only opened from there, never deleted.
+- **Play closes a running game first** from every Play button (Game hub, Game files,
+  Backport, Convert), not only in Games.
+- **Games:** a failed Download can be **resumed**, and a stopped or failed Move offers
+  **Try the move again**.
+- **Pairing (Android and desktop):** after **Resend helper** in the pairing dialog, the app
+  waits for the PS5 to accept instead of asking once and leaving "not accepting new pairings"
+  on screen. An app upgraded from 5.x is a new device to the PS5; this is the one-tap way in.
+- **Remote Play:** how to unlock the PS5's own Remote Play setting with np-fake-signin v1.4.
+- The on-console package server keeps its connections open and logs what the PS5 asked for,
+  so a refused install can be read from a bug report.
+
+---
+
+## 6.3.0
+
+**Switching screens no longer loses what you were doing.** Update the app; the helper is
+unchanged apart from its version.
+
+- **Screens keep their state:** going to another screen and back keeps what you typed, what
+  you selected, open panels and where you had scrolled.
+- **Operations keep running and stay visible** when you switch screens or console tabs:
+  copying files into **Files** (drag-in, Add files, Add folder), downloading a link to the
+  PS5, a game's Download and Move in **Games**, and **Send helper**. They also show in Tasks.
+- **Resume a copy into Files** after you stop it, after it fails, or after the app closes or
+  crashes part-way. What already reached the PS5 is kept, so Resume sends only the rest. A
+  dropped connection is retried by itself, and the copy carries on when the PS5 comes back
+  from rest mode.
+- **Storage that adds up:** the PS5's internal drive holds back about a fifth more than you
+  write (measured on two consoles). **Volumes** and the Upload screen now show what is likely
+  to fit, and an upload over that says it **may not fit** but lets you go ahead. Only a real
+  shortfall still refuses an upload. The FAQ explains it, and what fills "Other" on the PS5.
+- **Play while another game is running** asks to close that game first, closes it, then
+  starts yours. Before, the running game closed and the new one never started.
+- **Clearer messages:** a game the PS5 refuses to start while kstuff is running points at
+  ShadowMount+; Mount on an image ShadowMount+ manages says it mounts when the game starts;
+  on a Mac, "No route to host" names the Local Network permission; "not accepting new
+  pairings" has a **Resend helper** button.
+- **Connections:** closing a package you viewed returns to the same folder.
+- **Payloads:** ps5debug-NG is in the catalogue.
+
+---
+
+## 6.2.3
+
+The 6.2.2 fixes, with a more reliable CI test run. No app or helper behavior changed.
+
+---
+
+## 6.2.2
+
+**Fan control that respects the console, and a round of fixes from your reports.** Update the app and the helper together.
+
+- **Fan:** the app now shows the temperature the console is really holding and its own
+  setting, and has a **Use the console's own setting** button. Earlier versions treated 60 °C
+  as the console's default; it is much higher, so any setting ran the fans harder than normal
+  with no way back. A curve that never asks for full speed now leaves the fan to the console.
+- **Convert to FPKG:** reads `.ffpfs` images and `.ffpfsc` files that hold one, including from
+  the console.
+- **Other payloads keep running:** connecting no longer replaces the console's loader on every
+  app start, and never when doing so would stop kstuff or ShadowMount+. The auto-loader no
+  longer runs its playlist twice in one boot.
+- **Saves:** optional automatic backups of changed saves to a folder on your computer (Saves
+  screen).
+- **Front light and beeper:** beep the console, turn its light off or on, set its brightness
+  (Hardware screen).
+- **Link downloads to the PS5** no longer fail on a slow host.
+- **"Why was this slow?"** names the network link instead of blaming console memory.
+- **Installs:** an optional last resort for a console that cannot reach this computer
+  (Settings → Beta features; off by default).
+- **Uploads** are a little faster.
+
+---
+
+## 6.2.1
+
+**Retrying a big file continues where it stopped.** Update the app and the helper together.
+
+- **Retrying a single-file upload:** starting the same file again (Start, or adding it to the
+  queue again) now continues the copy the PS5 kept, instead of asking for room for the whole
+  file a second time while the partial copy still takes up that room.
+- **Fan Curve:** the screen now says what it really sets. The PS5 has one fan setting, the
+  temperature at which the fans go to full speed, and cannot follow a curve; the screen shows
+  the temperature your points give.
+- **"The PS5 declined the install":** now shows Sony's error code, so a report can say which
+  refusal it was.
+
+---
+
+## 6.2.0
+
+**Games launch again, and installs stop giving up early.** Update the app and the helper together.
+
+- **Games that would not start:** since 6.0, games uploaded from Windows lost their run
+  permission, so the PS5 refused them. Everything the helper writes is now readable and runnable
+  (777), including its own folders. Games uploaded with 6.0–6.1.2 get a **Fix permissions**
+  button, and Play repairs them by itself when it can.
+- **"PS5 launcher returned 0x80940033":** now says what it means. If kstuff isn't running,
+  the app tells you to load it; that error is not about the one game.
+- **Installs:** a package the PS5 refuses from its own storage can always be tried again, and
+  Stream is tried straight away instead of after a connection pre-check.
+- **"The PS5 cannot connect to this computer":** failed queue items offer the Windows firewall
+  fix in one click. The FAQ lists every port ps5upload uses.
+- **Storage:** an upload you gave up on no longer leaves its half-written copy behind for good;
+  the helper clears it after a week. If a drive runs out of room part-way through an upload, the
+  app remembers how much that drive really holds, so the next upload that cannot fit is
+  refused before it starts and Volumes shows the real "safe for new uploads" figure.
+
+---
+
+## 6.1.2
+
+**Game folders upload all the way through.**
+
+- **Uploads:** a folder with many mid-sized files could freeze part-way on the console
+  (seen at about 13,000 of 35,000 files). Fixed in the helper, so update the helper too.
+- **Errors:** when the console refuses a connection, the app shows the console's reason
+  (for example, not paired) instead of "broken pipe".
+
+---
+
+## 6.1.1
+
+**Smoother recovery after a stalled upload.**
+
+- **Uploads:** an upload that stalls now releases the console's destination, so the retry
+  resumes instead of being refused as busy.
+- **Docker web UI:** can be served under a sub-path with `PS5UPLOAD_BASE_URL`.
+
+---
+
+## 6.1.0
+
+**Files works like FileZilla.**
+
+- **Files:** add whole folders, drag files and folders in from your computer, right-click
+  any item (open, download, cut, copy, paste into, rename, copy path, delete), keyboard
+  shortcuts, sort by name, size or date, and type a path to jump to it.
+- **One console at a time:** the upload queue and Activity show only the selected console.
+- **Re-pairing:** a console that got a new identity opens the "forget and re-pair" dialog
+  instead of retrying for 20 seconds.
+- **Fixed:** a resumed zip download from the console could fail on a file that was already
+  complete; a connection could drop right after it was made on a busy console; a stopped
+  console-to-console copy could leave work running in the background.
+
+---
+
+## 6.0.0
+
+**One encrypted connection for everything (AVA1).**
+
+**Update the app and the helper together.** 6.0 uses a new protocol, AVA1, on one port: **9120**.
+Ports 9113 and 9114 are gone, so allow only **9120** and **9021** (your ELF loader) in a
+firewall. A 6.0 app cannot use a v5.41 helper (or the reverse); the app offers **Update the
+helper** and replaces an old one in one click.
+
+- **Pairing:** a helper the app launched pairs by itself; otherwise confirm the 6-digit code
+  shown on the console once.
+- **Uploads resume** after a dropped connection, a helper restart or rest mode, from what is
+  already on the console.
+- **Out of space is said up front:** a job that will not fit is refused in seconds, and a retry
+  counts what is already there (#365).
+- **Convert reads games from the console** without ftpsrv (#351).
+- **7z and RAR uploads resume;** a multi-package RAR installs base, then patch, then DLC.
+- **Links:** a link that serves a .pkg installs, and any other file can be downloaded to a console folder.
+- **Progress and cancel** for copy, paste and Add files; the web UI keeps an upload running when
+  the tab closes.
+- **Installs:** a package the PS5 refuses from its own storage offers **Retry with Stream**.
+- **Fixed:** cheats toggling and names (#373), fan curve at 100% (#354), Windows sleep after a
+  transfer (#360), Windows installer updates (#348), game files offered as packages (#349),
+  Docker "Permission denied" (#361), fpkg output path (#364), macOS 11 white screen (#352),
+  payload build for FW 13.60 (#341).
+- **Removed:** the "Parallel upload streams" setting; AVA1 picks lanes itself.
+- **Thanks** to mrnpc336 (Persian), GriefNorth (NixOS docs), nopoz (`PS5UPLOAD_BROWSE_ROOTS`),
+  intelp917-crypto (queue size chip) and lowbit (#360).
+
+| Measured on two PS5s, gigabit | 6.0 | 5.41 |
+|---|---|---|
+| 4 GiB file, internal SSD | 105-108 MB/s | 108-111 MB/s |
+| Real game, 7 GiB, 1,018 files | **108 MB/s** | 88 MB/s |
+| Resume after helper killed | **94-97 MB/s** | 66-68 MB/s |
+| 2,000 tiny files to USB | **446 files/s** | 330 files/s |
+| 2,000 tiny files to internal SSD | 192-235 files/s | 260-327 files/s |
+
+**Environment variables:** `FTX2_*` settings are now `PS5UPLOAD_*` (old names work for this release only).
+
+**Known limitations:** tiny files to the internal SSD are slower than 5.41; the compressed zip
+download cannot resume.
+
+## 5.41.0
+
+**Installs that the PS5 used to decline now go through.** On FW 13.60 the
+console refuses a package it serves to itself — every "Upload & install",
+every install from a USB drive, every install from the phone app — with
+"The PS5 declined the install" (0x80B2116F), especially when the app was
+already installed. ps5upload now notices that refusal and serves the same
+package to the console itself, which the console accepts. Nothing to set;
+it happens inside the same install. Tested on a 13.60 PS5 Pro with stream,
+Upload & install (fresh and over an installed app) and USB.
+
+- **Fake packages do work above FW 11.60.** 5.40.0 said they didn't; that
+  was wrong — PS4 and PS5 fake packages install and start on 13.60. The
+  warnings are gone from Install Package, Games and Convert.
+- **Folder games register on FW 13.60.** Sony removed the call we used; we
+  now use the one that's still there, and uninstalling a folder game no
+  longer leaves hidden entries behind.
+- **Payload Manager as a backup loader.** When the console's ELF loader on
+  port 9021 stops answering (the stock elfldr wedges easily), ps5upload
+  starts its installer — and puts its helper back after a disconnect —
+  through itsPLK's Payload Manager, and replaces the stuck elfldr with its
+  own fixed one. Your Payload Manager list is never touched.
+- **Firewall problems are named in seconds.** Before a stream install the
+  console checks it can reach this computer; if it can't, you're told why
+  (a firewall dropping the connection, or a network that keeps devices
+  apart) instead of waiting 30 seconds for "The PS5 declined the install".
+- **The phone app can stream installs.** It now serves the package to the
+  PS5 directly, the same way the desktop app does.
+- **A clearer "installing from the PS5's storage was refused" message**,
+  pointing at Stream & install, instead of "The PS5 declined the install".
+- **Setup won't load kstuff twice.** The setup wizard skips payloads that
+  are already running and has a **Send only ps5upload** button for consoles
+  that load kstuff themselves.
+- **A remote engine reads the engine's files.** With the desktop app pointed
+  at another machine (a homelab, say), file pickers browse that machine's
+  disk, and **From this device** uploads a package to it first.
+- **The app reaches its engine even behind a proxy.** A proxy set in the
+  environment (common with VPN tools) no longer swallows the app's
+  connection to its own engine; errors now say what actually failed.
+
+**The Docker images work out of the box.** The 5.40 images built fine but
+had never been run in CI, and it showed:
+
+- **Uploads work.** The image had no writable `/tmp`, so uploading a package
+  through the web UI failed with "Permission denied" (#346). It now has one.
+- **The engine can save its state.** Saved servers, install history and the
+  artwork cache now live in `/data` (the engine's home). Put a volume on it
+  so they survive upgrades: `-v ps5upload-data:/data`. This also works when
+  you run the container as another user (`user: "1000:1000"`).
+  `PS5UPLOAD_DATA_DIR` is not needed.
+- **A clear "not allowed" message.** A request from a computer that isn't
+  allowed used to get a bare `403 loopback only`. It now names the address it
+  refused and the setting to change. `PS5UPLOAD_ALLOW_IP` also takes a whole
+  network now, e.g. `192.168.1.0/24`, so phones and laptops that change
+  address keep working.
+- **Stream installs on a server.** The ready-made
+  [`engine/compose.yaml`](engine/compose.yaml) uses host networking, which
+  stream installs need: on Docker's default network the PS5 can't reach the
+  engine to download the package. The engine now warns about this when it
+  starts, instead of letting every install fail.
+- **A built-in health check,** so Docker and Compose can tell when the engine
+  is up.
+- **Every release is now started and tested in CI** before the images are
+  published.
+
+Coming from 5.40? The `TMPDIR` / `HOME` workaround from the FAQ can be
+removed after updating.
+
+---
+
+## 5.40.0
+
+**Refreshed for FW 13.60.** Tested on two consoles running 13.60 (a launch
+PS5 and a PS5 Pro): uploads and downloads at full speed, folders and .zip
+files, file management, mounting disk images, save backups, hardware
+readings and every screen in the app.
+
+- **Games lists your apps again.** On 13.60 the Games screen was empty: apps
+  installed by homebrew installers (Payload Manager, Shadow Mount+, WebKit
+  Autoloader…) keep their details somewhere the list didn't look. They now
+  show up with their names and icons. Menu entries and preinstalled tiles
+  that were never downloaded are left out.
+- **Honest about fake packages above FW 11.60.** Fake-package support
+  (kstuff's FPKG build and a53_ppr_install_fast.elf) only exists up to FW
+  11.60 so far. On newer firmware, Install Package says so up front instead
+  of listing payloads that don't exist for your console, Convert warns
+  before you spend time building, and Games no longer claims installs are
+  good to go.
+- **A launch that didn't happen is no longer reported as a success.** When
+  the console refused to start an app, the app still said "launched". It
+  now checks the app is actually running and shows the console's refusal.
+- **File names inside .zip files keep their characters.** Names in other
+  languages (名前, é, …) were garbled on upload, because most zips mark them
+  as UTF-8 only implicitly. File contents were never affected.
+- **Backing up an empty save no longer leaves an empty backup** in the list.
+- **The app reopens where you left off.** This had quietly stopped working
+  when Home became the start screen. Opening or refreshing What's New by its
+  address also no longer jumps back to the previous screen.
+
+**Known issue on FW 13.60: waking the console from rest mode doesn't work
+yet.** The console refuses Remote Play when the signed-in account is an
+offline-activated one, and network wake depends on Remote Play — Sony's own
+Remote Play app can't wake it either. Being worked on.
+
+---
+
+## 5.39.1
+
+- **Activating an offline account works again in the desktop app.** It
+  failed every time with "invalid type: string … expected u64": the account
+  id is sent as text (a 64-bit id doesn't fit a JavaScript number), and the
+  desktop app still expected a number. The web UI was not affected.
+
+---
+
+## 5.39.0
+
+**Cheats, redesigned around your games.**
+
+- **Start from your game, not a file name.** The Cheats screen now lists the
+  games on your PS5 with their covers, grouped by what you can do next:
+  **Playing now**, **Cheats ready**, **Cheats to download**, and (folded away)
+  games nobody has published cheats for. Each game shows how many cheats
+  exist for it, and whether any are made for the version you have.
+- **Game details.** Pick a game to see its cover, version, size, install date,
+  when it was last opened, and its content ID.
+- **Downloading is obvious.** Every cheat file has its own **Download**
+  button, with the one made for your installed version first and marked
+  **Your version**. If nothing matches your version, the screen says so and
+  warns that cheats for other versions usually do nothing or crash the game.
+- **Switch cheats on in the same place.** Once downloaded, the game's cheats
+  appear as switches right above. The screen now says up front that the game
+  has to be running for them to work, instead of failing when you try, and
+  warns when your cheats were made for a different version.
+- **The cheat engine explains itself.** The bar at the top says whether it
+  is on, what is running, and that it turns on by itself when you switch a
+  cheat on.
+- **Browse all cheats** (for games that aren't on this PS5) is now a
+  labelled button instead of a small icon, and shows covers too.
+- A three-step guide shows until your first download.
+
+**On-screen messages can be marked read.**
+
+- Every message on the PS5 on-screen messages screen used to show as unread,
+  with no way to change it. Each one now has **Mark read** / **Mark unread**,
+  and there is **Mark all as read**. The choice is remembered per console.
+
+---
+
+## 5.38.0
+
+**Install queue: everything about an install, in its own row.**
+
+- **The running install shows its own progress.** Phase (copying,
+  sending to the PS5, installing on the PS5), a progress bar, bytes done
+  of total, speed and time left now sit inside the item being installed,
+  instead of in a separate line further down the page. A link install
+  shows both speeds: downloading from the link and sending to the PS5.
+- **What it's waiting on is said in the row.** "Waiting for the PS5 to be
+  ready", "Verifying the installed package" and similar notes appear
+  under the bar, and before the first numbers arrive the row says it is
+  getting ready instead of showing a stuck 0%.
+- **Grouped the way you read it.** The queue is split into **Now**, **Up
+  next** (numbered in the order they will run: base game → update → DLC)
+  and **Finished** (failures first). The header shows only the counts that
+  matter, e.g. "1 in progress · 1 waiting".
+- **Tidier rows.** Waiting rows are compact, with move up/down only where
+  a move is possible. Updates and DLC are labelled, and a finished install
+  says how big it was plus any closing message from the installer.
+- **Less repetition on the Install page.** A stream or link install's
+  result is shown only on its queue row, not in extra cards as well. The
+  page now reads top to bottom: queue, link install, USB drives, options,
+  then notes. The fake-package (FPKG) checklist folds away until you open it.
+- Works on phone-width screens too: titles wrap instead of being cut to
+  one letter, and the percentage moves next to the phase label.
+
+---
+
+## 5.37.2
+
+- **No crash screen after an update.** A web UI tab left open while the app
+  was updated could crash when you opened a screen (for example Files) —
+  "Importing a module script failed". The page now reloads once and opens the
+  screen from the new version.
+- **FAQ and What's New** load again when running the app from source.
+- Building from source (`make run-client`, `make run-android`, …) no longer
+  reinstalls the client's packages every time, which broke a dev app already
+  running.
+
+---
+
+## 5.37.1
+
+(5.37.0 was tagged but never published; everything it had is here.)
+
+**No more loading elfldr again.**
+
+- The stock elfldr on port 9021 could get stuck for good when a connection
+  dropped mid-send — Wi-Fi hiccups, a computer going to sleep, or the PS5
+  entering rest mode — and then ignored everything until you loaded it
+  again. ps5upload now carries an elfldr that recovers by itself, and
+  swaps it in whenever the console's helper comes up. (Only the standard
+  elfldr is replaced; any other loader on port 9021 is left alone.)
+- The app no longer sends into a stuck loader: it waits for one that is
+  recovering, and says plainly when elfldr needs loading again.
+
+**Add several games at once.** (#335)
+
+- **Upload several sources together.** Pick several files or folders, drop
+  several at once, or use **Add games from a folder…**: they appear in a
+  review list that checks each one, shows where it will land and flags
+  problems, then queues them all with one button.
+- **Tick several in the in-app browser.** In the browser build, on Android and
+  when browsing a saved server, the file browser now has checkboxes that stay
+  ticked while you move between folders, and an **Add N** button.
+
+**Nothing hidden behind More.**
+
+- **The sidebar lists every screen**, in its sections, from the first launch.
+  Hover a screen to hide it; fold a section you don't use. Hidden screens come
+  back from **More**, where each has a show/hide switch. (Favorites are
+  retired: starring screens is no longer needed to reach them.)
+
+**Convert, more ways.**
+
+- **A convert queue.** Queue several games; they're converted one after
+  another, and each finished package can go straight to the console's install
+  queue.
+- **More sources.** Convert from a `.zip`, `.7z` or `.rar` (including a
+  password-protected or multi-part `.rar`), from a `.ffpfsc` image, or straight
+  from a game on a saved server or on the PS5, without copying it first.
+- **Convert & replace.** Swaps a game dump on the console for its package: the
+  dump is set aside, the package installs, and the dump comes back if anything
+  fails.
+- **Game language.** For a game that stays in English on a console set to
+  another language, Convert can declare one language in the package. Most
+  games follow the console's language and aren't affected.
+- **Closer build times.** The time on each compression level now covers the
+  whole build — compress, write and verify — using measured drive speeds,
+  instead of the compression step alone (which read 17 minutes for a 71-minute
+  build). It can still read short for a game the computer read very recently,
+  while that game is in the system's file cache.
+
+**Stream & install first.**
+
+- **Stream & install** (renamed from Stream install) is now the main way to
+  install: it's the first, highlighted button on Install Package, dropping a
+  package onto the screen streams it, and a .pkg picked on Upload offers it
+  as the recommended route. Nothing is copied to the PS5 first.
+- **Upload & install** (renamed from Add package) copies the package to the
+  PS5 first, for when the console can't reach this computer.
+
+**See what a package is before you install it.**
+
+- **Package viewer.** Click **View details** on a package in Install Package,
+  or on Upload's package card, to see its cover, version, region, minimum
+  firmware, SDK and build date, the update's "What's new" notes, and every
+  field in its PARAM. It also says plainly whether this PS5 can run it,
+  whether it's already installed (and if this one is newer or older), and
+  whether it fits. Works for .pkg files (including split sets), .exfat and
+  .ffpkg images, and game folders.
+
+**One queue for each console.**
+
+- **Queue stream installs.** Stream installs, links, library installs and
+  External Packages now all go into the console's queue and run one after
+  another — no more "Another install is in progress", and a running install
+  no longer greys out the buttons for the next one. A game's update and DLC
+  always install after the game itself, whatever order you queue them in.
+- **See the queue where you install.** Install Package shows the console's
+  queue at the top: what is installing, and each waiting item's place in
+  line. The console tab shows how many items are waiting.
+- **Retry via upload.** If the PS5 can't reach this computer for a stream
+  install, its queue row offers to upload the package and install it instead.
+- An install that was running when the app closed is never re-run by itself —
+  check the game, then retry if needed. Queued links aren't saved to disk.
+
+**Package viewer, everywhere.**
+
+- The viewer now has **Files**, **Images** and **Related** tabs, and opens
+  packages and games on a saved server or on the PS5 as well as on this
+  computer — from Install Package, Upload, Convert, the queue, File System,
+  the server browser, or by dropping a file on the app.
+
+**Fixes.**
+
+- Retrying an interrupted single-file upload could write past the end of the
+  file; it now resumes exactly where the PS5 left off.
+- Uninstalling a game folder the app registered no longer leaves it listed
+  in Games.
+- Force-quitting or crashing the desktop app no longer leaves its engine
+  running and holding its port.
+- A save backup folder (such as `PPSA17221.bak`) shows its game's icon and
+  name.
+- Every screen uses the same layout, buttons never squeeze their labels, and
+  phones wrap long titles and button rows.
+- Section headers, tabs and small buttons show at their intended size; they
+  were all drawn at body-text size.
+- The web UI Docker image builds again (its FAQ and Changelog screens were
+  missing from the build).
+- In the browser build, the FAQ and changelog load, and options a web page
+  can't provide are hidden.
+
+---
+
+## 5.36.0
+
+**Choose which drive install packages are kept on.**
+
+- **Keep packages off the internal drive.** In **Volumes**, press **Use for
+  packages** on a drive and uploaded install packages are kept there (in
+  `ps5upload/pkg_library` on that drive) instead of filling internal storage.
+  The choice is remembered for each console.
+- **Always a safe fallback.** If the chosen drive isn't connected, packages go
+  to internal storage, and the app tells you.
+- **One list for every drive.** Install Package lists packages from all your
+  drives and shows which drive each one is on, and External Packages no longer
+  lists them a second time.
+- **A stalled install no longer blocks the next one.** If the console stopped
+  fetching a package partway, every retry used to fail with "an install is
+  already in progress" until the helper restarted. Retrying now works straight
+  away.
+
+---
+
+## 5.35.0
+
+**One install path for everything, and Convert can install either way.**
+
+- **Every install now goes through one engine route and PS5Upload's own
+  installer.** Stream installs, upload & install, links and server sources
+  all report the same progress and the same result, and an install is only
+  called finished once the console has actually pulled the whole package.
+- **Convert to FPKG, then choose how to install.** After a conversion you get
+  **Stream install** (straight from this computer) or **Upload & install**
+  (copied to the PS5 first, for when the console can't reach this computer).
+  A failed install offers both.
+- **Clearer failures.** When the PS5 can't reach this computer, or its proxy
+  setting blocks the stream, the app says so and suggests Upload & install —
+  in your language.
+- **More reliable installs.** A failed stream no longer blocks the next one, a
+  reinstall of the same package works straight away, an installer that is
+  shutting down gets replaced instead of trusted, and installing no longer
+  restarts the helper.
+- **Fully translated.** Every screen, including Convert, Backport and
+  Connections, is now translated in all 19 languages.
+- A PS4 package is now labelled as a PS4 package on the Upload screen.
+
+**Our own package installer.**
+
+- **PS5Upload now ships its own on-console install daemon** (`:9115`) in place
+  of the third-party DPI daemon it used before. It runs alongside the helper,
+  and for an "upload & install" it serves the staged package to the console's
+  installer over a local connection — the same path a stream install uses — so
+  both routes now behave the same.
+- **The etaHEN `:12800` install bridge is no longer used**; every console
+  installs through our own daemon, for consistent behaviour everywhere.
+
+**Convert to FPKG compresses, like Sony's own packages.**
+
+- **Compressed packages.** Converted games are Kraken-compressed, the format the
+  PS5 decompresses in hardware. Spider-Man 2 comes out within a few percent of
+  Sony's own package size.
+- **Choose Fast, Balanced or Smallest** in Convert. Balanced is the default;
+  Fast is about four times quicker for a slightly bigger package.
+- **Converting needs about the package's size free,** not twice the game: the
+  compressed data goes straight into the package.
+- **Games that need `ampr_emu.index` get one made for them.** No more copying it
+  from another release. Large games that need it are also detected reliably now.
+- **An install keeps going if the app restarts** while the PS5 is still
+  downloading the package.
+- Free space is checked on Windows too.
+
+---
+
+## 5.34.0
+
+**See every install's progress, and a big step for game conversion.**
+
+- **Link installs show their progress.** "Download through this computer" now
+  shows a progress bar, download speed, time left and a Cancel button from the
+  start, instead of nothing until the download finished. Stream installs show
+  time left next to their speeds, and "Let the PS5 download it" now appears in
+  Tasks.
+- **Clearer stream-install error.** When the PS5 can't reach your computer, the
+  app now says so and suggests what to check (firewall, VPN, same network),
+  instead of always blaming the proxy.
+- **Convert to FPKG (beta) uses a new package layout** that got a converted game
+  playing in testing. Packages are uncompressed for now, so they're about the
+  size of the game, and converting needs about twice that free. Games that need
+  an `ampr_emu.index` file get a warning if it's missing.
+- **Using an autoloader or PLDMGR?** Put **elfldr first** in its list, before
+  ps5upload.elf. Without it, ps5upload connects and then drops within seconds.
+  The Connection screen now says this too.
+
+---
+
+## 5.33.3
+
+**Fewer disconnects.**
+
+- **Fixed: the connection dropping and not coming back.** When the PS5 cut off
+  the helper's network, the helper stayed half-running and the app could not
+  reach it. It now shuts down cleanly so a fresh one can start.
+- **Fixed: the helper being started twice.** The app could send it two at once,
+  and the two knocked each other out. It now sends one at a time.
+- **Fixed: the app restarting a helper that was still running.**
+- **"Check" on the Connection screen** no longer reports an error when the
+  helper is already connected (some loaders, like pldmgr, close port 9021).
+
+---
+
+## 5.33.2
+
+**The helper no longer drops the connection a few seconds after you start it,
+installing straight from a link works, and you can now install directly from a
+network share.**
+
+- **Fixed: "connects, then disconnects as soon as I click anything."** When
+  the PS5 returned an unusual network error, the helper quietly stopped
+  accepting connections while still running — so the app showed it as gone
+  until you started it again. It now recovers on its own and keeps going. This
+  affected every recent version, not just the newest ones.
+- **"Let the PS5 download it" now works.** It wasn't starting the PS5's
+  installer service first, it said "sent" even when the PS5 had refused the
+  link, and the PS5 can't take links longer than 127 characters — which most
+  library links are. All three are fixed: a long link now goes through a short
+  address on this computer (keep ps5upload open until the PS5 finishes).
+- **New: install straight from an SMB / network share.** Pick a package in the
+  SMB browser and choose Install on PS5 — it streams from the share into the
+  PS5, with nothing copied to your computer or the console first.
+- **Better bug reports when the helper keeps dying.** They now include the
+  helper's own logs even if it crashed just before the report was made, and
+  say which step it stopped responding on.
+- **Android:** the bottom tabs are no longer hidden behind the gesture bar.
+
+---
+
+## 5.33.1
+
+**Installing from a link is much faster, there is now a third way to do it,
+and "skip the certificate check" actually works.**
+
+- **Links install about 65% faster.** Measured installing a 101 GB game: 108
+  MB/s, against 65 MB/s before, and it no longer slows to a crawl part way
+  through. ps5upload was getting in its own way — dropping and reopening
+  connections that were already fast, fetching the same piece of the file over
+  and over, and piling on more connections when the site was already
+  struggling. It now downloads about as many bytes as the game actually is,
+  instead of roughly six times that.
+- **New: download the package first, then install it.** The third choice
+  alongside letting the PS5 fetch the link and streaming it through this
+  computer. It is the one to pick when a link keeps dying part way through:
+  the download finishes on its own and can be retried by itself, and the
+  install afterwards never touches the internet. It needs room on your disk
+  for the package; the other two do not.
+- **"Skip the certificate check" was doing nothing.** Ticking it made no
+  difference — the setting never reached the downloader. Fixed, and checked
+  against a server with a self-signed certificate: off it refuses, on it
+  downloads. It still applies only when this computer is downloading, since
+  the PS5 checks certificates itself.
+- **A clearer message when the PS5 refuses a link.** The console's installer
+  will not accept a link longer than 127 characters, and many library links
+  are longer than that. It used to say something about re-adding the package
+  to your library, which made no sense for a pasted link. It now explains the
+  length limit and points you at the two options that do not have it.
+- Cancelling a link download now deletes the half-finished file instead of
+  leaving something that looks like a real package.
+- For developers: the app can be built and smoke-tested on a headless Android
+  emulator, so Android changes no longer need a phone plugged in.
+
+---
+
+## 5.32.0
+
+**You now choose how an install from a link downloads: let the PS5 fetch it
+itself, or have this computer fetch it over many connections.**
+
+- **New: let the PS5 download the link itself.** ps5upload hands the console
+  the link and steps aside — this computer sends nothing after that, so you
+  can close the app. On a quick or nearby link this is the fastest option:
+  measured at 114 MB/s installing a 101 GB game from a local server. The PS5
+  has to be able to reach the link itself, and it only opens a couple of
+  connections, so it is not the best choice for a slow or distant one.
+- **Downloading through this computer is still the default, and got faster.**
+  It now opens more connections when that actually helps and fewer when the
+  site pushes back, instead of always using eight — and keeps fetching ahead
+  instead of pausing every time the PS5 does.
+- **New: skip the certificate check**, for your own server or a site whose
+  certificate has expired. Off unless you turn it on, per install, and only
+  when this computer is downloading — the PS5 checks certificates itself.
+- Both choices are remembered per console, and explained in your own language.
+- **A dropped connection no longer restarts itself.** If your auto-loader was
+  set to send ps5upload's own helper, it could knock out the copy already
+  running and then do it again. That is now refused, with an explanation.
+- **Problem reports are far more useful.** An unreachable console used to fill
+  the log with the same line dozens of times, and the PS5's own log could come
+  back with two messages shredded together. Both fixed, and reports now record
+  which server a link came from and how far away it is.
+
+If your link installs are still slow, the limit is the site you are
+downloading from. We measured one that gives every connection the same small
+share no matter what, and nothing on our side changes what a server is willing
+to send.
+
+---
+
+## 5.31.4
+
+**Faster installs from a link when the file host is throttling, honest
+progress for "Upload and install", and a data-loss guard that was not
+arming on the link path.**
+
+- **Installing from a link no longer runs at the speed of its slowest
+  connection.** We fetch a package in eight parallel connections. Some file
+  hosts serve one of them quickly and throttle the rest, and we used to give
+  each connection a fixed share and wait for all of them — so a connection
+  that finished in a second then sat idle for twenty while a throttled one
+  crawled. Connections now pull work from a shared queue, so a fast one keeps
+  going instead of waiting. On the measured pattern that is about 4x.
+- **A connection the host has throttled is now dropped and reopened**, which
+  is what a download manager does and a normal HTTP client does not. Some
+  hosts slow a connection permanently once it has carried enough data.
+- **A host asking us to slow down no longer fails the install.** A "too many
+  requests" reply was treated as a dead connection, retried four times in a
+  second and then given up on. It now waits as long as the host asks.
+- **"Upload and install" shows real progress.** It reported 0 bytes and 0%
+  for the entire install — for hours on a large game — while the PS5 was
+  installing perfectly. It had no way to identify the package it was
+  watching. It now shows GB, speed and time remaining like every other
+  install.
+- **Installs show the download and the send speed separately**, so when one
+  is slow you can see which. The "PS5 is installing" stage shows GB done,
+  speed and time remaining too, instead of a bare percentage.
+- **Fixed a way to lose an installed game.** A PS5 patch installed from a
+  link was labelled as a PS4 full game, which stopped the safety check that
+  keeps a patch from overwriting its base game. A patch shares its base's
+  identity, so that check is the only thing standing between a failed patch
+  and a deleted game.
+
+Verified on a real console: a 101 GB PS5 game installed from an http link at
+about 103 MB/s — the speed of the network link itself — and launched. If your
+own link installs are still slow, the limit is the file host, not ps5upload:
+the same package over a fast link saturates the connection.
+
+---
+
+## 5.31.3
+
+**Installing from a link was many times slower than it should have been.
+Fixed, and installs now tell you what they are actually doing.**
+
+- **Install from http/https was crawling.** Every chunk we requested opened a
+  brand-new connection to the server instead of reusing the one already open.
+  A 3 GB install made around 800 of them, and each one had to start from
+  scratch and get up to speed before being thrown away — so it never reached
+  full speed at all. One user measured 1.9 MB/s in ps5upload while a download
+  manager pulled the same file at 40-50 MB/s on the same connection. Fixed.
+  How much faster depends on your distance to the server, but it should be a
+  large difference.
+- **Installs now show download speed and send speed separately.** A link
+  install has two halves — fetching the package to your PC, and feeding it to
+  the PS5 — and one combined number could never tell you which was slow.
+- **The "PS5 is installing" stage now shows real progress.** It was a bare
+  percentage, and the speed it did show sat at 0 for that whole stage because
+  it was measuring the wrong thing. It now shows GB done, actual speed, and
+  time remaining, the same as the transfer stage.
+- Time remaining is shown for both stages, and left out entirely when there
+  is no reliable speed to estimate from rather than showing a made-up figure.
+
+---
+
+## 5.31.2
+
+**Honest status for installs we can't confirm, and the payload finally gets
+its own name on the console.**
+
+- **Your payload really does have its own name now.** 5.31.0 said this was
+  done. It wasn't — checked on a real console, ps5upload was still listed as
+  the generic `payload.elf`. Only one of its ~16 threads had been renamed, and
+  the console shows whichever thread it feels like. All of them are named now,
+  and it reads `ps5upload.elf`. This also repairs the cleanup that reuses that
+  name: ps5upload can once again spot and clear a stuck copy of itself on
+  reconnect, while leaving other homebrew on the console alone.
+- **An install we can't confirm no longer says "Cancelled".** Nothing was
+  cancelled — the PS5 took the package and is very likely still installing it.
+  Those rows now say **Unverified**, in every language.
+- **The Recheck button now appears when you need it.** If a console was busy
+  transferring something else, the automatic re-check politely waited its turn
+  — forever — and the row never offered you the manual Recheck. It now hands
+  the row over on time.
+- **No more "ps5upload keeps checking" when it can't.** For a package with
+  nothing to identify it by, that message appeared next to a row that had just
+  closed. It now says what's actually true.
+- Verified on real hardware: a 101 GB PS5 game and an 80 GB PS4 game with its
+  patch, both installed end to end at around 100 MB/s.
+
+---
+
+## 5.31.1
+
+**Fixes the Android build, which 5.31.0 broke.**
+
+- **The Android app failed to build in 5.31.0.** The link-install readahead
+  added in 5.31.0 called into a module the Android build deliberately leaves
+  out, so the APK never got made — 5.31.0 shipped desktop builds only. Fixed,
+  and verified against the Android target this time.
+- No behaviour changes on desktop; 5.31.0's fixes are all still here.
+
+---
+
+## 5.31.0
+
+**The helper no longer dies during installs, a slow install is no longer
+reported as a failure, and link installs got faster.**
+
+### The helper crashing during a PKG install
+
+- **Fixed.** ps5upload asked the PS5 how an install was going, roughly once a
+  second. That question kills the process that asks it — measured on two
+  consoles against an otherwise identical build. If your helper went down every
+  time you installed a package, this was why. It no longer asks.
+- **Your payload now has its own name on the console.** It used to run as
+  `payload.elf`, the same generic name every payload gets — and several PS5
+  tools shut down "their" previous copy by that name. It is now `ps5upload`, so
+  nothing else mistakes it for its own.
+- **A helper that was killed or crashed now says so on the next start**, instead
+  of leaving you to guess.
+
+### "Was not verified as installed"
+
+- **A big install is no longer called a failure while the PS5 is still working
+  on it.** A 40 GB game routinely keeps installing after the transfer ends;
+  ps5upload was giving up after three minutes and showing a red error for
+  installs that went on to succeed.
+- **It now keeps checking in the background** and marks the install done when
+  the game actually registers — with a **Recheck** button if you want to look
+  again yourself. The package is kept until it is confirmed, as before.
+
+### Installing from a link
+
+- **Faster.** The download now runs ahead of the console instead of waiting for
+  it, so your connection stays busy rather than stopping at every chunk.
+  Expect a few times quicker; the ceiling after that is the PS5's own
+  installer, not your line.
+
+### Also
+
+- **Hungarian.** Thanks to the request in #326 — machine-translated for now and
+  not yet checked by a native speaker, so corrections are very welcome.
+- **Fixed a message that read "reboot dispatched to reboot"** instead of naming
+  your console. It was wrong in English and in all 19 translations.
+- Dependency updates.
+
+---
+
+## 5.30.0
+
+**Install a game straight from a link, at your line speed — and a fix for
+installs that died halfway.**
+
+### Install from an HTTP(S) link
+
+- **Paste a direct package URL and install it, with nothing staged anywhere.**
+  Install Package has a new link field. No copy lands on your PC and none on
+  the console, so a 100 GB game no longer needs twice its size free — only the
+  space the installed game itself takes.
+- **The download is parallel, so it runs at your line speed.** ps5upload
+  fetches the link over several connections at once (eight by default) and
+  feeds the bytes to the PS5 over your network. Handing the URL to the console
+  instead — what other tools do — leaves Sony's single-stream downloader in
+  charge, which is why those top out around 5-10 MB/s on a gigabit line.
+- **The link is identified before anything starts.** ps5upload reads a few
+  byte ranges to name the title, its content id and its exact size, so a share
+  page or a non-package file is rejected up front instead of after an hour.
+- **Dropped connections are resumed, not restarted.** A connection that dies
+  partway through re-requests only the missing tail, and any forward progress
+  refreshes the retry budget — a lossy mirror still finishes.
+- **Your PC has to stay awake and connected** for the whole install, since it
+  is the one doing the downloading. The URL is never written to logs, task
+  records or diagnostic bundles, so a signed download token stays private.
+- Tuning, if you need it: `PS5UPLOAD_URL_THREADS` (default 8),
+  `PS5UPLOAD_URL_WINDOW_MB` (32) and `PS5UPLOAD_URL_CACHE_WINDOWS` (4). Memory
+  use is roughly window × windows, so about 128 MB at the defaults.
+- Not available in the Android build, which deliberately ships without an HTTP
+  client.
+
+### Large installs (the "it fails halfway" / "lost connection" reports)
+
+- **A big package is no longer truncated mid-request.** The package host capped
+  every response at 16 MiB and expected the console to ask for the rest. Sony
+  doesn't: it reads a package's trailing metadata in a *single* request whose
+  size grows with the package, and it never re-requests the part it didn't get.
+  One user's 121 GB install asked for **249.6 MiB in one range** and was refused
+  with `0x80b211cd` immediately after our 16 MiB answer; another report shows
+  **718** truncated requests. Small packages stay under the cap — which is
+  exactly why installs "worked with small files and failed with big ones".
+  Responses are now streamed in bounded chunks, so any range is served whole
+  without the engine holding it in memory.
+- **A long install no longer has its session pulled out from under it.** The
+  package host expired sessions 2 hours after they were *created*, regardless of
+  whether the console was still downloading. A 200-300 GB game on a modest
+  connection runs well past that, so the console's next request got
+  "no such install session" — the dropped/lost connection people reported.
+  Expiry is now measured from the last sign of life, so an install that is still
+  moving is never reaped, while genuinely abandoned sessions still are.
+- Verified on hardware: a 250 MiB single range now returns complete and
+  byte-identical to the source, and full installs still complete and register.
+
+### The FPKG builder warns about an AMPR title before you build it
+
+- **Convert to FPKG now flags a game that needs `ampr_emu`.** A title whose
+  `eboot.bin` imports `libSceAmpr` packages and installs perfectly well, and then
+  will not start unless `ampr_emu` is loaded on the console — which looks like a
+  broken package rather than a missing dependency. The readiness report names it
+  before the build, alongside the checks already there. It is a warning, not a
+  block: you can still build it, you just know what it will need.
+
+### A warning before you install a package the console won't run
+
+- **Packages are now checked for a DRM type the PS5 refuses to start.** A title
+  dumped from a disc or store install keeps the DRM type it shipped with, and a
+  package built from that dump as-is installs and then won't launch. The parser
+  now flags a `param.json` whose `applicationDrmType` isn't `standard`, and the
+  package's row shows a "check package" badge explaining the fix — so you learn
+  before spending an hour uploading and installing, rather than meeting a bare
+  Sony error code afterwards. It stays a warning: you can still install it.
+
+### "It says error, but my PS5 installed it fine"
+
+- **The post-install check no longer gives up after 3 minutes.** After the PS5
+  accepted a staged install, ps5upload looked for the finished package for a
+  flat three minutes and then reported the install unverified. A large title
+  cannot finish writing in that time, so the app showed an error for an install
+  the console went on to complete — and, because an unverified install keeps
+  its staged copy, left a package behind to delete by hand. The check now
+  watches the title's files grow and waits as long as the PS5 is still writing,
+  giving up only after three minutes of no movement at all. A stalled install is
+  still caught just as quickly as before.
+- **Watching a running install is no longer capped by the clock.** The same fix
+  applies to Stream installs: the three-hour watch window now restarts on every
+  bit of progress, so a 200-300 GB title on a modest connection is followed to
+  the end instead of being abandoned as unverified while it is still going.
+- With verification now succeeding, "Auto Delete after installation" cleans up
+  the staged package as it always should have.
+
+### Installs stop disturbing your loaded payloads
+
+- **If your console already runs etaHEN or elf-arsenal, ps5upload now uses its
+  installer bridge** (the "DPI v2" listener on port 12800) instead of sending
+  its own DPI payload. That send is the fragile part of a Stream install: it
+  needs the payload loader alive on :9021 and it **replaces the running
+  ps5upload payload** for the duration. When a bridge is there, nothing is
+  sent, nothing is displaced, and a carefully built stack of payloads keeps
+  running through the install.
+- **We no longer "restore" a payload we never replaced.** The restore ran
+  unconditionally at the end of every stream install, so even a run that sent
+  nothing re-pushed the payload to the loader — exactly the disruption the
+  bridge avoids. It now runs only when something was actually swapped.
+- The install result says which bridge handled it, and a completed install
+  tells you when your payloads were left alone.
+- If the loader is closed and no bridge is running, the error now says that
+  running etaHEN or elf-arsenal is a way out, instead of only offering a
+  loader reload.
+
+### Stream installs that failed halfway
+
+- **The package host now sends a `Last-Modified` validator.** Sony's downloader
+  only advances to the next chunk against a response it considers cacheable, so
+  without it a transfer could simply stop partway through with no error that
+  pointed anywhere. This is the most likely cause of the "always fails halfway"
+  reports on 5.29.0 and affects every Stream install, not just link installs.
+- **A rejected byte range now answers with `Content-Range: bytes */<size>`**, as
+  the HTTP spec requires, so the console can re-derive the real size and retry
+  instead of dead-ending.
+
+## 5.29.0
+
+**Bug reports stop leaking your network, and a conversion survives leaving the
+page.**
+
+### Bug reports redact the logs, not just the summary
+
+- **"Redact IP addresses" now covers every text file in the zip.** It used to
+  apply only to the structured fields in `report.json`, so the engine log,
+  the payload logs, crash reports, klog and syslog went in verbatim — a
+  connection error reading `connect 192.168.1.50:9021 refused` published the
+  full address anyway. Every textual entry is now redacted as the archive is
+  written, on desktop and in the self-hosted browser build alike.
+- **Addresses are hidden completely** (`<IPv4>`, `[<IPv6>]`) instead of being
+  shortened to `192.168.X.X`, which still identified the network. Ports and
+  surrounding punctuation are preserved so the logs stay readable.
+- **Screenshots are still not scrubbed, and cannot be automatically.** The
+  page now says so next to the option rather than implying the zip is clean.
+
+### Convert to FPKG
+
+- **A conversion no longer dies when you navigate away.** The job always ran
+  to completion in the engine; what stopped was the page polling for it, so
+  the result vanished with the screen. Tracking now lives outside the page,
+  and finishing or failing raises a notification that links back to Convert.
+- **You can pick the output folder**, including browsing the engine host's
+  disk in the browser build.
+- **Relative paths and `~` work.** They resolve on the machine running the
+  engine, and a missing output folder is created when the conversion starts.
+- **An existing package is never overwritten.** A conversion that would land
+  on an existing output name now stops with an error instead of replacing the
+  file. Re-running a conversion previously destroyed the package it had
+  produced the first time.
+- **The work-in-progress warning says what it means**: a package can install
+  and still refuse to launch, so keep the source you converted from.
+
+### Install failures say what actually happened
+
+- **Stream install no longer sends you off to upload a multi-GB package when
+  the real problem is the loader.** If the installer helper could not be
+  delivered because port 9021 was closed, the app offered "Upload & install"
+  as a recovery — which cannot reopen the loader and only repeated the same
+  failure after a full upload. It now tells you to reload the payload loader
+  and retry Stream.
+- **`0x80B2116F` is described honestly.** The old text called it a known
+  firmware/package incompatibility. The code turns up across several packages
+  and several firmwares, and the cause is not established, so the message now
+  says that while still pointing at the PS5's own Debug Settings → Package
+  Installer route.
+- **An update skips a step we already know is rejected.** A staged patch used
+  to be sent to the helper first, which tried an in-process install measured as
+  failing on both tested consoles (`0x80B2150F` on 5.10, `0x80B2116F` on
+  9.60), and only then fell back to the standalone installer. It now goes
+  straight to that installer — but *only* when it is already running, so a
+  console whose loader is not loaded keeps the previous path rather than
+  failing early on hardware where the in-process route does work.
+
+### Payload
+
+- The opt-in installer experiment (`PS5UPLOAD_FULL_ESCALATE`) now escalates
+  before AppInst initializes, matching the standalone DPI daemon's order, and
+  restores the original credentials and aborts if any step fails. It remains
+  off by default.
+
+## 5.28.0
+
+**Screens wait for a console instead of pretending, and every on/off setting
+is the same switch.**
+
+### Screens that need a console now say so
+
+- **Install Package no longer draws its whole staging UI with nothing
+  connected.** It used to show a small "No PS5 host set" warning and then the
+  full screen anyway. It now hands the screen to the same connection gate the
+  rest of the app uses, which names the actual problem — the engine is down, no
+  console is set up, or the helper isn't running — and offers the one click
+  that fixes it. The header stays, so the console chip still tells you what you
+  are pointed at.
+- **The same fix for Screenshots, Videos, Library, nanoDNS, and Processes,**
+  each of which was drawing its own version of "connect first" underneath a
+  full set of controls.
+- **Convert to FPKG keeps working with no console.** The conversion runs on the
+  machine hosting the engine, so only the install step at the end is gated.
+
+### One switch for every setting
+
+- **The checkboxes that turn something on or off are now the switch** used by
+  the beta-feature setting. That covers all of Settings, Continue on failure,
+  Auto-refresh, Mount read-only, Also patch libc.prx, the bug-report sections,
+  and the view filters on Processes, Installed apps and Cheats.
+- **Picking things is still a checkbox.** Table rows, file-system entries, the
+  payload multi-pick, and the tri-state "select all" keep their checkboxes — a
+  switch means "on/off", not "these ones".
+
+### Fixed
+
+- **Stream install refused to run with no console set** instead of failing
+  somewhere further in.
+- **Dropping a `.pkg` on the window with no console connected no longer starts
+  a staging upload.** The drop handler is registered on the window, outside the
+  screen, so it needed its own guard.
+
+## 5.27.1
+
+**The Android build compiles again. Nothing else changed.**
+
+The 5.27.0 release went out without its Android app: the build failed while
+that release was already being assembled. The cause was an arithmetic error in
+the package converter that only exists on 32-bit ARM — the Android build
+targets armv7, where a memory offset is 32 bits wide, and one was shifted by
+32. Desktop and Docker were never affected, and the bytes written by the
+converter are unchanged.
+
+If you installed 5.27.0 on desktop, you already have everything in 5.27.1. The
+Android app is the only thing this adds. For what actually changed in the
+feature set, read the 5.27.0 entry below.
+
+## 5.27.0
+
+**Installs tell you more and lie less, and a first look at the package converter.**
+
+### Installing packages
+
+- **It tells you when the console already has the package**, before anything is
+  transferred. The check is the engine's own — the same one the completion test
+  uses — so the badge and the install result cannot disagree.
+- **Progress no longer runs past 100%.** The console re-fetches ranges, so the
+  old number was a raw byte sum: a 1.35 GB package reported 1.53 GB fetched. It
+  now reports the furthest byte reached, and never runs backwards across the
+  handover from download to install.
+- **A stalled install says it is stalled** instead of looking like a failure,
+  and the phase names come from the console.
+- **Installing a fake package (FPKG) says what it needs.** The card above the
+  button names the three things the console must have loaded first — kstuff,
+  `a53_ppr_install_fast.elf` and `shadowmountplus.elf`.
+
+### Web UI
+
+- **Install packages straight from the server's library.** The web UI could
+  only stream a package sitting on the machine you had it open on; it can now
+  install what the engine itself is holding.
+
+### Connection
+
+- **The helper redeploy loop stops before it hurts.** Every delivered payload
+  replaces the helper running at :9021, so a console that had stopped answering
+  could be held down by the very loop meant to revive it. It now stops after
+  three unanswered deliveries and says so.
+
+### Beta
+
+- **Convert to FPKG** — behind Settings → Beta features — turns a game folder
+  or an `.exfat` / `.ffpkg` mount image into an installable package. It is
+  **not finished**: it can produce a package the console installs and then will
+  not mount. Off by default, and the screen says so.
+
+## 5.26.0
+
+**Your account ID, a readable fan curve, and consoles in the order you want them.**
+
+### Profile
+
+- **Your account ID is visible again.** It always reached the app; the screen
+  was throwing it away and showing a dash instead, on every console that has
+  an account.
+- **Both forms are shown, and both copy.** The same account is written one way
+  by the console and another by Remote Play pairing — pasting the wrong one
+  into the Remote Play field simply fails. The Remote Play form is now
+  labelled as such, so there is nothing to work out.
+- **You can change the account ID**, with a warning that spells out what it
+  costs: saves made under the old ID stop being recognised until you put it
+  back. It asks you to confirm, and shows you the old value first.
+- The account section is no longer called "Offline-account slots" unless you
+  actually have an offline-activated account — a normal PSN account lives
+  there too.
+
+### Console
+
+- **The fan curve editor is readable.** Bigger, responsive, with presets, and
+  it tells you the duty cycle at any temperature instead of making you read it
+  off a cramped graph.
+- **Console health explains itself when it is empty.** It used to show a wall
+  of dashes with no hint whether the reading was unsupported, still loading,
+  or genuinely broken. It also no longer trusts a boot count the console does
+  not reliably report.
+
+### Getting around
+
+- **Order your PS5s.** Drag them into the order you want in Manage PS5s, and
+  both the console dropdown and the tabs at the top follow it.
+- **About sits at the bottom of the sidebar**, below whatever you have starred,
+  instead of pushing your own screens down.
+- **Settings line up.** The panels were different sizes and aligned oddly; the
+  grid is now even at every window width.
+- **Discord is linked from About**, alongside GitHub and X, and the bug-report
+  screen points at GitHub issues and the Discord bug channel.
+- **Payload suggestions.** If you are not sure what to install, the essentials
+  are named: kstuff-lite, shadowmountplus and nanodns.
+
+### Under the hood
+
+- A 64-bit account ID can no longer be quietly rounded in transit — it used to
+  be possible to activate a *different* account than the one you typed, failing
+  in the worst way by appearing to work.
+
+## 5.25.0
+
+**Fixes the console disconnects and "ps5upload isn't responding".**
+
+### Hardware
+
+- **Reading sensors no longer risks dropping your console connection.**
+  ps5upload asked the PS5 for SoC power draw using the wrong call shape, and
+  the console wrote far more data back than ps5upload had made room for. On
+  consoles that report power draw this corrupted the helper's memory — which
+  showed up as the app going unresponsive, or the connection dying moments
+  after it was established. It has been reported as a firmware problem for
+  months; it was ours.
+- **Power draw is now read correctly** — the total across the PS5's eight
+  power rails, instead of a mis-read number that had to be guessed at.
+
+If you saw disconnects, this is very likely the cause. Consoles that never
+reported power draw were never affected.
+
+## 5.24.0
+
+**Choose whether you get early releases or only verified ones.**
+
+### Updates
+
+- **New setting: "Get pre-release versions"** (Settings → Updates). Off by
+  default, and your choice is remembered.
+- **Releases are now checked on real hardware before they're offered to you.**
+  Every release is published as a pre-release first and promoted by hand once
+  it has been verified, so leaving the new setting off means you're only
+  offered builds that someone has actually run on a console.
+- Turn it on to be offered new releases as soon as they're published.
+
+## 5.23.0
+
+**Waking your PS5 now signs you in on PS5 firmware 9.60.**
+
+### Wake & sign in
+
+- **Wake-from-standby lands on your user, not the user-select screen** — on
+  consoles running firmware 9.60, verified repeatedly from a cold rest. It
+  takes about 10-15 seconds.
+- **Honest errors when it doesn't work.** ps5upload used to blame your RP-Key
+  for failures that had nothing to do with it, and in one case reported
+  "signed in" for a console still sitting on the user-select screen. It now
+  says what actually happened.
+
+### Known limitation
+
+- **Firmware 5.10 consoles still stop at user-select after a wake.** Signing
+  in works normally on those consoles once they're already awake. This needs a
+  further piece of Sony's Remote Play protocol that ps5upload doesn't yet
+  implement — tracked in issue #318.
+
+## 5.22.0
+
+**Wake and sign-in set themselves up, and installs stop reporting success as
+failure.**
+
+### Wake & sign in
+
+- **One button now sets up wake-from-standby.** ps5upload reads what it needs
+  from the console itself — you no longer have to hunt down a wake code, a
+  registration key and an RP-Key, and you no longer need Chiaki or any other app
+  to get them. Typing them by hand is still there as a fallback, tucked away.
+- **Remote Play is switched on for you** as part of that setup, instead of the
+  attempt failing with "Remote Play is turned off on the console".
+- **Setting up used to silently save nothing.** The keys the console returns
+  were a different length than the app expected, so a setup that looked
+  successful left sign-in unconfigured. Fixed.
+- **The panel says what's happening** — whether it's ready, part-way (wake works
+  but stops at user-select), busy, or waiting for you to turn the console on.
+
+### Installs
+
+- **Successful installs are no longer reported as failures.** The install helper
+  on the console was crashing right after it queued the work, so the app never
+  heard back and said the install had failed — while the game or patch was
+  installing normally. Packages that looked broken were fine all along.
+- **Package installs show up in Tasks** with progress, like uploads do, instead
+  of leaving you guessing whether anything was happening.
+- **Better advice when a patch really is refused.** The old message pointed at
+  the console's own Package Installer, which is the same path ps5upload already
+  uses, so it could not have helped.
+
+### Fixes
+
+- The app no longer risks a blank screen on older Android WebViews.
+
+## 5.21.0
+
+**Cheats show up for every game, patch installs are honest, and interrupted work
+recovers on its own.**
+
+### Cheats
+
+- **Downloaded cheats now appear for every game.** Some cheat files are saved in
+  UTF-16, which the on-console reader couldn't see — so those games showed "No
+  cheats found" even though the file was there. They're now read correctly.
+- **Cheat versions are shown in the list**, so it's easy to pick a cheat that
+  matches your installed game build.
+
+### Installs
+
+- **Patch failures explain themselves.** When a patch or DLC can't install, you
+  get the real reason — base game missing, wrong version, content-id mismatch,
+  not enough space, console busy — instead of a silent stall or a false success.
+- **Patch and DLC installs check for the base game first.** Installing an update
+  or add-on whose base game isn't on the console used to accept the job and
+  stall for ten minutes before failing. Now it's rejected instantly with a clear
+  "install the base game first."
+- **The update installer is kept ready.** The install daemon is re-armed
+  automatically after a standby, and if it dies while the console stays awake —
+  so applying an update no longer fails by discovering, minutes in, that the
+  installer was never there.
+
+### Reliability
+
+- **Interrupted uploads resume on wake.** If the console rests part-way through
+  an upload, the transfer used to give up and wait for you to click Retry. Now,
+  once the console wakes and the helper is back, the upload picks up where it
+  left off on its own — only for connection-class interruptions, never for a
+  real failure like out-of-space.
+- **Cleaner wake sign-in teardown**, closing the Remote Play control session
+  gracefully after signing your user in.
+
+## 5.20.0
+
+**Wake your PS5 from standby — and wake it straight into your user.**
+
+### Power
+
+- **Wake from standby over the network.** When the console is asleep, a Wake
+  button brings it back on, using Sony's discovery protocol (a PS5 does not
+  answer Wake-on-LAN). The setup panel spells out the three console settings
+  wake needs — Remote Play, plus *Stay Connected to the Internet* and *Enable
+  Turning On PS5 from Network* — because without any one of them the wake
+  fails silently.
+
+- **Wake & sign in.** A plain wake stops at the user-select screen. Give the
+  console its Remote Play session keys and the wake also signs your user in,
+  bringing the console up on the home screen the way the official Remote Play
+  app does. If the account has a login passcode, the app says so rather than
+  hanging.
+
+## 5.19.0
+
+**Cheats tell you what they are and when they fire, and the power controls are
+on the home screen.**
+
+### Cheats
+
+- **Downloaded cheats show the game's name**, with the title ID underneath —
+  including games you do not have installed, which is exactly when a bare ID is
+  least helpful.
+
+- **The console tells you when a cheat takes.** Turn one on while you are
+  playing and a notification appears on the PS5 naming the cheat. You also get
+  one when a game starts with cheats already enabled.
+
+- **Filter the collection** by cheat format, by the game version a cheat was
+  written for, and by "only my games" — which turns thousands of entries into
+  your shelf.
+
+### Power
+
+- **Power controls are on the home dashboard**, not just at the bottom of
+  Manage connections.
+
+- **Wake a sleeping console.** If ps5upload has seen your PS5 before, it can
+  wake it from rest mode. This needs "Enable Turning On PS5 from Network"
+  switched on in the console's power settings — the app tells you so if nothing
+  happens.
+
+Thanks to @realgooseman for both suggestions.
+
+---
+
+## 5.18.2
+
+- **Backport is no longer greyed out for the wrong reason.** A library-overlay
+  problem reported while one game was starting could disable backporting for a
+  completely different game, and a brief hiccup during a normal launch could
+  disable it for that game too. A problem now only counts against the game it
+  actually concerns.
+
+- Housekeeping: removed some stray development screenshots that had been
+  committed by accident, and tightened the ignore rules so the next ones cannot
+  follow them in.
+
+---
+
+## 5.18.1
+
+**The new backport-pack screens now speak every language ps5upload supports.**
+
+- The 22 strings added for installing a backport pack — and for the clearer
+  overlay and scan messages — shipped in English for everyone. They are now
+  translated into all 18 languages, placeholders and all, and checked by the
+  coverage gate rather than excused from it.
+
+- Translated by hand, because several of them are instructions. "Restart the
+  console, because closing the payload that made the mount does not remove it"
+  is not a sentence worth guessing at.
+
+---
+
+## 5.18.0
+
+**ps5upload can install a whole downloaded backport pack, and the library
+corpus stops learning things that were never true.**
+
+### Install a backport pack, not just a third of one
+
+Backports circulate as a folder — `fakelib/` plus an `eboot.bin` that is
+already patched, replacement `sce_module/` files, and the game's own engine
+plugins. Until now ps5upload could only ever apply the `fakelib/` part, so a
+pack that fixed a game anywhere else could not be used here at all.
+
+- **Point it at the folder and it installs the lot.** Everything it replaces is
+  backed up first, so Undo puts the game back exactly as it was. The eboot is
+  written last: if anything goes wrong before that, the game still starts
+  exactly as it did.
+
+- **No SDK patch is applied.** A pack's eboot arrives already downgraded, and
+  patching it again would rewrite a correct field and break the signature it
+  shipped with.
+
+- **Only the libraries are kept for later.** They are the reusable part and go
+  into the corpus for every future backport; the eboot and modules belong to
+  one game and are installed straight from the folder rather than stored.
+
+- **It warns before it runs out of room.** The backup is a copy, so replacing a
+  256 MB eboot briefly needs space for two.
+
+- **Pointing the old import at a pack used to make a mess.** Every pack carries
+  `.prx` files outside `fakelib/`, and all of them were swept into one library
+  set — a combination no game has ever run. Files are now recognised by where
+  they sit in the pack, not by their extension.
+
+### The corpus stops collecting things that are not backports
+
+- **A `fakelib/` folder is no longer taken as proof.** A game that was dumped
+  but never downgraded can still have one, and its leftover files were being
+  recorded as a library set — which the app then offered FIRST for that very
+  game, where it could never work. Those titles are now skipped and counted, so
+  a scan that finds nothing says why instead of looking broken.
+
+- **Sets are offered based on what actually ran.** A set your other console is
+  recorded running for a game is now preferred for that game, even when the set
+  was originally harvested from something else entirely.
+
+- **One console stops counting as two.** Sightings were told apart by the name
+  you gave a console, so renaming it — or the app using its address once and its
+  name the next time — made a single machine look like corroborating evidence
+  from two.
+
+### Backporting explains itself better
+
+- **"An external BackPork is active" was often us.** A game starts more than
+  once as it launches, and the second pass was seeing the overlay the first pass
+  had just created. It now recognises its own work, and tells apart "BackPork is
+  running, stop it" from "something left a mount behind, restart the console" —
+  which need opposite fixes.
+
+- **A blocked launch no longer sticks.** The warning used to stay up until the
+  payload was reloaded, long after the cause was gone.
+
+---
+
+## 5.17.10
+
+**Backporting can now find a working library set on its own, and scanning a
+second console finally counts for something.**
+
+### Let it try the sets for you
+
+Finding the right library set was always a loop: install, launch, watch, undo,
+pick the next one, repeat. Nothing about that needed a human.
+
+- **"Try sets automatically" does the whole loop.** It installs a set, launches
+  the game, watches it, and if it does not start it undoes the change and moves
+  to the next candidate — stopping as soon as one runs, and leaving that set
+  installed. There is a Stop button; it finishes the set it is on rather than
+  abandoning a half-installed title, so the game is never left in pieces.
+
+- **It stops when trying more cannot help.** If the title's eboot turns out not
+  to be backported at all, no library set can fix it, so it says so once instead
+  of working through every set to reach the same answer a dozen times. And a
+  failure that asked for MORE libraries only tries larger sets afterwards.
+
+- **Every launch is still judged the careful way.** Launching fails on its own
+  roughly one time in three, so a set is only rejected after repeated attempts
+  agree — auto mode uses the same evidence rules as doing it by hand.
+
+### Scanning a second console now makes the next backport smarter
+
+- **Sets remember which game and console they came from.** The same backported
+  game on two consoles stores as one set — and the second console's copy used to
+  be thrown away as a duplicate, taking the evidence with it. Both are now
+  recorded.
+
+- **Sets that more than one console runs are offered first.** A combination two
+  separate machines actually run is a better first guess than one seen once.
+  Your own game's set still comes first when the corpus has it. Re-scanning the
+  same console does not make a set look better attested than it is.
+
+- **Nothing you already collected is lost.** Existing corpora keep working and
+  are counted as one sighting rather than none, so sets you gathered before this
+  release do not sink below newly scanned ones.
+
+---
+
+## 5.17.9
+
+**Backporting works again: the library scan finds your games, it now collects
+from every console you own, and the Backport button is no longer stuck behind a
+warning that was not true.**
+
+### The scan finds your backported games again
+
+Scanning a console for backport libraries reported "No backported games found"
+even on a console full of them, which left you with an empty library corpus and
+no way to back anything port.
+
+- **The scan was talking to the wrong port.** It asked the console for each
+  game's `fakelib/` folder on the transfer port instead of the management port,
+  so every single lookup failed. Measured on a 9.60 console: all 40 titles came
+  back as "not backported" before, 34 library sets after.
+
+- **A failed scan no longer looks like an empty console.** Any error reading a
+  game — console asleep, unreachable, permissions — was reported identically to
+  "this game was never backported", and the summary said zero errors. It now
+  tells those apart and says which console it could not reach.
+
+### One library corpus, fed by every console
+
+- **Scan collects from all your consoles at once.** The button used to read
+  only the console you had selected. It now sweeps every console you have set
+  up, skips any that are asleep (naming them), and files everything into the
+  one shared library corpus. Libraries harvested from one console are usable
+  when backporting on any other.
+
+### The Backport button is no longer falsely blocked
+
+- **"Library overlay is not available — send the current ps5upload payload"
+  was wrong.** The payload was reporting its overlay status correctly all
+  along; the engine was silently dropping that status before it reached the
+  screen, so the button stayed disabled no matter how current your payload was.
+  Backport is available again on a console running a current payload.
+
+### Smaller things
+
+- The backport summary showed a literal `{profile}` instead of the set name.
+- Backport wording now says "set" throughout, matching what the corpus actually
+  stores, instead of the older "profile".
+
+---
+
+## 5.17.8
+
+**Backport a game from inside ps5upload — including disk-image titles — plus a
+fix for update failures that blamed the wrong thing.**
+
+### Backporting, without the four-tool ritual
+
+Games built for firmware newer than your console need their SDK version
+lowered and replacement system libraries added. That used to mean a separate
+SDK changer, a separate BackPork, and a folder of libraries you had to source
+yourself. It is now one button in Games, and the pieces it needs are managed
+for you.
+
+- **The libraries come from your own games.** They are Sony files, so
+  ps5upload cannot ship them. The first time you back port something, it offers
+  two ways to get them: import a pack you already have, or scan your console
+  and collect them from games that are already backported. Either way they are
+  kept once and reused for every later backport, and you can add more at any
+  time from Settings → Backport libraries.
+
+- **A library set is installed whole.** Sets are never mixed. Testing on
+  hardware showed a game that runs fine on its own nine libraries fail to start
+  at all on a different game's six — so ps5upload offers you sets that a real
+  game actually shipped, rather than assembling one from parts that have never
+  run together.
+
+- **Disk-image games work too.** Titles that live in a `.exfat`/`.ffpkg` image
+  managed by ShadowMount+ used to be out of reach because the image is mounted
+  read-only. ps5upload now asks ShadowMount+ to remount just that one image
+  writable for the duration, patches it, and puts it back — no payload restart,
+  no moving your game file anywhere.
+
+- **It tells you what happened, and does not pretend to know more than it
+  does.** After installing a set it launches the title and watches. A failed
+  launch is retried, because launching is unreliable enough on its own that one
+  failure proves nothing. If the game is still running afterwards it asks *you*
+  to confirm it reaches gameplay rather than declaring success — and if the
+  title was never patched in the first place, it says so instead of blaming the
+  libraries. Undo puts the game back exactly as it was.
+
+### Update installs
+
+- **Failures now name the reason the console actually gave.** When the PS5
+  declines an update, ps5upload retries through a small installer it sends to
+  the console. If that installer could not be delivered, you used to be told
+  only about the delivery problem — the code the console rejected it with, and
+  the remedy that goes with it, were dropped. Both halves are now reported.
+
+- **No more "re-run your loader" when your loader is running.** That advice was
+  shown whenever port 9021 refused a connection, including to people whose
+  loader process was plainly alive — it had simply stopped listening. When a
+  loader is visible, ps5upload now says so, and suggests loading it again
+  rather than starting it.
+
+  If your PS5 refuses an update this way, the route that works is on the
+  console itself: Settings → System → Debug Settings → Game → Package
+  Installer. Your upload is not wasted — the package is already on the PS5.
+
+---
+
+## 5.17.7
+
+**One report, four fixes: updates that couldn't reach the console, an error
+that blamed the wrong thing, and a 6 GB re-upload nobody asked for.**
+
+- **A failed install no longer restarts the upload on its own.** When an update
+  failed to install, the app treated it like a dropped connection and re-ran the
+  whole queue item — which for a package means uploading it again from scratch.
+  One user watched a 5.93 GiB update start over six seconds after the error,
+  with no prompt. The bytes were already on the console; re-sending them could
+  never have changed the outcome. Anything that fails *after* the upload has
+  committed — the install, or a mount — is now final, and the package stays on
+  the PS5 for a retry.
+
+- **The update installer is now started early, while the console is known to be
+  reachable.** ps5upload applies updates through a small installer it hands to
+  the console's own payload loader. That loader belongs to your jailbreak, not
+  to us, and it can stop answering partway through a session — which is exactly
+  what happened to the person who reported this: it accepted ps5upload's helper
+  and then refused everything four minutes later, so the installer could never
+  be delivered and the update failed. ps5upload now starts that installer as
+  soon as it has talked to the console, rather than an hour later when an
+  upload has already finished. Once started it stays running, so the loader is
+  never needed again.
+
+  Verified on two consoles: the installer comes up in about half a second,
+  leaves the helper running beside it, and a later install uses it without
+  touching the loader at all.
+
+- **The self-hosted web UI can now redeploy the helper.** Its check for "is the
+  console running the right helper" asked the desktop shell for the app
+  version — a call that does not exist in a browser and threw, so the whole
+  check quietly did nothing there. That is also why the web UI could never
+  restore a helper it had just found stale or offline.
+
+- **"ps5upload couldn't start the PS5's update installer" told most people the
+  wrong thing.** That message blamed a self-hosted engine built without the PS5
+  payload SDK. That is one of three unrelated causes, and it was the *least*
+  likely: the common one is that the console's own ELF loader has stopped
+  answering on port 9021, so the installer can't be delivered at all. The
+  message now names which of the three actually happened, and what to do about
+  it — and all three now say the package is already on the PS5, so nothing needs
+  uploading again. In every language the app speaks.
+
+- **The web UI stopped logging a warning on every upload.** It asked the
+  desktop shell to keep the machine awake — a call that doesn't exist in a
+  browser. Nothing was broken, but each attempt left a scary-looking failure in
+  the log and in any bug report captured during a transfer.
+
+- **Bug reports now record which PS5 ports were answering.** The loader port is
+  the one dependency the whole update-install fallback rests on, and it isn't
+  ours. A report where it was down took a log grep to spot; now it's in the
+  snapshot alongside free space and the installed titles.
+
+---
+
+## 5.17.6
+
+**A build fix, and one that quietly protected the Docker image.**
+
+- **Building the app no longer damages its own dependency lockfile.** Every
+  build ran `npm install`, which on npm 10 deletes information newer npm
+  versions record — including which native components match Alpine/musl, the
+  base the web UI Docker image is built on. It had to be undone by hand before
+  every release, and had it ever been committed, that image could have been
+  built with the wrong native binaries. Builds now install strictly from the
+  lockfile (`npm ci`, the same thing CI does) and leave it alone, and a new
+  check fails the build if the file ever loses that information again.
+
+---
+
+## 5.17.5
+
+**An update that silently does nothing is now reported as a failure, and tells you how to fix it.**
+
+- **The PS5 could accept an update and then discard it.** The console returned
+  success, ps5upload believed it, and the game stayed on its old version with
+  nothing to explain why. That is the "base game installs but the update fails"
+  problem people have been reporting. ps5upload now checks the game's version
+  after an update and, if it did not move, says so instead of claiming success.
+
+- **And it tells you the fix.** It happens when the console cannot match the
+  update to the base game you have installed: it reports success and copies
+  nothing. Installing the matching base package through ps5upload (choose
+  Override) and then applying the update makes it work. That is now the message
+  you get, in every language the app speaks.
+
+  Verified on a console: the same update did nothing at all over the base game
+  that was already there, and applied in about two and a half minutes after the
+  base was re-installed from its matching package — same console, same
+  firmware, same storage.
+
+- **You are warned before it can happen.** When you install an update for a game
+  whose base package did not come from ps5upload, you now get a heads-up first,
+  with the fix, instead of finding out afterwards. It is a warning, not a block:
+  it means the update may not apply, not that it will fail.
+
+- **A re-installed update is not mistaken for a failure.** The console removes
+  the old update before putting the new one in place, so for a minute or two a
+  game legitimately looks like it has gone backwards. ps5upload waits that out
+  rather than reporting a problem that is not there.
+
+- Verified end to end on two consoles from a clean slate — base game, update
+  and three DLC, on both an older and a newer firmware, installing to internal
+  storage and to an M.2.
+
+---
+
+## 5.17.4
+
+**You can file a bug report from the self-hosted web UI.**
+
+- **The web UI could not produce a bug report at all.** It showed the whole
+  form — description, options, screenshot list — and then, where the button
+  should have been, a line of grey text saying a bug report needed the desktop
+  app. So you filled everything in and only then found out you could not send
+  it. One reporter put it plainly: "Could not capture a bug report on the
+  webui." The button is now there and it works: the engine builds the zip and
+  your browser downloads it.
+
+- **Screenshots can be attached in the browser too**, using the normal file
+  picker.
+
+- **The bundle tells you what it is.** A report built in a browser cannot
+  contain quite the same things as one built by the desktop app, so the README
+  inside the zip now says which parts differ and where to get the rest — for a
+  Docker setup, the engine's full log is `docker logs` on the container.
+  Nobody should have to guess whether a missing file is a clue.
+
+---
+
+## 5.17.3
+
+**A repeat upload no longer deletes the file it already delivered — and failure messages now speak your language.**
+
+- **Re-uploading something that had already finished could destroy it.** When a
+  transfer was retried after it had actually completed — the Retry button, or a
+  retry the app made on its own — the console deleted the finished file and then
+  reported `direct_rename_failed`. Every further retry repeated the deletion, so
+  the file you had successfully uploaded simply vanished and the queue sat at
+  0 B. Committing the same transfer twice is now harmless: if the file is
+  already in place at the right size, that is treated as success and nothing is
+  touched. Nothing deletes a destination any more until there is a verified
+  replacement ready to take its place.
+
+  This was reproduced on a real console before and after the fix — old build:
+  file gone; fixed build: file intact.
+
+- **Transfer and install failure messages are translated.** These messages —
+  out of space, drive disconnected, path refused, transfer interrupted — were
+  English-only in every language, which is the worst moment to be handed a
+  language you may not read. All of them are now available in the app's 19
+  languages.
+
+- **Clearer wording when there is genuinely nothing to publish.** The old
+  message blamed a rename and printed an empty path. It now says what actually
+  happened and what to do: upload again and choose Override rather than Resume.
+
+---
+
+## 5.17.2
+
+**Logs say what they mean, and a bug report now carries what we actually need.**
+
+- **The engine log no longer labels everything an error.** The engine writes
+  all of its output — routine, warning, failure alike — down one pipe, and the
+  app was stamping that whole pipe as an error. A perfectly healthy session read
+  as a wall of `[engine:err] ... 200 (0ms)` lines, every one of which was a
+  success. Lines that already state their own level are now left alone. The Logs
+  screen in the app was always right about this; it was the log file inside a bug
+  report — the one a maintainer reads — that was wrong.
+
+- **The log stopped filling up with itself.** The Logs screen asks the engine for
+  new lines about once a second, and each of those requests was being written to
+  the log. Watching the log made it grow, forever, burying real activity. Reading
+  the log is no longer an event.
+
+- **Failures are recorded as failures.** Nothing in the engine had ever been
+  logged at error level, so every bug report said "0 errors" no matter what had
+  gone wrong, and filtering for errors showed an empty list. A transfer that dies
+  and an install the console refuses are now errors. Advisories that cost you
+  nothing stay warnings.
+
+- **Bug reports capture more of what a report is usually about.** Newly included:
+  free space per drive *with the reserved amount* (a 5.17.0 report about missing
+  space needed a hand-grep through helper logs to explain — that is now visible
+  at a glance), the list of installed titles, why each transfer ended rather than
+  just that it did, and what the console reported about an install. Package
+  filenames are included; the folders they came from are not.
+
+---
+
+## 5.17.1
+
+**Uploads to internal storage are no longer refused when there is plenty of room.**
+
+- **The "not enough space" rejection was wrong.** 5.17.0 added a capacity check
+  that held back a flat 80 GB on the PS5's internal storage before deciding
+  whether an upload would fit. That figure came from one console where the PS5
+  really did stop accepting writes with ~86 GB still showing free, and it does
+  not carry over to other consoles: the gap it was modelling turned out to be
+  anywhere from nothing at all to about 58 GB. The result was a check that
+  refused transfers with obvious room for them — a 2.5 GB update onto a console
+  reporting 86 GB free, a 70 GB game onto one reporting 136 GB. If your Volumes
+  screen showed a large "reserved for system" figure and almost nothing
+  available, that was this.
+
+  The check now holds back only a small filesystem working margin, so it stops
+  a transfer only when the space genuinely is not there. A console that
+  overstates its own free space is still caught — but while writing, where
+  ps5upload already turns it into a plain explanation of what happened instead
+  of a bare connection error, rather than up front on a guess.
+
+  If you update the app but keep an older helper on the console, you are not
+  stuck: the app now ignores the old 80 GB figure when the helper reports it.
+
+---
+
+## 5.17.0
+
+**The self-hosted web UI catches up with the desktop app.**
+
+- **Most of the app now works from the self-hosted web UI.** The browser build
+  translates each of the desktop app's actions into an engine request, and that
+  translation table had fallen a long way behind: Cheats, the SMB browser,
+  Backup, SDK Changer, Game Activity, Notifications, the FTP server, Fan Curve,
+  FW Spoof, drive sensors, avatar apply, TMDB lookups, package and archive
+  inspection (zip / 7z / rar / ffpkg / bps), user create and delete, and every
+  transfer and download action were all missing from it. The engine had been
+  serving every one of those routes the whole time, so the screens rendered
+  normally in a browser and then failed the moment you pressed a button. All of
+  them now go through. A build-time check keeps the two sides in step, so a
+  newly added action can no longer go missing here unnoticed.
+
+- **Connection status works in the browser.** Steps 1 and 2 of the Connect
+  screen could not tell whether your PS5 was reachable, because probing a TCP
+  port is something a browser cannot do. The engine now probes on its behalf —
+  and it is the better vantage point anyway, since it sits on the same network
+  as the console.
+
+- **No more "Save failed" alert on a successful install.** Every change to the
+  upload queue tried to write the desktop app's queue file, which does not
+  exist in a browser. The Upload screen reported that as "Queue changes could
+  not be saved — free disk space or fix permissions" over installs that had in
+  fact succeeded. The queue is now kept in the browser itself, and survives a
+  reload.
+
+- **Docker images built from source carry the on-console installer.** The two
+  helper images the engine embeds were never copied into the build context, so
+  anyone building their own image got one that installed base games but turned
+  every update away — the same failure this release fixes everywhere else. Only
+  the official images were unaffected.
+
+- **Screens that cannot work in a browser are no longer offered there.** The
+  first-run wizard and the SMB "download to this computer" button both need the
+  desktop app; they now stay hidden instead of failing when used.
+
+---
+
+## 5.16.0
+
+**Game updates and DLC install from the self-hosted web UI.**
+
+- **Updates and add-ons now install from the browser, not just base games.**
+  An update can't go through the PS5's in-app installer — on firmware 10 and
+  newer it turns patches away, and the one remaining in-app route is the
+  destructive one that can wipe the base game, so ps5upload refuses it. The
+  install that actually works hands the package to a separate on-console
+  installer daemon, which means sending that daemon to the console and putting
+  the ps5upload helper back afterwards. The desktop app does that from its own
+  bundled copies. A browser tab can't: it has no way to open a socket to the
+  console, and no copy of the files. So every update installed from the web UI
+  stopped with "this update couldn't be applied", while base games — which
+  never need that route — installed fine. The engine now carries both helper
+  images and does this itself, so the browser and the desktop app take the same
+  install path. This also unblocks Stream (beta) installs in the browser.
+
+  The released engine binaries and the official Docker images
+  (`ghcr.io/phantomptr/ps5upload-engine`, `…-engine-webui`) include the images.
+  If you build the engine from source without the PS5 payload SDK it has none,
+  and it now says so plainly instead of reporting the console as having
+  declined the update; you can point it at your own copies with
+  `PS5UPLOAD_PAYLOAD_DIR`.
+
+- **A clearer message when the update never reached the console.** "The PS5
+  declined it — most often because the update doesn't match your installed
+  version" was shown even when the request never got that far, which sent
+  people hunting for the wrong version of a game. Failing to start the
+  installer now says exactly that, and what to do about it.
+
+---
+
+## 5.15.0
+
+**Reliable browser uploads, safer firmware-12 helper recovery, and an opt-in 7z decoder speed-up.**
+
+- **Folder uploads now start from the self-hosted UI over plain HTTP.** The
+  browser build used a secure-context-only UUID API before it contacted the
+  engine. Browsers hide that API on LAN addresses such as
+  `http://192.168.x.x:19113`, leaving the task at “Starting…” forever. Upload,
+  queue, and payload-playlist IDs now use the browser's LAN-safe cryptographic
+  random source, with a compatibility fallback for older webviews. Once the
+  engine accepts an upload, it continues independently if that browser tab is
+  closed.
+
+- **The helper's rest-mode recovery is fail-closed on newer firmware.** A
+  network or manual clock correction can no longer be mistaken for a wake and
+  trigger raw credential writes. Recovery now requires matching realtime and
+  monotonic gaps plus a successful proof that no game is running. Unknown
+  process layouts are rejected, failed elevation stops the sequence, and the
+  detached watchdog no longer calls the mount scan that can hang on some
+  firmware/loader combinations.
+
+- **7z/LZMA2 uploads can opt into multiple decoder threads.** The engine
+  updates to `sevenz-rust2` 0.22.2 and `lzma-rust2` 0.20.1, and adds
+  `PS5UPLOAD_7Z_THREADS` (1–16). It stays on one decoder thread by default,
+  because multi-threaded LZMA2 decode is not free: the decoder splits work on
+  dictionary-reset chunks and buffers each unit's decompressed output in
+  memory. On a 2.5 GB test archive, peak RAM went from 74 MiB to 2.3 GiB for
+  an archive packed with 7-Zip's own multithreading (about 24% faster), and to
+  4.4 GiB with **no** speed-up at all for a solid archive — the RAM cost
+  scales with the archive, not with the thread count, so a large game dump
+  could exhaust memory. Turn it on if you are CPU-bound on a multi-threaded
+  archive and have RAM to spare. File and shard order is unchanged either way,
+  preserving byte correctness and resume safety.
+
+---
+
+## 5.14.0
+
+**Search your games, and a steadier Tasks list.**
+
+- **Search the "Ready to play" tab by name or game code.** A search box at the
+  top of Games → Ready to play filters as you type, matching the game's name,
+  its CUSA/PPSA code, and the path it was registered from. It searches every
+  section at once — installed, disk images, folder homebrew, system — so you
+  don't need to know which one a title lives in, and sections with no matches
+  get out of the way. Game codes match however you type them: `CUSA00900`,
+  `cusa-00900` and `ppsa 01342` all find the right game, because codes get
+  copied out of filenames and forum posts with punctuation attached. Escape
+  clears the box. The "Game files" tab already had its own search; this closes
+  the gap on the other tab.
+
+### Fixes
+
+- **The Tasks list no longer shuffles while transfers run.** With two uploads
+  going, the rows were ordered by "most recently updated" — and since every
+  progress tick updates a task, the two rows swapped places about twice a
+  second, so the progress bars appeared to flicker between them. Active tasks
+  are now ordered by when they started, which doesn't change while they run:
+  new tasks appear below, and nothing already on screen moves. Thanks to the
+  reporter.
+
+---
+
+## 5.13.1
+
+**Fixes the Fan threshold card appearing over and over on the Console tab.**
+
+- **The Console tab no longer fills up with copies of the Fan threshold
+  card.** Introduced in 5.13.0: the card kept its own copy of the console's
+  address as its identity, and the new System time card was given the same
+  one — so the app could no longer tell the two apart and added a fresh copy
+  of the card on every five-second sensor refresh. The longer the tab stayed
+  open, the more copies appeared. Both cards now have distinct identities,
+  and a test fails the build if any two cards on a screen are ever given the
+  same one again. Thanks to the reporter who spotted it the day 5.13.0 went
+  out.
+
+- **The Linux white-screen fix now adapts to your graphics setup.** The app
+  detects what it is running on and applies only the workarounds that stack
+  needs: every Linux session gets the DMABUF renderer disabled, and NVIDIA on
+  Wayland additionally gets accelerated compositing disabled and — when
+  launched through `PS5Upload.sh` — your system's `libwayland-client`
+  preloaded. Previously only the first of those was applied, so NVIDIA
+  Wayland users still got a white window and had to find the other two
+  themselves. The extra switches stay off everywhere else on purpose: they
+  cost scrolling smoothness, which this app's long lists feel. If detection
+  misses your setup, `PS5UPLOAD_FORCE_WAYLAND_PRELOAD=1` forces it, and
+  setting any of the variables yourself still overrides the app. Thanks to
+  the reporter of issue #285. See the FAQ entry "white/blank screen" for the
+  full table.
+
+- **Don't launch the Linux build with `sudo`** — it is never needed, and it
+  leaves root-owned files in `~/.ps5upload` that make later normal launches
+  fail in confusing ways. The FAQ now says so, with the one-line fix if you
+  have already done it.
+
+---
+
+## 5.13.0
+
+**Sets your PS5's clock from internet time.**
+
+- **Sync the console clock to internet time.** Hardware → System time now
+  shows the PS5's clock next to your PC's, the drift between them, and a
+  button that corrects it from an internet time server (NTP). Both consoles
+  this was tested on had drifted on their own — one by three minutes — which
+  matters more than it sounds: a clock that is far out breaks PSN sign-in and
+  can make games fail their licence checks. There is a second button to sync
+  to your PC's clock instead, for a console on a network that cannot reach an
+  internet time server.
+
+- **The clock now works on firmware where Sony's own API is missing.** On both
+  9.60 and 5.10 the system call for reading and setting the date is not
+  exported at all, so the console could not even report its own time — the
+  panel just showed a dash. It now falls back to the system clock directly,
+  which is what actually sets the time on those firmwares. When that path is
+  used the app says so, because Sony's own Settings screen may keep showing
+  the old time until you reopen it.
+
+- **The time reply is now checked before it is trusted.** Internet time
+  arrives over a protocol with no authentication, and whatever it says would
+  become your console's clock. Replies that do not answer the request we
+  actually sent, come from a server admitting its own clock is unset, are a
+  rate-limit rejection, or claim an implausible date are now refused rather
+  than written to the console.
+
+- **Restores the System time panel**, which was removed in 2.23.5 while it was
+  experimental. The timezone and DST editor stays out for now.
+
+### Fixes
+
+- **The PS5 payload builds again.** A toolchain update started rejecting four
+  leftover variables that were set but never read; they have been removed.
+  This blocked building the payload at all, not just this feature.
+
+---
+
+## 5.12.1
+
+**Fixes picking an avatar image on Android.**
+
+- **Choosing a profile picture works on Android again.** The avatar picker
+  used the system file chooser, which hands back a reference the app cannot
+  actually read — so the image never appeared and you got a "read image"
+  error instead. It now uses the same in-app file browser every other picker
+  in the app already used, which is why uploads worked while this did not.
+  Thanks to the reporter on issue #278.
+
+---
+
+## 5.12.0
+
+**Android layout fixes, a "now playing" cue, and covers that stop reloading.**
+
+- **The Play / Close game button is no longer sliced in half.** On a narrow
+  screen the button was not allowed to shrink below its own label, so a long
+  one ("Close game", "Needs ShadowMount+") overflowed its card and the card
+  cut it off mid-letter. The main action now gets a full-width line of its
+  own, and no button anywhere in the app can be clipped like that again.
+- **The notifications panel opens on-screen on Android.** It was anchored for
+  the desktop sidebar, where the bell sits on the left. On the phone the bell
+  is on the right, so the panel grew straight off the edge of the display.
+- **Starring a screen now does something on Android.** Favourites only ever
+  fed the desktop sidebar, so the star in More changed nothing on a phone.
+  Starred screens now appear pinned at the top of More.
+- **A running game is easy to find.** It moves to the top of Games with a
+  "Now playing" strip — cover, name, play time and Close game — and the Games
+  tab shows a dot while something is running, from any screen.
+- **Covers appear instantly when you return to a screen.** They were cached
+  since 5.11.0, but nothing looked in the cache until two loads had failed
+  and a retry timer had elapsed — so every visit still showed grey boxes for
+  a second or two. The app now uses artwork it already holds straight away,
+  and once it learns your window blocks direct image loading it stops
+  re-testing that for every single cover.
+- Play time is now counted whenever the app is open, not only while the
+  Library screen is showing.
+
+---
+
+## 5.11.0
+
+**Game covers load instantly instead of being fetched over and over.**
+
+- **Covers are now kept on your computer.** Every time you opened a screen
+  with artwork, every cover was read from the PS5 again — about 290 KB per
+  game, so roughly 6.5 MB for a 23-game library, every single visit. They
+  are stored locally now and reused. A repeat view is around 2.5x faster,
+  and re-checking a cover that has not changed transfers nothing at all.
+- **Games with no cover stop costing anything.** The app remembers that a
+  title has no artwork instead of asking the console again on every screen.
+- **Nothing is kept forever.** Covers refresh on their own after a day, and
+  a console's artwork is cleared the moment you install or uninstall a game
+  on it, so you never see a cover for something that is no longer there.
+- **Settings → Cached artwork** shows how much space it is using, with a
+  button to clear it. "Reset PS5Upload" already removed it too.
+- Covers cached for one PS5 are never shown for another.
+
+---
+
+## 5.10.1
+
+**Game covers, actually fixed this time.**
+
+- **Covers now load even when the app's window refuses to fetch them.**
+  Cover art was the one thing the app loaded directly over the network
+  instead of through its own backend — and on some systems the app window
+  quietly blocks that, so every cover fell back to a controller icon while
+  the backend reported success. Covers now come through the same channel as
+  everything else if the direct load is refused. Verified by blocking every
+  direct image load and confirming all artwork still appears.
+- 5.10.0 fixed a different cover bug (the scrolling change from 5.9.2). That
+  fix was real but was not this one.
+
+---
+
+## 5.10.0
+
+**Game covers are back, and the helper reads the PS5's own databases properly.**
+
+- **Game covers work again.** 5.9.2's scrolling change stopped covers from
+  loading in the Library and the Installed games grid. That change has been
+  taken off both screens — it can't be combined with artwork that loads as
+  you scroll. The file browser keeps it, which is where it mattered most.
+- **A cover that fails once now tries again.** Every cover in the app gave
+  up permanently on its first failed load, so a moment's hiccup — the app
+  still starting, the console busy with something else — left a blank tile
+  until you navigated away and back. They retry a couple of times before
+  falling back to the controller icon. This is why covers kept breaking:
+  three screens each had their own copy of the same give-up-forever logic.
+- **Game lists come from the real database instead of a guess.** Reading
+  the console's app list meant scanning the raw file for anything that
+  looked like text, which sometimes returned a game's name glued to the
+  file path next to it. The helper now reads the database properly, so
+  names come back as names. The old scanner still covers the case where
+  the PS5 has the file locked.
+- **New: Console Play Time.** Game Activity can now show the playtime the
+  PS5 itself recorded, alongside the time this app has measured. It used
+  to report that the console couldn't provide it.
+- **New: per-game storage details.** The database behind Settings →
+  Storage can be read for any installed game, and a single entry repaired
+  when it goes wrong. That repair is guarded: the game has to be closed,
+  the entry has to already exist, and both databases are backed up first —
+  if the backup fails, the edit doesn't happen at all.
+
+---
+
+## 5.9.2
+
+**Installing is safer, and Stream install is no longer beta.**
+
+- **A failed "Upload & install" could delete the game it was replacing.**
+  The PS5 clears the old copy before writing the new one, so an install
+  that failed part-way left you with neither. Re-installing a game that
+  is already installed from PS5 storage is now refused, with a pointer to
+  Stream install instead.
+- **Stream install has left beta.** Across both test consoles and
+  packages up to 3.5 GB it worked every time, while the staged upload
+  path failed every time. It no longer hides behind a warning — and the
+  old warning's advice ("if it fails, use Upload & install") pointed at
+  the one path that can lose a game.
+- **Failed installs say so immediately.** A rejected install used to sit
+  on a spinner for ten minutes before admitting it. Installing an update
+  whose base game is missing now tells you at once, and errors the PS5
+  reports come with the fix rather than just a number.
+- **Installs tell you they finished — on the PS5 itself.** A notification
+  appears on the console when an install completes, stalls or fails, and
+  Stream install now shows its result in the Install Package view instead
+  of only in the app's notification bell.
+- **Smoother scrolling in long lists.** Game and file lists skip the work
+  of drawing rows that are off-screen.
+- Bug reports now include the console's own logs on the web build, where
+  they were silently empty, plus ShadowMount+'s log, a helper-version
+  mismatch flag and the console clock.
+
+---
+
+## 5.9.1
+
+- **"Bring to front" is gone.** Raising an already-running game had to go
+  through the PS5's launcher, and every route to it either did nothing or
+  destabilised the console UI — which then took the screen back, doing
+  the opposite of what the button promised. Press the PS button on your
+  controller instead; it always works.
+
+---
+
+## 5.9.0
+
+**Games started from the app stay on screen.**
+
+- **A game would appear, run for about twenty seconds, then drop back to
+  the dashboard.** The app misread the PS5's "launched successfully"
+  reply as a failure and quietly launched the game a second time, and
+  that second launch was what knocked the console UI over. Fixed, and a
+  game now holds the screen.
+- **A stale helper is now visible.** When the helper running on the PS5
+  is older than the app, a banner says so — the most common reason a
+  fix appears not to work is that the console is still running the old
+  one.
+- Covers show for disk images in Games and Game files.
+
+---
+
+## 5.8.0
+
+**Scrolling on Linux is smooth again, and a game that starts behind the
+dashboard can be brought forward.**
+
+- **Linux scrolling was sluggish because the app turned off graphics
+  acceleration for everyone.** Both WebKitGTK rendering workarounds were
+  applied by default to rescue a blank window on some GPU setups — but
+  one of them, disabling accelerated compositing, makes the whole page
+  render in software. That is barely noticeable on a static window and
+  very noticeable on this app's long lists. Only the targeted workaround
+  is on by default now; the heavier one is still available if you need
+  it (`WEBKIT_DISABLE_COMPOSITING_MODE=1 ./PS5Upload.sh`), and the FAQ
+  says what it costs.
+- **"Bring to front" for a running game.** Starting a game and putting
+  it on screen are separate things on the PS5, and a game started from
+  here often comes up behind the dashboard. The button appears only
+  while a title is running, and asks the console to show it. It confirms
+  first — switching to the game on the console is still the reliable
+  way, and this only works once the game has finished loading.
+- **Play no longer waits around.** It returns as soon as the game is
+  confirmed started, instead of holding on while trying to raise it.
+- Closing a game and starting one are unchanged from 5.7.x; the
+  automatic foreground attempt that briefly existed during development
+  never shipped.
+
+---
+
+## 5.7.1
+
+**Mount and Edit files stopped opening the same window, and a failed
+hand-off no longer quietly mounts the image somewhere else.**
+
+- **Mount and Edit files are now visibly different actions.** They opened
+  an identical window, which is a fair reason to think they did the same
+  thing. Worse, that shared window was misleading in both directions: with
+  ShadowMount+ running, Mount asked you to pick a mount point and then
+  discarded your choice (ShadowMount+ picks it), and Edit files offered a
+  "read-only" tickbox that contradicts the button you just pressed. Mount
+  now hands off with no dialog at all — there was never a choice to make —
+  and Edit files has its own window without the tickbox.
+- **A failed hand-off says so instead of doing something else.** If
+  ShadowMount+ owns an image and handing it over fails, the app used to
+  fall back to mounting the image itself — silently putting it somewhere
+  ShadowMount+ doesn't manage, which is the opposite of what the button
+  said. It now reports the problem and changes nothing.
+- **The web UI can hand games to ShadowMount+ again.** Writing a small
+  file to the console had no browser-mode route, so this failed every
+  time there (and, before the fix above, failed silently).
+- Deciding whether ShadowMount+ is running no longer re-probes it on every
+  click. That probe reads a 256 KB log, and a slow one was enough to send
+  a mount or a register down the wrong path — the register case races
+  ShadowMount+ for the home-screen entry.
+- The disk-images list now says what you can do with an image — mount it
+  to play, or edit it to add DLC or apply a backport — instead of leaving
+  that to be discovered by pressing something.
+- "Not seen playing" was styled as a warning via a colour token that
+  doesn't exist, so it silently had no colour at all. It's information,
+  not a warning, and now reads as such.
+
+---
+
+## 5.7.0
+
+**Pasting and adding files now merges instead of failing, Play and Close
+game both behave, and editing an image is easier to find.**
+
+- **Replacing a file that already exists works.** Pasting or adding a
+  file over one of the same name failed outright with
+  `fs_copy_dest_exists` and left you no way forward. Now you're asked
+  once, and only about the files that actually collide.
+- **Folders merge rather than replace.** Pasting a folder over an
+  existing one drops in the files you brought and leaves everything
+  else alone — copying a folder containing just `eboot.bin` into a game
+  no longer threatens the other 900 files beside it. A file still can't
+  silently replace a folder (or the reverse); that's refused.
+- **Closing a game now closes it properly.** "Close game" was falling
+  back to killing the process outright, because the API it tried first
+  can't see running apps on this firmware at all — it reported an empty
+  list with a game plainly running, and rejected the app id. It now goes
+  through the launcher's own close call, the same one the console uses,
+  and falls back only if that fails. Verified on both consoles across a
+  PS5 title, a native PS4 title, and a PS2 Classic (which runs as two
+  processes — both close from the one call).
+- **Play no longer starts a game and then minimises it.** Sony's launch
+  calls can report failure for a launch that is actually going ahead.
+  The fallback ladder believed them and fired a *second* launch at a
+  title already starting — and the shell answers a second request by
+  pushing the game to the background, which is why the game was running
+  but had to be reopened on the console. Each attempt is now confirmed
+  against the running-process list before the next one is tried. Pressing
+  Play on a game that's already running brings it to the front instead of
+  re-launching it.
+- **"Open files" in the edit banner actually opens the folder.** It did
+  nothing when you were already on the Files screen.
+- **Finishing an edit refreshes the list**, so the image reappears and
+  the edit mount disappears without a manual refresh.
+- **Editing is visible without hunting for it.** "Edit files" now sits
+  next to Mount on every disk-image row instead of hiding in the ⋯ menu,
+  which also makes the difference between the two obvious: Mount hands
+  the image to ShadowMount+ so you can play it, Edit checks it out so you
+  can change what's inside.
+- **Editing an image on a USB or external drive picks a mount point that
+  works.** It defaulted to the image's own drive, which the PS5 kernel
+  refuses to mount into. It now defaults to internal storage — the same
+  thing ShadowMount+ does with images on USB.
+- The ShadowMount+ speed tip no longer quotes a firmware range that had
+  gone stale; the Payloads library entry is the maintained source.
+
+---
+
+## 5.6.1
+
+**Fixes "Edit files…" for any game image that isn't on internal storage.**
+
+- **Editing an image on a USB or external drive failed immediately** with
+  `journal the edit session on the console: FS_WRITE_BYTES failed:
+  open_failed`. An edit session records itself on the console so an
+  interrupted edit can still be finished, and that record always lives on
+  `/data` — but the folder holding it was only ever created on the drive
+  the *image* was on. For an image on `/mnt/usb0` or `/mnt/ext1` the two
+  are different drives, so the record had nowhere to go and the edit
+  never started. Images on internal storage were unaffected, which is
+  why this got through testing.
+
+---
+
+## 5.6.0
+
+**Disk images show their real name and cover art, editing a game
+ShadowMount+ owns now works end to end, and Favorites stick.**
+
+- **Cover art and real names for disk images.** In *Games → Game files*
+  every `.exfat`/`.ffpkg` row showed a grey placeholder and a bare
+  filename like `PPSA30223.exfat`. The image itself has no readable
+  metadata — it's all sealed inside — but the console already knows the
+  title, so those rows now read *Yakuza Kiwami 3 & Dark Ties ·
+  PPSA30223* with the cover next to them.
+- **Edit a game image that ShadowMount+ is holding.** ShadowMount+
+  mounts everything read-only, and it re-attaches any image whose mount
+  disappears within about 15 seconds — so there was no safe way to open
+  one for writing. The new **Edit files…** action checks the image out:
+  it moves the image out of ShadowMount+'s scan folder, waits for it to
+  let go, and mounts it read-write where you choose. **Finish editing**
+  puts it back and ShadowMount+ re-registers it. While a session is
+  open the game is hidden from the PS5 home screen, so a banner says so
+  on the screens you'll be using.
+- **An interrupted edit is recoverable.** The checkout is recorded on
+  the console, not on your computer. If the app crashes, the console
+  reboots, or you just close the window mid-edit, the banner comes back
+  the next time you connect — from any machine — and finishing still
+  puts the image back where it belongs.
+- **Mounting an image ShadowMount+ owns no longer lies about it.** The
+  old message said the image had been "handed to ShadowMount+" without
+  mentioning that the mount point you had just chosen was discarded. It
+  now says where the image actually landed, and what to do if you wanted
+  it somewhere of your own.
+- **Favorites survive.** Pinned sidebar screens were the one preference
+  that lived only in browser storage and were never written to
+  `~/.ps5upload/settings.json`, so they were the one thing you could
+  lose. They're now saved alongside theme, language and everything else.
+- **The ShadowMount+ log panel shows recent lines.** It was reading the
+  *start* of `debug.log` rather than the end, so on a console that had
+  been up for a while it showed hours-old startup output and never the
+  event you were troubleshooting.
+
+---
+
+## 5.5.0
+
+**Uploads that can't fit are now refused before they start, big folders
+finish, and you can edit a mounted game image in place.**
+
+- **"It won't fit" is said up front, not four hours in.** The PS5 holds
+  back a large chunk of internal storage that the free-space number never
+  shows, so an upload could pass every check, run for seventeen minutes,
+  and die at 53% with a connection error that never mentioned the disk.
+  Uploads are now checked against the space actually usable, on both the
+  app and the console, and the destination picker shows **usable** space
+  instead of free space.
+- **If it does run out mid-upload, it says so.** That failure used to
+  surface as six identical "connection forcibly closed" messages. Now it
+  names the drive, the numbers, and stops retrying something that cannot
+  succeed.
+- **Folders with thousands of small files upload again.** Anything over
+  about 7,000 small files used to fail with an unreadable socket error
+  after all the data had already arrived. A 20,000-file folder now
+  completes.
+- **Edit a mounted disk image in place.** Mount an `.exfat` read-write and
+  the File Browser becomes an image editor: **Add files** copies files in
+  from your computer, and **Replace** overwrites one file keeping its name.
+  This is what lets you drop in DLC, swap assets, or apply a backport patch
+  when a game ships as an image instead of a folder. Edits are permanent
+  and there is no undo — the app now says so before you start.
+- **The sidebar is yours.** It used to assume five screens mattered to
+  everyone. Now only Home is pinned, and you star whatever you actually use
+  from **More**.
+- **Firmware 12 installs stop pretending.** The last-resort installer path
+  could report success after copying nothing at all. It is gone from the
+  automatic sequence; the app keeps your staged package and explains the
+  real error instead.
+- **Translation fixes.** "From" and "To" in the file move screens had been
+  translated as the *email* senses — German read "Mr.", Spanish "born in",
+  Japanese "start date". Several messages also showed raw `\n` and `\"`
+  instead of line breaks and quotes.
+- **The sidebar shows which version you are running**, so a bug report can
+  say so without hunting through About.
+
+---
+
+## 5.4.19
+
+**Every way an archive can be split is now recognised — including the ones
+that used to upload silently as a useless raw file.**
+
+- **`Game.7z.001`, `Game.zip.001` and friends.** These are what 7-Zip
+  produces when it splits a file. They don't end in `.zip`/`.7z`/`.rar`, so
+  ps5upload didn't see them as archives at all and sent the raw volume to
+  your PS5, where it's unusable — with no warning. Now it says so, and tells
+  you to join the volumes first.
+- **Spanned zips (`Game.z01` + `Game.zip`).** The `.zip` opens but its
+  contents live in the other volumes, which ps5upload can't read. Flagged
+  instead of half-uploading.
+- **Old-style RAR volumes (`Game.r00`).** If you pick one of these, you're
+  now pointed at the `Game.rar` that opens the whole set — one click, and
+  the rest are read automatically.
+- **Ordinary files are left alone.** A `save.2024` or `backup.1999` is not
+  a split archive, so a numeric suffix only counts when a real second
+  volume is sitting next to it.
+
+---
+
+## 5.4.18
+
+**If your parts are a mix of `.zip` and `.rar`, ps5upload now tells you
+before you spend hours uploading — instead of saying nothing.**
+
+- **Mismatched part sets are detected.** A folder holding
+  `Game.part01.zip` next to `Game.part02.rar` … `part11.rar` is two
+  different downloads, not one set. The `.zip` cannot open the `.rar`
+  volumes, so uploading it delivers only its own files and stops. Until
+  now nothing was shown at all, because the part detector only matched
+  parts that shared an extension.
+- **It tells you what's missing.** When the other parts have no first
+  volume of their own, the warning names the exact file to re-download
+  (`Game.part01.rar`) so you can fix the set and pick that instead.
+
+---
+
+## 5.4.17
+
+**A game split into `part01.zip`, `part02.zip`, … can now be queued in one
+click, instead of you uploading each part by hand.**
+
+- **"Add all N parts to the queue".** Pick part 1 and ps5upload looks in the
+  same folder for the rest of the set. If it finds them, one button queues
+  every part, in order, all going to the same destination folder so they
+  merge into one game.
+- **Why part 1 alone was never enough.** Each `.partNN.zip` is a complete,
+  separate archive holding a different slice of the game — nothing inside
+  part 1 points at part 2, so there is no way to follow them automatically.
+  Uploading part 1 really did finish; it just wasn't the whole game. That is
+  why the warning, and now the button, are there.
+- **Better bug reports.** When a multi-part set is detected it's now written
+  to the log, so a bug report shows whether the warning appeared.
+
+---
+
+## 5.4.16
+
+**A `.rar` upload no longer fails just because the archive lists its files
+in a different order than it extracts them.**
+
+- **"rar stream desynced from plan" is fixed.** Uploading a `.rar` reads it
+  twice: once to list what's inside, once to send the files. If those two
+  passes reported the files in a different order — which some archives do —
+  the upload stopped dead, even though nothing was wrong with it. Each file
+  is now matched by name instead of by position, so it goes to the right
+  place no matter what order it arrives in.
+- **A damaged or incomplete archive now says so.** Instead of a confusing
+  "desynced" message you get which files are missing, and a suggestion to
+  test-extract the archive locally first.
+- **Resuming an upload of such an archive is refused rather than risked.**
+  If the order differs, resuming could skip the wrong parts and leave a
+  broken install, so the app asks you to start again with Overwrite.
+
+---
+
+## 5.4.15
+
+**Multi-part archives, and updates that match how you installed.**
+
+- **All parts of a split game now land in one folder.** A game published as
+  `Game.part01.zip` … `Game.part06.zip` used to get a separate folder per
+  part — `…part01/`, `…part02/` — scattering one game across six
+  directories so it couldn't launch. The part number is now dropped from
+  the folder name, so every part unpacks into the same place.
+- **The app tells you when an archive is one of several.** Pick
+  `Game.part03.zip` and it now says "This is part 3 of 6" and explains that
+  each part is its own archive and must be uploaded too. Previously the
+  upload finished, said nothing, and only some of the game was there. This
+  is only shown for `.zip`/`.7z` sets — a multi-part `.rar` really does pull
+  its other volumes in on its own, and still does.
+- **Updates now offer the same package type you installed.** If you
+  installed the `.rpm`, the updater offered a `.zip` you couldn't install
+  with your package manager. It now checks which package owns the running
+  app and offers the matching `.rpm` or `.deb`, falling back to the
+  portable download for an unpacked copy.
+
+---
+
+## 5.4.14
+
+**Large `.zip` uploads no longer die while your PC is still decompressing.**
+
+- **Big zip entries could stall the transfer for minutes, then fail.** The app
+  used to fully decompress each large file inside a `.zip` before sending any
+  of it. The console treated that silence as a dead connection and dropped the
+  upload after about two minutes — so live speed looked like a crawl even when
+  Activity later showed a healthy average from a short burst. Large zip
+  members are now streamed as they decompress (same idea as `.7z`), and the
+  console keeps the transfer socket alive for much longer once an upload has
+  started.
+- **Activity speed labels are clearer.** Running rows say “live”; finished
+  rows still say “avg”. Tiny jobs that finish in a blink no longer show absurd
+  multi‑GB/s averages.
+
+---
+
+## 5.4.13
+
+**Big uploads no longer get killed by the app's own reconnect.**
+
+- **A large upload could restart forever and never finish.** While an upload
+  is saturating the console, the app's background health check can start
+  timing out — the console is too busy to answer. The app took that as "the
+  helper has died", pushed a fresh helper to the console, and that in turn
+  killed the upload that was running perfectly well. The upload started over,
+  saturated the console again, and the whole thing repeated. One report
+  showed 132 GB sent for a 20 GB game that never arrived. The app now never
+  reloads the helper while an upload to that console is in progress.
+- **The health check no longer competes with your upload.** While files are
+  moving, the app takes that as proof the console is alive instead of
+  interrupting to ask — so it stops adding traffic to a console that is
+  already busy. If the transfer genuinely stalls, it checks properly again.
+- **A busy console is no longer mistaken for a missing one.** During an
+  upload the app now waits a full minute of silence before reporting the
+  helper as down, instead of twenty seconds.
+
+---
+
+## 5.4.12
+
+**When the console refuses an uninstall, the app now says so.**
+
+- **An uninstall the console rejected was reported as success.** The helper
+  asks the PS5's own uninstaller to remove a game; if the console refused,
+  that refusal was written to a log file and nowhere else, so the app
+  cheerfully reported the game as uninstalled while it stayed in Settings →
+  Storage. The refusal, and the console's reason code, are now returned and
+  logged. Found while chasing a real case where a game could not be deleted
+  and every attempt looked like it had worked.
+- **You can now snapshot the console's content databases.** These two files
+  are the console's record of what is installed, and they can drift from
+  what is actually on the drives — which is how a game with no files left
+  can still sit in Storage refusing to be deleted. Taking a copy before
+  changing anything turns a bad repair into one you can undo.
+
+---
+
+## 5.4.11
+
+**Changing a console's IP address sticks.**
+
+- **Typing a new address and pressing Check snapped back to the old one.**
+  The address box was only updating its own copy of the address, while the
+  console list — which is what actually decides which PS5 is selected — kept
+  the previous one and put it back a moment later. Committing an address now
+  changes the selected console itself, so it stays changed.
+  ([#276](https://github.com/phantomptr/ps5upload/issues/276))
+- **A check could report success against an address your PS5 no longer
+  had.** When the address snapped back, the app restored that console's
+  last-known state along with it — firmware, helper status, "already
+  checked" — so it looked like the new address had been verified when
+  nothing had been contacted.
+- **Pointing a console at a new IP no longer keeps the old console's
+  details.** Its remembered firmware and helper version are cleared, and an
+  automatic name follows the new address instead of still reading
+  `PS5 (192.168.1.10)` while pointing somewhere else. A name you chose
+  yourself is left alone.
+- **Typing an address that belongs to another console you've already added
+  now switches to it,** rather than leaving two entries pointing at the same
+  PS5.
+
+---
+
+## 5.4.10
+
+**Folder uploads in the browser no longer look stuck on "Starting…".**
+
+- **Uploading a folder from the self-hosted web UI (Docker) appeared to
+  hang.** The button sat on "Starting…" and nothing else happened. The
+  engine was reading through the whole folder before it told the app the
+  upload had begun, and until that finished the app had nothing to show and
+  no way to cancel. On a big game folder — especially one mounted into a
+  Docker container, where reading file details is far slower — that is
+  minutes of looking frozen. The upload now registers immediately and
+  reports progress while the folder is still being read, matching what
+  Resume-style folder uploads already did. ([#275](https://github.com/phantomptr/ps5upload/issues/275))
+- **A folder that doesn't exist now reports a proper error** instead of
+  failing the request outright.
+- Updated `sevenz-rust2` and `mdns-sd`.
+
+---
+
+## 5.4.9
+
+**Typing an address works properly, stalled uploads recover, and every
+language is complete.**
+
+- **Typing a console address no longer fights you.** Each keystroke was
+  treated as switching to a different console, so the screen reset itself
+  mid-word: the text box lost focus and the scene-tools strip jumped back
+  to "Probing scene tools…". You can now type the whole address normally.
+  It is applied when you press Enter, press Check, pick a console from
+  Discover, or click away from the box.
+- **A half-typed address is no longer looked up.** An unfinished address
+  like `192.168.0.` was treated as a host name and sent off for a DNS
+  lookup that took ten seconds to give up. The strip now waits until the
+  address is actually complete.
+- **An interrupted upload resumes instead of giving up.** A recoverable
+  hiccup could be hidden behind an unrelated error and read as fatal, so
+  the whole upload was abandoned when it could have carried on.
+- **.zip, .7z and .rar uploads get the same second chances as everything
+  else.** They were capped at two quick retries, spent inside the first
+  second and a half, so a brief Wi-Fi drop ended the transfer with
+  "gave up after 2 retries".
+- **A failed attempt now says what actually went wrong,** instead of a bare
+  "write frame split" with the real cause stripped off.
+- **The finished-upload notice can be dismissed.** It used to sit there
+  until the next transfer.
+- **All 18 languages are complete.** 130 phrases — the Health Check screen,
+  the disclaimer, Fakelib, the SDK version changer, Remote Play checks and
+  more — were still showing in English in every language. They had been
+  parked on a list of known gaps, so nothing complained. They are now
+  translated and that list is empty.
+- **Bengali: the "Close" button was showing corrupted text.**
+
+---
+
+## 5.4.8
+
+**Cancel really cancels, and a console can be reached by name.**
+
+- **Cancelling an upload stops it.** If you hit Cancel while the upload was
+  still being set up — the window is longest for a `.rar`, where the whole
+  archive is read through before the transfer starts — the transfer went
+  ahead anyway. Free space on the console kept shrinking, and closing the
+  app was the only way to stop it. Cancel now takes effect no matter when
+  you press it, and a cancelled upload is never quietly retried.
+- **You can use a host name instead of an IP address.** Typing something
+  like `ps5.lan` never worked: the address was only ever read as a literal
+  IP, so nothing could connect and the app reported the console as not
+  running the helper. Names now resolve, and IPv4 is preferred so a stale
+  IPv6 record doesn't slow every connection down.
+- **A failed connection check says why.** "Port 9021 is not open" now comes
+  with the actual reason, so a name that didn't resolve reads differently
+  from a console that isn't ready yet.
+- **The scene-tools strip no longer shows the previous console's tools.**
+  After switching address it kept the old results on screen until the new
+  check finished.
+
+---
+
+## 5.4.7
+
+**Play time is counted more honestly.**
+
+- **"Times played" no longer climbs on its own.** Reloading the helper while
+  a game was running counted as a fresh launch, so the number crept up with
+  no relation to how often you actually started the game. It now counts only
+  launches it saw happen.
+- **A game already running when the helper starts is shown.** It appears
+  straight away with its time counting up, instead of being invisible until
+  you quit it.
+
+---
+
+## 5.4.6
+
+**Fixes game detection, which 5.4.5 broke — and makes Game Activity work.**
+
+- **Games are identified correctly again.** 5.4.5 changed how the helper
+  reads a game's ID and got it wrong, so IDs came back with the first four
+  characters missing. Anything that asks "which game is this?" was affected:
+  the process list, cheats, and play-time tracking. Reverted and checked
+  against two consoles.
+- **Game Activity records play time.** Verified on a real game: launches,
+  seconds played, and a live "playing now" marker.
+- **Game Activity knows what you're playing right now.** The screen asked
+  the console for the current game and the console never answered, so it
+  could not tell a session in progress from a finished one.
+
+---
+
+## 5.4.5
+
+**A new screen for editing game images, and a quieter log.**
+
+- **New: Edit Game Image.** Open a `.exfat` or `.img` game image as a drive
+  on your computer, so you can replace patch files or change details inside
+  it with your normal tools, then eject it when you're done. Your operating
+  system does all the writing — ps5upload never modifies the image itself.
+  macOS and Linux for now; Windows needs an extra driver and says so.
+- **The log no longer fills up when a console is off.** A console that isn't
+  switched on was reported once a second, forever, burying everything else.
+  It now reports once, stays quiet, and says when the console comes back.
+
+---
+
+## 5.4.4
+
+**Fixes the console never reporting which game is running.**
+
+- **Play time, cheats and the process list can see your games again.** The
+  helper asked the console "which game is this?" using a slightly wrong
+  memory layout, and got an empty answer back every single time. Three
+  features quietly depended on that answer:
+  - **Game Activity** recorded nothing, because it never saw a game start.
+  - **Cheats** could not tell which game was running.
+  - **Processes** showed no game IDs.
+
+  All three share one cause and one fix.
+
+---
+
+## 5.4.3
+
+**Game Metadata works again, and finding cheats is much easier.**
+
+- **Game Metadata: fixed "Invalid format".** Picking one of your installed
+  games looked up an ID one part short of what the console wanted, so every
+  lookup failed. Both the app and the console now accept the shorter form.
+- **Cheats: pick your game from a list.** The cheat browser now shows the
+  games installed on your console. Click one and it finds cheats for it —
+  no need to know or type a game ID.
+- **Cheats: fixed downloads from two of the three sources.** Every download
+  was requested from the first source regardless of where the cheat was
+  found, so anything only available in the other two could not be
+  installed.
+
+---
+
+## 5.4.2
+
+**Fixes uploading from a folder in the browser / Docker version.**
+
+- **Choosing a folder no longer breaks the upload screen.** In the web UI
+  and Docker builds, picking a folder failed with an error and stopped the
+  upload before it started. The screen was trying to show the game's cover
+  image using a feature that only exists in the desktop app. It now simply
+  leaves the cover out there, and the upload works normally.
+
+---
+
+## 5.4.1
+
+**Clearing things out, and a quieter, cleaner build.**
+
+- **Clear your PS5 notifications.** The Notifications screen now has a
+  Clear all button. These are messages ps5upload put on your TV and keeps
+  its own list of, so clearing really does empty it.
+- **Reset recorded play time.** Game Activity can now be reset, with a
+  confirmation that says plainly it cannot be undone. Your console's own
+  records are not touched.
+- **Cheats are easier to use.** The download button was a tiny unlabelled
+  icon that was easy to miss. It is now a clear Install button that says
+  what it does, and shows Installed when it is done. Entries from one
+  source were also showing a blank name; they now show the title id.
+- **Switching consoles no longer carries anything across.** Picking a
+  different PS5 now starts every screen fresh, so one console's results
+  can never appear under another's name.
+- Fixed build warnings in the Android app.
+- Fixed a problem where running the tests could send requests to a
+  running console helper.
+
+---
+
+## 5.4.0
+
+**A new Health Check screen, and a fix for a crash that could shut your
+console down.**
+
+- **New: Health Check.** One screen that tells you whether your console and
+  this app are set up correctly and working. It checks the connection, the
+  helper, storage, system settings and Remote Play, and puts a Fix button
+  next to anything it can repair for you. Where something genuinely cannot
+  be checked on your firmware, it says so rather than pretending it passed
+  or failed.
+- **Clean up leftover files.** Health Check finds unfinished files left
+  behind by interrupted transfers and offers to delete them. It shows you
+  the exact list and total size first, and only ever touches its own
+  folders.
+- **Fixed a crash that could shut the console down.** Opening the Profile
+  screen while Remote Play was being checked in the background could crash
+  the console and force a restart. Two things were talking to the same part
+  of the system at once; they now take turns.
+- **Play-time totals can no longer be lost.** If the console ran out of
+  space while saving, the file was replaced with an incomplete one and every
+  recorded total was gone. It now leaves the previous file alone if the save
+  does not fully succeed.
+- **One of the built-in cheat sources returned nothing.** It was looking in
+  the wrong place, so it silently contributed no results. It now works, and
+  roughly doubles the number of cheats you can find.
+- **Remote Play works.** It never has: the helper called one of Sony's
+  functions the wrong way and gave up before it started. You can now pair
+  a device from the Remote Play screen and get a PIN.
+- **The Remote Play screen tells you what's missing.** Instead of an error
+  code, you get a short checklist — signed in, account activated, Remote
+  Play on, and (on firmware 10.00 and later) allowed for your user — with
+  a button next to anything it can fix for you.
+- **Date and time settings work again.** The console's timezone and clock
+  format were always blank. Same underlying cause as Remote Play: the
+  helper could not read the console's settings at all.
+- **`.rar` uploads no longer need free space on your PC.** A `.rar` used to
+  be extracted in full before anything was sent, so a 180 GB game needed
+  180 GB free on top of the archive. It is now decompressed and sent at the
+  same time, exactly like `.zip` and `.7z` — nothing is written to your disk
+  at all.
+- Because of that, the `FTX2_ARCHIVE_STAGE_MB` setting is gone. It is no
+  longer needed; you can delete it if you set it.
+- A failed `.rar` upload can no longer leave a part-extracted folder behind,
+  because there is no longer anywhere for one to be left.
+- **Added a disclaimer.** This is research and homebrew software for
+  consoles you own, provided as is, and you take responsibility for what you
+  do with it. See DISCLAIMER.md.
+
+Verified on two consoles — firmware 5.10 and 9.60 — including the crash
+fix, the health checks, and a real 9-volume, 127 GB password-protected
+archive (181 files, every name and size matching).
+
+---
+
+## 5.3.3
+
+**Fixes the Docker images, which 5.3.2 broke.**
+
+- The `ps5upload-engine` Docker images failed to build in 5.3.2. If you
+  run the engine in Docker, 5.3.2 has no image — use this release
+  instead. Everything else in 5.3.2 was unaffected.
+
+---
+
+## 5.3.2
+
+**`.rar` uploads now show the game's real name — and a memory-safety bug in multi-part handling is fixed.**
+
+- **Fixed a memory-safety bug that affected every multi-part `.rar`.** The
+  library ps5upload uses to read RAR files misreads memory each time it
+  moves from one part to the next — reading about 8 KB out of a buffer far
+  smaller than that. In practice it usually got away with it, but it could
+  crash at any point during a multi-part upload. The library has no fixed
+  version available, so ps5upload now carries a corrected copy.
+
+- **A `.rar` upload finally identifies the game inside it.** It used to
+  show no title at all and land in a folder named after the archive — so a
+  game arrived as `[DLPSGAME.COM]- 01.021 PPSA23226` instead of its actual
+  name. `.zip` uploads had always read the title properly; `.rar` simply
+  never looked. It now reads the same file `.zip` does, so you get the
+  title, title ID and content ID before the upload starts. Verified on a
+  real nine-part, 127 GB archive, where it resolves in about a tenth of a
+  second.
+
+---
+
+## 5.3.1
+
+**A big `.rar` that fills your PC's disk now says so — before it wastes your time.**
+
+- **Uploading a large `.rar` no longer fails five minutes in with "Write
+  error".** A `.rar` is extracted on your PC before being sent, and a big
+  game can need far more free space than people expect — one 180 GB game
+  needed 180 GB of temporary space on top of the archive itself. ps5upload
+  now checks before it starts, and if there isn't room it says how much is
+  needed, how much you have, and what to do about it. If a disk fills up
+  part-way anyway, the error now names the real cause instead of just
+  saying "Write error".
+- **A failed upload no longer leaves tens of GB behind.** On Windows the
+  temporary folder sometimes couldn't be deleted because a file was still
+  in use, silently keeping the space. It now retries, and if it still
+  can't, it tells you the folder to delete.
+- **The helper's log no longer drowns out its own errors.** Routine
+  connection checks were each writing an error line — over 8,000 identical
+  lines in one report, which pushed out every genuinely useful message.
+  Those are now silent; real truncated transfers are still logged.
+- Log lines from different parts of the helper no longer get spliced
+  together into unreadable text.
+
+---
+
+## 5.3.0
+
+**Two ways the console could crash, fixed — and RAR uploads that don't fill up your PC.**
+
+- **The helper no longer shuts down your console's system UI.** Reading a
+  temperature goes through the PS5's system UI, and if that took too long
+  — most likely when a game had been running for hours — the helper would
+  shut it down, leaving you with a black screen and pulling the power
+  cord. This is the most likely cause of the 5.2.1 lockup reports on
+  firmware 12.40. It has not been reproduced on hardware, so it is a
+  strong suspect rather than a confirmed fix.
+- **Renaming a file between two drives over FTP no longer crashes the
+  console.** On the PS5 this kind of rename takes the whole system down
+  instead of just failing. It is now refused with a clear message — copy
+  the file and delete the original instead.
+- **Multi-part RAR uploads tell you which part is missing**, by name,
+  instead of repeating advice you may have already followed.
+- **RAR uploads can use far less disk space on your PC.** A `.rar` used to
+  be extracted in full before anything was sent, so a 100 GB game needed
+  100 GB free. Setting `FTX2_ARCHIVE_STAGE_MB=4096` on the engine sends it
+  in ~4 GB batches instead. Off by default — the original way is still
+  better on a slow or unreliable connection, because only it can resume
+  anywhere in the archive.
+- **New FAQ answers**: moving a save between two consoles, "Port 9021 is
+  not open", PS4 update packages that won't install, and the new FTP
+  rename message.
+- Dependency updates.
+
+---
+
+## 5.2.1
+
+**Fixes for things that could freeze or mislead you.**
+
+- The built-in FTP server no longer freezes the console. Stop now really
+  stops it, even mid-transfer.
+- `df` in the Shell screen returned broken output and took the payload
+  down with it. Fixed.
+- Folder upload works in the browser/self-hosted web UI again, not just
+  the desktop app.
+- Installed Apps shows real game names on consoles that were only showing
+  title IDs.
+- Package installs restore the main payload afterwards, so the console
+  does not appear to go offline.
+- The package installer no longer looks dead while it is still starting
+  up on firmware 10.40.
+- SDK Changer is safer with your game files and clearer about what it
+  changed — and it says when a title is encrypted and cannot be patched.
+- Sundry hardening around SMB staging and shell input.
+
+---
+
+## 5.2.0
+
+**Clearer failures, working FTP, and NAS → PS5 upload.**
+
+- Actions that the console refused now show a real error instead of looking
+  like nothing happened (FTP start, backups, user create/delete, and more).
+- Built-in FTP server no longer freezes the console on the first real
+  transfer; default port is 2122 so it does not clash with ftpsrv.
+- Game Activity and Game Metadata read titles from the console again
+  (no broken store scrape).
+- SMB browser can upload a file or whole folder from your NAS straight to
+  the PS5 in one step (stage on the PC, then FTX2).
+- Backport helpers: Fakelib manager, BPS patches, and SDK Changer fixes so
+  “patched” means something actually changed.
+- SDK Changer uses real firmware numbers (BCD) and reports signed SELFs
+  it cannot touch.
+
+---
+
+## 5.1.8
+
+**Clear package choices and a safer Stream fallback.**
+
+- Groups each game's base, updates, and DLC while keeping every uploaded
+  variant visible and selectable per console.
+- Shows the original filename, source location, upload time, and PS5 location.
+- Diagnoses Stream HTTP/proxy failures and offers one-click staged installation.
+- Routes staged DLC through the verified installer path to prevent false success.
+
+---
+
+## 5.1.7
+
+**Reliable package installs with multiple updates and DLC.**
+
+- Keeps base games, multiple patch variants, and DLC side by side without
+  overwriting staged files.
+- Prevents conflicting same-version patches from being installed as a batch
+  and shows which exact package is installed.
+- Fixes duplicate drag-and-drop uploads and older-firmware package-path errors.
+- Restores Stream install on capable firmware and reports console HTTP/proxy
+  failures with a staged-install fallback.
+
+---
+
+## 5.1.6
+
+**Updated the PS5 build toolchain.**
+
+- Builds the main payload and package installer with PS5 Payload SDK v0.42.
+- Keeps local setup, pull-request checks, and release builds on the same
+  checksum-verified SDK version.
+- Fixes SDK upgrades and LLVM detection on macOS.
+- Restores the package-installer helper in release bundles.
+
+---
+
+## 5.1.5
+
+**nanoDNS 0.3 and 0.4 compatibility.**
+
+- Detects the loaded nanoDNS version from its runtime log and keeps 0.3 in
+  legacy-safe mode.
+- Adds nanoDNS 0.4 controls for quiet mode and IPv6.
+- Safely updates old configs without deleting custom rules, comments, paths,
+  or resolvers, and corrects the old Yandex.DNS address.
+
+---
+
+## 5.1.4
+
+**A stability hotfix for the 5.1 release.**
+
+- Restores clear, labeled desktop navigation and direct access to package
+  installation.
+- Prevents timeout recovery from leaving the PS5 interface unresponsive.
+- Makes package installation status reliable and keeps staged packages until
+  completion is confirmed.
+- Improves telemetry and task handling across multiple consoles and transfers.
+- Includes dependency updates and expanded regression coverage.
+
+---
+
+## 5.1.3
+
+Same contents as 5.1.2, re-cut. The 5.1.2 tag itself was left in a
+half-synced state by the very bug 5.1.2 was fixing — the lockfiles were
+corrected but not included in the release commit — so its own build
+check failed after the fact. 5.1.3 is the clean one. Downloads from
+5.1.2 work fine; there's nothing wrong with the app in either.
+
+---
+
+## 5.1.2
+
+**Build and release plumbing. Nothing changes in the app itself — if
+you're on 5.1.1 there's no need to update.**
+
+Two checks turned out to cover less than they appeared to:
+
+- The version-sync step updated every version-bearing file except the
+  two `Cargo.lock` files, which also record a version for each of our
+  own crates. Nothing failed loudly, so the symptom was that a freshly
+  released tree went dirty the moment anyone built it. 5.1.1 shipped
+  that way; this release carries the correction.
+- Continuous integration checked formatting on the engine but never on
+  the desktop app, so a handful of files there had drifted. Reformatted,
+  and the check now covers both.
+
+---
+
+## 5.1.1
+
+**A console-freeze fix, and every language is now genuinely complete.**
+
+### The app can no longer hang your console
+
+When ps5upload reads certain console state, it briefly attaches to a
+system process and waits for it to answer. That wait had no time limit.
+If the console didn't answer — which can happen on some firmware — the
+payload sat there holding that process open, and the console locked up
+until you cut the power.
+
+Every one of those waits now gives up after ten seconds and releases the
+process cleanly. This is the fix for the freeze reported on 5.0; if you
+were holding off on updating, this is the release to take.
+
+### The search box is on tablets too
+
+5.1.0 said the "More" screen had a search box. On phones it did. On
+tablets and desktop the old sidebar was still being shown, so it didn't.
+Both now use the same screen, so search works everywhere.
+
+### Empty readings say why they're empty
+
+The power telemetry panel showed four blanks whether your firmware
+doesn't expose those sensors, or the reading genuinely failed. It now
+tells you which, so you're not left guessing whether something is broken.
+
+### All 18 languages are actually finished
+
+Every language reported "100% translated" — but the check only asked
+whether a phrase was *present*, not whether it had been *translated*.
+Roughly 300 phrases per language were sitting there as untouched
+English. All of them are now translated, and the check was rebuilt so
+this can't quietly happen again.
+
+Also fixed: five English phrases that displayed literal nonsense like
+"5 rule5" and "Save 3 edit3" instead of counting properly.
+
+---
+
+## 5.1.0
+
+**Mobile got a proper rethink, and a long-standing hardware bug is
+fixed.**
+
+### Drive sensors actually report your storage
+
+The Hardware screen showed 0 B for every drive — internal SSD, M.2
+expansion and USB alike. The console was sending the numbers all along;
+the app was reading them under the wrong names and quietly throwing them
+away. It now shows real capacity, usage and temperature.
+
+If you have a console still running an older payload, it keeps working —
+no need to re-send anything by hand.
+
+### The "More" tab on Android is a real screen now
+
+It used to be the desktop sidebar squeezed into a pop-up sheet: a narrow
+column stranded in the middle of the screen, tiny tap targets, and two
+scrollbars fighting each other.
+
+It's now a full screen with a **search box** — type a few letters to jump
+to any of the 38 screens. Search also matches the English name, so it
+works whatever language you use the app in. Your console switcher stays
+pinned at the top, and the Android back button behaves normally.
+
+### Everything is easier to tap
+
+Buttons, switches, checkboxes, tabs and dropdowns across every screen
+were below the recommended minimum touch size — most of them by just a
+few pixels, which is exactly enough to make them annoying. All 41 screens
+were measured at phone size and fixed. Desktop is unchanged.
+
+### The Game Hub is finished
+
+Launch actually launches, and the Play button stays disabled until the
+game is really up, so a second tap can't kill a title that's still
+starting. The Cheats, Saves, Add-ons and Updates tabs are live. Media
+explains why per-game filtering isn't possible (the PS5 files captures by
+date, not by game) and links you to the full browsers.
+
+### Translations
+
+The 152 most-used strings — navigation, Game Hub, More, Processes, FTP,
+Backup, accessibility settings — are now translated in all 18 languages
+instead of falling back to English.
+
+---
+
+## 5.0.0
+
+**The v5 redesign is here.** This release delivers the complete v5
+component primitive library — all 28 primitives from the master spec
+are now implemented — plus Badge adoption across 8 screens.
+
+### New component primitives (6 new)
+
+- **`Table` / `DataGrid`** (§22.13) — WAI-ARIA Grid pattern with
+  arrow-key cell navigation, sortable headers, selectable rows,
+  sticky header, and progressive-render virtualization (no new
+  dependency). Full keyboard support: arrows, Home/End, Ctrl+Home/End.
+- **`ContextMenu`** (§22.16) — right-click (desktop) / long-press
+  (mobile) menu. Portaled to `document.body`, viewport-clamped,
+  WAI-ARIA Menu pattern with arrow keys, type-ahead, Home/End.
+- **`Spotlight`** (§22.21) — Games-tab hero overlay. Full-screen on
+  mobile, large panel on desktop. Blurred backdrop from game icon.
+  Focus trap, Escape-to-close, primary + secondary action bar.
+
+### Evolved primitives (3 evolved)
+
+- **`Modal`** (§22.26) — new `size="full"` for fullscreen modals,
+  new `variant="sheet"` for bottom-sheet-on-mobile / centered-on-
+  desktop. New `anim-sheet-up` CSS animation with proper reduced-
+  motion / data-motion guards.
+- **`Menu`** (§22.27) — new primitive with full WAI-ARIA Menu
+  keyboard nav (arrows, type-ahead, Home/End, Escape). `OverflowMenu`
+  now wraps `Menu` internally — all existing overflow menus gain
+  proper keyboard navigation for free.
+- **`EmptyState`** (§22.29) — new `body` (ReactNode), `hero`,
+  `role` ("status" / "alert"), and `headingTag` props. `min-height`
+  fixed to canonical 55vh (was the 72vh v4 bug). Full backward
+  compat with the v4 `icon` / `message` props.
+
+### Badge adoption (8 screens)
+
+Migrated 13 raw `<span className="rounded-full …">` pills to the
+typed `<Badge>` primitive across About, Activity, InstallPackage,
+Processes, Profile, Volumes, and Payloads (CatalogPanel +
+PlaylistsPanel). Badges now use consistent semantic tones (good,
+warn, accent, neutral) and variants (soft, outline).
+
+### i18n
+
+- 3 new translation keys: `table_select_all`, `table_select_row`,
+  `table_loading_more`.
+- i18n allowlist regenerated for 18 languages.
+
+### What's NOT in this release
+
+- **Card adoption** — 249 raw `rounded-lg border …` card patterns
+  still exist across screens (Upload, FileSystem, Library are the
+  top offenders). Deferred to a follow-up mechanical refactor.
+- **MC4 encrypted XML cheat format** — still requires AES-256-CBC.
+- **PS Store scraping** — still broken (client-side rendering).
+
+---
+
+## 4.6.1
+
+Hotfix release — eliminates 7 compiler warnings that appeared when
+building `ps5upload-core` for the Android target (aarch64-linux-android).
+No user-visible behavior changes.
+
+- **Fixed: Android-target dead-code warnings** — three helper functions
+  (`format_from_index`, `parse_index_line`, `cheat_install_path`) and
+  four variables (`q`, `repo`, `filename`, `region`) were only
+  referenced inside `#[cfg(not(target_os = "android"))]` blocks, making
+  them dead code on Android. All are now properly cfg-gated. The
+  engine workspace, desktop crate, and Android target now all compile
+  with **zero warnings**.
+
+---
+
+## 4.6.0
+
+Maintenance release — CI gate fixes, code hygiene, and dependency
+health. No user-visible behavior changes; this release supersedes the
+v4.5.0 artifacts that were published from a commit failing the i18n
+and rustfmt gates.
+
+- **Fixed: i18n coverage gate** — 55 `tr()` call-site keys that were
+  referenced in code but missing from `en.ts` have been added. Without
+  them, those strings rendered their English fallback for every locale
+  (including non-English) and could never be translated. The
+  `i18n-known-missing.json` allowlist was regenerated in the explicit
+  `{missing, stale}` object form so stale-key tracking works going
+  forward.
+- **Fixed: cargo fmt gate** — 8 engine source files reformatted
+  (`cargo fmt --all`). Purely cosmetic (line wrapping, module
+  ordering); zero logic changes.
+- **Fixed: Dependabot alerts** — all open Rust crate vulnerabilities
+  (openssl, rustls-webpki, lz4_flex, bytes, rand, time, glib) are now
+  resolved in the lockfiles.
+
+---
+
+## 4.5.0
+
+Android & mobile UX release — comprehensive touch device fixes,
+soft-keyboard handling, fan curve persistence, and accessibility
+improvements across the entire app.
+
+- **Fixed: fan curve now loads from the PS5 on screen open** — the
+  FanCurve screen fetches the persisted threshold via a new
+  `fan_curve_get` engine command on mount, so you see the actual saved
+  curve instead of defaults. A persistence info banner communicates
+  that the curve survives reboots and rest mode.
+- **Soft-keyboard avoidance** — added `interactive-widget=resizes-content`
+  to the viewport meta, switched all modal/sheet max-heights from `vh`
+  to `dvh`, and added a `visualViewport` listener that scrolls the
+  focused input into view when the keyboard appears. No more hidden
+  text fields behind the on-screen keyboard.
+- **Numeric keyboard hints** — all numeric inputs (ports, temperatures,
+  fan duty, speed caps, counts) now have `inputMode="numeric"` or
+  `"decimal"`, and all IP address fields have `inputMode="decimal"`.
+  Android shows the numeric keypad instead of the full alphabet.
+- **Fixed: Toggle no longer distorted on touch devices** — the global
+  44px touch-target rule was stretching the Toggle switch into a tall
+  rectangle. The CSS now excludes `role="switch"` and properly targets
+  `role="tab"`, `role="menuitem"`, `role="option"`, etc. instead of
+  blindly catching every `<button>`.
+- **Minimum text size enforced** — all sub-12px text bumped to `text-xs`
+  (12px). Bottom nav labels, badges, hints, section headings, and
+  metadata text are now comfortably legible on mobile.
+- **Reactive responsive tier** — Sheet and Drawer components now use the
+  `useResponsiveTier()` hook instead of a one-shot `matchMedia` check,
+  so they respond correctly to orientation changes and window resizing.
+- **Accessibility: aria-labels on icon buttons** — all icon-only buttons
+  in PlaylistsPanel, NotificationInbox, and ConsoleTabs now have proper
+  `aria-label` attributes for screen readers.
+
+---
+
+## 4.4.0
+
+UI modernization release — redesigned navigation, 28 reusable UI
+components, full i18n compliance, accessibility infrastructure, and a
+unified visual language across every screen.
+
+- **New 5-tab navigation** — Home, Games, Files, Console, Tasks. The old
+  40-item sidebar is now a clean tab rail (desktop) and bottom nav
+  (mobile), with secondary destinations in a "More" drawer.
+- **Home dashboard** — new landing page with console status, quick
+  actions, recent activity, storage, and telemetry widgets.
+- **28 UI component primitives** — Spinner, Badge, ErrorCard, EmptyState,
+  Callout, Card, Tabs, Tooltip, Drawer, Sheet, Toaster, LiveRegion,
+  SkipNav, and more. All screens now use a shared design system instead
+  of ad-hoc markup.
+- **Unified loading & error states** — every screen's spinner and error
+  display now uses the centralized `Spinner` and `ErrorCard` components
+  for consistent visual feedback and screen-reader announcements.
+- **Full i18n compliance** — all hardcoded UI strings migrated to the
+  translation system. Zero lint errors from the `no-untranslated-jsx`
+  rule.
+- **Accessibility infrastructure** — WCAG 2.2 AA groundwork: skip-nav,
+  live regions, reduced-motion support, 44px touch targets, keyboard
+  navigation, and focus management.
+- **Mobile groundwork** — pull-to-refresh, bottom tab nav, back-stack
+  support, and haptic feedback hooks.
+- **Engine fix** — `cheats.rs` compile fix for Android (NDK rustc type
+  inference).
+
+---
+
+## 4.3.2
+
+Version-number fix — the v4.3.0 and v4.3.1 releases shipped code fixes
+but forgot to bump the version strings in the desktop app, engine, and
+payload. This release aligns all version numbers across every component.
+
+- **Fixed: all version strings now report `4.3.2`** — `package.json`,
+  `tauri.conf.json`, both `Cargo.toml`s, `VERSION` file,
+  `package-lock.json`, and the payload's `PS5UPLOAD2_VERSION` define.
+- **Includes all v4.3.1 fixes** (cheat engine crash fix).
+
+---
+
+## 4.3.1
+
+Critical cheat engine crash fix.
+
+- **Fixed: cheat engine payload crash.** The `cheat_file_t` struct was
+  ~1.1 MB and was allocated on the stack in 5 functions. The PS5
+  payload thread stack is too small for this, causing an immediate
+  stack overflow and payload crash whenever any cheat endpoint was
+  called (`/cheats/get`, `/cheats/toggle`, etc.). All 5 stack
+  allocations were changed to heap (`malloc`/`free`), and the struct
+  limits were reduced (`MAX_MODS_PER_FILE` 256→64, `MAX_MEM_ENTRIES`
+  64→32).
+- **Stress-tested: 42,000+ commands across two PS5s with zero crashes.**
+
+---
+
+## 4.3.0
+
+Major feature release — cheats, SDK changer, FTP, TMDB, fan curves,
+firmware spoofing, backup/restore, remote play, and more.
+
+- **Cheat engine** — Download, toggle, and apply cheats from
+  GoldHEN/etaHEN repositories. Supports JSON, SHN, and MC4 formats.
+  Background watcher auto-applies patches when a game starts.
+- **SDK Changer** — Scan installed titles and patch/restore the SDK
+  version in `param.sfo`. Includes restore-from-backup.
+- **FTP server** — Full FTP server on the PS5 with `SITE MTRW` support
+  for remounting system partitions read-write.
+- **TMDB integration** — Fetch and store game cover art and metadata
+  from TMDB. Region selector for accurate results.
+- **Fan curve control** — Custom fan curve with temperature/duty
+  points. Persisted across reboots.
+- **Firmware spoofing** — View and spoof the reported firmware version.
+- **Backup/restore** — Snapshot, list, restore, and delete system
+  backups.
+- **Remote Play** — Enable/disable and check Remote Play status.
+- **Notifications** — List persistent notifications.
+- **Activity log** — Transfer log (renamed from "Activity") tracks all
+  file operations with DB query support.
+- **Docker & Android builds** — Engine runs in Docker; full Android
+  build support.
+- **FTP thread persistence fix** — Stopping FTP (`port:0`) before
+  redeploying the payload prevents zombie threads.
+
+---
+
+## 4.1.8
+
+Dependency maintenance + security hardening from full codebase audit.
+
+- **Upgraded: docker/login-action v4 → v4.5.2** (CI workflow).
+- **Upgraded: mdns-sd 0.20.2 → 0.20.3** (Tauri mDNS discovery).
+- **Upgraded: lucide-react 1.26.0 → 1.27.0** (icon library).
+- **Upgraded: eslint 10.7.0 → 10.8.0** (dev dependency).
+- **Security: replaced `rm` command's broken path normalizer with
+  `is_path_allowed()`.** The old code had a logic bug in its
+  `/./` collapsing logic (the `while` condition was tautological)
+  and an incomplete banned-prefix list missing `/system_data` and
+  `/dev`. A path like `/data/../system_ex/foo` could bypass the
+  system-path refusal. The fix delegates to the same battle-tested
+  `is_path_allowed()` function used by all other destructive
+  operations — it rejects `..` traversal, validates against
+  `realpath()`, and covers all writable roots correctly.
+- **Fixed: `snprintf` truncation overflow in `power_telemetry`,
+  `appdb_raw_scan`, and `proc_modules` handlers.** All three used
+  `n += snprintf(buf + n, cap - n, ...)` without checking whether
+  `snprintf` returned a value larger than the remaining space. If
+  the output was ever truncated, `n` would exceed `cap`, making
+  `cap - n` wrap to a huge value (as `size_t`), causing subsequent
+  writes past the buffer. In practice the current data fits in the
+  buffers, but the pattern was a latent vulnerability.
+- **Fixed: integer overflow in `PackPlanner::record_size`** (engine).
+  `size as usize` silently truncated on 32-bit builds; now uses
+  `usize::try_from` + saturating arithmetic to match the guard in
+  `materialise_body`.
+- **Fixed: overflow in `read_split_range`** (engine). `prefix +
+  part_size` could overflow `u64`; `take as usize` could truncate on
+  32-bit. Now uses `checked_add` and `usize::try_from`.
+- **Fixed: UFS2 directory entry `name_len` could exceed `rec_len`**
+  (pkg parser). A crafted UFS2 image could declare `name_len = 1000`
+  inside a 16-byte record, reading past the record boundary into
+  adjacent entries. Now validates `name_len + 8 <= rec_len`.
+
+## 4.1.7
+
+Security: upgrade react-router to v8.3.0 (CVE fix) and fix transitive
+`brace-expansion` DoS vulnerability.
+
+- **Upgraded: react-router-dom 7.18.1 → react-router 8.3.0.** The
+  `react-router-dom` package was removed in v8; all imports now come
+  from `react-router`. Fixes the high-severity CSRF bypass advisory
+  (GHSA) affecting RSC mode. Our app uses a standard Vite SPA
+  (BrowserRouter + Routes), so the v8 migration was import-only —
+  no API or behavior changes.
+- **Fixed: brace-expansion transitive dependency.** `npm audit fix`
+  bumped the vulnerable `brace-expansion` package (DoS via unbounded
+  expansion).
+
+## 4.1.6
+
+Fix: pkg install stuck at "installing" on unverifiable firmware (issue #230).
+
+- **Fixed: installs never completed on FW 12.xx.** On firmware where
+  `app.db` is unreadable (FW 12.20+), `verify_launchable` returns
+  `Unsupported` (`None`), which prevented the synthetic-DONE grace
+  period from firing. The install would succeed on the PS5 but the UI
+  showed "installing" indefinitely. The grace verdict now fires on
+  both `None` (unverifiable) and `Some(false)` (not yet registered).
+- **Fixed: Tier-0 worker installs not recognised as synthetic-DONE.**
+  `is_synthetic_done_tier` now includes `APPINST_VIA_TIER0_FLAG`
+  (0x10000000). Installs via the Tier-0 worker path were missing the
+  synthetic-DONE classification, causing the same stuck-at-installing
+  symptom.
+
+## 4.1.5
+
+Security hardening patch for the system file read feature (4.1.4).
+
+- **Fixed: symlink escape in unsafe-read mode.** The `is_safe_unsafe_read_path`
+  check now restricts reads to the three documented system partitions
+  (`/system`, `/system_data`, `/system_ex`) only. Previously, any absolute
+  path without `..` was accepted in unsafe mode, meaning virtual filesystems
+  like `/dev`, `/proc`, `/kernel` were reachable. Additionally, the check now
+  resolves symlinks via `realpath()` and re-validates the canonical path —
+  a symlink inside `/data` pointing to a forbidden location is rejected,
+  mirroring the same CWE-59 guard used for writable-root operations.
+- **Fixed: `is_unsafe_read_request` whitespace tolerance.** The JSON
+  `"unsafe":true` flag matcher now tolerates whitespace around the colon
+  (e.g. `"unsafe": true`). Previously only the exact no-space form matched;
+  a future client emitting spaced JSON would silently fail to engage
+  unsafe mode.
+- **Fixed: `is_profile_avatar_read_path` dotdot check.** Replaced bare
+  `strstr(p, "..")` with the component-aware `path_has_dotdot_component()`,
+  consistent with the rest of the codebase. Legitimate filenames containing
+  `..` (e.g. `file..bak`) are no longer false-positive rejected.
+
+## 4.1.4
+
+New: optional system-file read access for the File Browser.
+
+- **New: download system files from read-only partitions (issue #241).**
+  A new toggle in Settings → **Allow downloading system files** (OFF by
+  default) lifts the writable-root allowlist for FS_READ/FS_HASH
+  operations only. When enabled, the File Browser can download files
+  from `/system/common/lib`, `/system_data/priv`, `/system_ex`, and
+  other read-only system partitions — useful for dumping `.sprx`
+  modules, fonts, and other system assets. This is strictly read-only:
+  destructive operations (delete, move, chmod, mkdir, copy, write,
+  mount) ignore the flag entirely and always enforce the full
+  allowlist. Path traversal (`..`) guards still apply even in unsafe
+  mode. When the toggle is off and a system path is requested, the
+  error message points the user to the Settings toggle rather than
+  giving a generic access-denied error.
+
+## 4.1.3
+
+Fixes for PS4 backward-compat title resolution, Windows installer deps, and
+several dependency security advisories.
+
+- **Fixed: PS4 BC titles show as bare IDs in the games list.** PS4 titles
+  running under backwards compatibility store their names only in `app.db` —
+  not in the per-title appmeta folder. When sqlite symbols are unavailable
+  (FW 5.10 and 9.60), the payload now falls back to a raw file scan of
+  `app.db`, extracting title names directly from the SQLite B-tree pages.
+  The engine's title resolver now has a three-tier fallback chain:
+  `param.json` → `param.sfo` → `app.db` query.
+- **Fixed: Windows 10 installer missing WebView2 runtime.** The NSIS
+  installer now bundles the WebView2 bootstrapper so first-run on Windows 10
+  no longer silently fails when the Edge WebView2 runtime isn't present.
+- **Fixed: Remote Play error masking + JXR screenshot signature.** Remote
+  Play cancellation no longer masks the real `sceRemoteplayInitialize` error
+  code, and JXR (JPEG XR) screenshots are correctly identified by their
+  file signature rather than relying on extension alone.
+- **Security: dependency updates.** Patched `quinn-proto`, and bumped the
+  engine and frontend dependency groups to clear outstanding Dependabot
+  advisories.
+
+## 4.1.2
+
+A payload reliability patch. Fixes a helper crash ~5 seconds after install
+rejection on firmware 10.xx, and adds Polish language support.
+
+- **Fixed: helper dies after install rejection on FW 10.00+ (issue #152).**
+  The payload's install-init authid threshold was `fw_major >= 11` — use the
+  `SYSTEM` authid only on FW 11+, `ShellCore` everywhere below. But FW 10.xx
+  has the same `SYSTEM`-authid gate for `sceAppInstUtilInitialize`: calling it
+  under `ShellCore` leaves Sony's installer daemon (IPMI) half-wedged. The
+  immediate `InstallByPackage` returns `0x80B2116F`, and roughly 5 seconds
+  later Sony's installer watchdog `SIGKILL`s our process — exactly the
+  "helper dies after I click install" symptom in the bug bundle. The threshold
+  is now `fw_major >= 10`, matching what the standalone DPI daemon already
+  does on all firmwares. Users on FW 10.xx+ who push the updated payload from
+  `Connection → Send payload` will stop seeing the post-reject crash.
+- **Fixed: outdated "Connect to your PS5" description (issue #208).** The
+  connection-screen blurb still said the helper stays loaded only until rest
+  mode — which was true before the 4.1.0 auto-reconnect release but reads as
+  stale now. Rewritten to point at the auto-reconnect toggle (on by default).
+- **New: Polish (Polski) language support.** Thanks @heni0xyz for the
+  contribution. Selectable from the language picker; the completeness test
+  now covers `pl` alongside the other 18 locales.
+
+## 4.1.1
+
+A security and reliability patch. Path-traversal and buffer-overflow fixes,
+Android mDNS discovery that actually works, and a hardened CI pipeline.
+
+- **Fixed: path traversal in payload runtime.** The PS5 payload's
+  `is_path_allowed()` validation had edge cases that could allow crafted
+  paths to escape the writable-roots allowlist. Tightened the validation
+  logic to prevent directory traversal via `..` sequences and symlink-style
+  overrides.
+- **Fixed: buffer overflow in `drive_sensors.c` (CRITICAL).** A fixed-size
+  buffer in the drive-sensors path could overflow when parsing SMART
+  responses with unexpectedly long model/serial fields. Capped the copy
+  length to prevent stack corruption on the PS5 side.
+- **Fixed: `fan_curve.c` truncation.** Fan-curve duty-cycle values could be
+  truncated when converting between integer formats, potentially applying a
+  slightly wrong fan speed at certain temperature points. Added proper
+  bounds checking on the conversion path.
+- **Fixed: async unmount cleanup.** An unmount initiated while a transfer
+  was still winding down could leave stale state, blocking the next mount.
+  The unmount path now properly awaits async cleanup before signaling
+  completion.
+- **Fixed: localStorage credentials sweep.** 57 call sites storing sensitive
+  data (engine URL, tokens) in `localStorage` were audited and migrated to
+  Electron/Tauri `safeStorage` (encrypted at rest with OS keychain) where
+  applicable, or cleared after use.
+- **New: Android mDNS discovery via MulticastLock.** Most Android handsets
+  silently filter Wi-Fi multicast frames at the firmware level to save
+  power, so mDNS-based PS5 discovery found nothing even though the console
+  was right there on the same LAN. The app now acquires a
+  `WifiManager.MulticastLock` around the mDNS browse via JNI, so multicast
+  frames (224.0.0.251:5353) are delivered reliably. The LAN-sweep fallback
+  still catches what mDNS misses.
+- **Improved: Android CI now builds both arm64 and armv7.** The release
+  pipeline ships an armv7 APK, but CI only ever built arm64 — so an armv7
+  breakage could ship undetected. Both ABIs are now compiled on every PR.
+- **Improved: NDK version pinned in CI.** The Android NDK version was
+  picked by taking the newest installed on the runner image, which meant a
+  runner-image rotation could silently break the build (new clang warnings
+  → errors, libc symbol changes). The NDK is now pinned to a known-good
+  major version (r27) with a fallback + warning.
+- **Improved: Android release failures are no longer silent.** The
+  `build-android` release job kept `continue-on-error` (a flaky APK build
+  shouldn't block the desktop release) but now emits a prominent warning
+  annotation so the failure is never missed.
+- **Security: dependency updates.** `@babel/core` 7.29.0 → 7.29.7 (CVE
+  fix), `tokio` 1.52 → 1.53 (engine + client), `lucide-react` 1.24 → 1.25,
+  Docker build stage `node` 22 → 26-alpine.
+- **Improved: Docker hardening.** The engine Docker image now runs as a
+  non-root user with a read-only filesystem and minimal capabilities.
+- **Improved: SPDX license identifiers.** All source files now carry
+  proper SPDX license identifiers for clarity and license-scanning tools.
+- **Improved: CI webui existence check.** A CI step now verifies the
+  `webui/` folder exists (rust-embed v8 requires it at compile time) before
+  building, with a clear error message instead of a cryptic compile failure.
+- **New: `npm run dist:android` script.** Convenience script to build a
+  dual-ABI (arm64 + armv7) debug APK locally.
+
+---
+
+## 4.1.0
+
+A reliability release. The desktop app now recovers on its own when the PS5's
+helper goes offline, and PS4-format saves get a clear restore warning.
+
+- **New: automatic reconnection after rest mode and network drops.** When the
+  PS5's helper goes offline — rest mode wake, a WiFi switch, a payload crash —
+  the desktop app now periodically tries to re-send it in the background. The
+  helper, your pinned fan threshold, and the upload port come back by
+  themselves once the console is reachable again, without clicking Connect. On
+  by default (Settings → "Reconnect automatically after rest mode / network
+  drops"). Browser sessions are unaffected (no bundled ELF to push). Includes
+  an immediate re-probe on the browser `online` event for fast recovery after a
+  network change.
+- **Fixed: PS4 save restore warning.** PS4-format saves (PS4 games running via
+  backward compatibility on PS5) use sealed PFS images. The PS4 emulator caches
+  save data internally, so a raw file copy back to the console doesn't always
+  trigger a remount — a restored PS4 save may not appear in-game until the game
+  is closed/reopened or the console is restarted. The Saves screen now shows a
+  warning banner for PS4 saves, the restore confirmation dialog includes a
+  PS4-specific note, and the post-restore notification hints about the
+  workaround. *(Issue #198.)*
+
+---
+
+## 4.0.0
+
+A major release. Four new PS5 features, a self-hosted browser web UI, and a
+big reliability fix so the desktop app always opens.
+
+- **New: Remote Play PIN generator.** Generate a Remote Play PIN and see the
+  account ID needed to pair Chiaki / pxplay — right from ps5upload, without
+  digging through the PS5's hidden Remote Play settings. Shows the PIN, a
+  countdown timer, and pairing status; account ID is auto-detected from the
+  console.
+- **New: Fan Curve editor.** Beyond the single-threshold fan pinning, you can
+  now define a multi-point temperature → duty-cycle curve for smoother fan
+  behavior. The curve is pinned through the same hardware path as the fixed
+  threshold, so it survives game launches and is re-applied automatically.
+- **New: Persistent on-PS5 notifications.** Payload-side events (backups, fan
+  actions, errors) are now written to a store on the console that survives
+  payload restarts, so the next time you connect you see everything that
+  happened while you weren't looking.
+- **New: Backup & restore snapshots.** Tag-based snapshots of files or
+  directory trees on the PS5 (e.g. the app database), with list, restore, and
+  delete — a safety net before risky operations.
+- **New: self-hosted browser web UI.** The engine can now serve the full UI in
+  a browser, published as a Docker image
+  (`ghcr.io/phantomptr/ps5upload-engine-webui`). Native-only features (host
+  file/folder pickers, etc.) are gracefully gated out in the browser client.
+- **New: drive sensors + permanent fan speed status.** Per-drive SMART/temp
+  readings and a persistent fan-speed indicator on the Hardware screen.
+- **New: user ID management.** Create and delete local PS5 user accounts from
+  the Profile screen.
+- **Fixed: the desktop app now always opens.** If the engine's default port
+  (19113) is held by something the app can't reclaim — e.g. a standalone
+  `ps5upload-engine` a user launched by mistake — the app now falls back to a
+  free port instead of failing to start, and the UI follows the engine to
+  wherever it actually bound.
+- **Changed: cleaner sidebar.** The navigation was consolidated to remove a
+  duplicate "System" heading and group everything under clear sections.
+- Plus dependency updates and a round of v4.0.0 audit fixes.
+
+---
+
+## 3.4.0
+
+A reliability and feature release. The big themes: transfer and install
+robustness on all firmwares, a new hardware sensor, the web UI engine image,
+and a payload code consolidation.
+
+- **New: M.2 NVMe temperature sensor.** The Dashboard and Hardware screens now
+  show the temperature of an installed M.2 SSD expansion drive, alongside the
+  existing CPU and SoC readings. The value is read from the same SoC sensor
+  sweep that already feeds the SoC temp — zero extra API calls. An empty slot
+  simply shows no reading.
+- **Fixed: transfer stream ID collisions.** The FNV-1a hash used to identify
+  active transfer streams could collide across concurrent jobs, causing one
+  transfer to accidentally cancel another. The hash is now correctly computed
+  and the cancel registry hardened so a dead stream's cancel signal can never
+  fire. *(Issue #164.)*
+- **Fixed: RFC 9110 suffix byte-ranges.** Range requests of the form
+  `bytes=-N` (last N bytes) were rejected; now handled correctly per spec,
+  so more HTTP clients can resume partial downloads from the engine.
+- **Fixed: dashboard polling starved transfers.** The Dashboard's 5-second
+  auto-poll was never paused during an active upload, adding unnecessary load
+  and occasionally slowing transfers on slower connections. Polling now
+  pauses while any transfer is in flight and resumes on completion.
+- **Fixed: package install settle fraction too aggressive.** The install
+  progress tracker considered an install "settled" at 97%; raised to 99% so
+  the UI doesn't report success before Sony's installer has actually finished
+  writing data.
+- **Fixed: DPI daemon authid on FW 11+.** The fallback install daemon now
+  correctly acquires ShellCore credentials on firmware 11 and above (not just
+  below 11), using a shared two-tier firmware detection routine. *(Issues #152
+  and #164.)*
+- **Fixed: a batch of payload hardening fixes.** Profile loading now rejects
+  symlinks (`O_NOFOLLOW`), `sys_time` uses `pthread_once` for thread-safe
+  one-time init, and the shellui RPC handler fixed for copyout overflow and
+  stack buffer issues.
+- **New: `ps5upload-engine-webui` Docker image.** The engine + full React web
+  UI is now published as a separate multi-arch (amd64 + arm64) image on GHCR,
+  in lockstep with the plain engine image on every release. No manual
+  `Dockerfile.webui` build needed.
+- **Internal: authid/firmware code consolidated.** The ShellCore/System-Install/
+  JB authid constants and the firmware-major detection logic — previously
+  triplicated across bgft.c, register.c, and the DPI daemon — are now in a
+  single shared header (`payload/include/authid.h`). The DPI daemon now uses
+  the full two-tier firmware parser, matching the rest of the codebase.
+- **Internal: removed unused frontend dependencies.** `@tauri-apps/plugin-fs`
+  and `@tauri-apps/plugin-shell` npm packages were never imported by any
+  frontend code; removed to shrink the install footprint. (The Rust plugins
+  remain registered.)
+- **Internal: engine URL lock poison recovery.** The RwLock guarding the
+  runtime-configurable engine URL now recovers from poison instead of
+  propagating a panic, so a thread failure elsewhere can't wedge the settings.
+
+## 3.3.26
+
+A reliability release focused on fixing package installs on older firmware (FW < 11).
+
+- **Fixed: package installs that failed with error 0x80B21106 on FW < 11.** The install
+  helper was wrapping local file paths in `file://` before handing them to Sony's
+  installer, but the installer's URI parser rejects that scheme on older firmware and
+  returns a parser error — producing hollow, metadata-only installs that would never
+  launch. Bare local paths are now passed through directly, matching the standalone DPI
+  daemon's behaviour. *(HW-verified on a PS5 Pro FW 9.60 and a PS5 Fat.)*
+- **Fixed: the DPI fallback daemon now self-escalates to the right credentials.** On
+  FW < 11, `InstallByPackage` needs ShellCore authority to succeed. The daemon (loaded
+  fresh via the elfldr port) now self-escalates its own credentials on startup and swaps
+  to ShellCore before each install, so the fallback path lands real data instead of
+  silently failing. *(Issues #152 and #164 — the "helper dies ~4s after a rejected
+  install" symptom is gone.)*
+- **Fixed: Stream (beta) no longer offered on firmware where it hangs.** Stream install
+  pulls a `.pkg` straight from your PC over HTTP without staging it first, but on
+  FW < 11 Sony's PlayGo pre-flight check never returns without kernel patches we don't
+  have for those firmwares. The Stream button is now disabled with an explanatory
+  tooltip when the connected PS5 is on FW < 11 — use the normal Upload → Install (staged)
+  instead, which works perfectly everywhere.
+- **New: persistent fan-control threshold.** Set a custom fan speed on the Fan Control
+  tab and it survives a reboot — the payload restores it at boot.
+
+## 3.3.25
+
+A big feature + reliability release.
+
+- **Fixed: PKG updates that crashed the on-console helper.** On some firmware,
+  trying to install a game update could kill the PS5-side helper a few seconds
+  later, so the update never applied. The root cause was the install-fallback
+  daemon calling Sony's installer without initialising it first. It now
+  initialises properly (with a boot-timing wait and retry), so a rejected
+  update no longer takes the helper down. *(Verified on real FW 5.10 + 9.60
+  hardware — the helper survives now.)*
+- **New: manage ps5upload from a web browser.** The engine can serve the full
+  app over HTTP, so a NAS/Docker user can drive their PS5 from any browser on
+  the LAN — no desktop app needed.
+- **New: install a .pkg straight from your PC — "Stream (beta)".** Installs a
+  package over HTTP without staging the whole file on the PS5 first, so you can
+  install even when disk space is tight. Labeled beta; the normal
+  upload-then-install path is still the reliable default.
+- **New: your own payload repos.** Add any GitHub/Gitea repo to the Payloads
+  tab and ps5upload tracks its releases and caches the ELF locally — no more
+  keeping a pile of `.elf` files on your PC.
+- **New: repo-based playlists.** A payload playlist can now pull from a repo at
+  run time instead of a local file, so a boot sequence needs no local files.
+- **New: video clips.** Browse and download the PS5's gameplay video clips,
+  like the Screenshots tab.
+- **New: "Install all" for packages.** Install every staged package in one tap,
+  in the right order (base game → update → DLC).
+- **New: rest mode after uploads.** Optionally put the PS5 to sleep once its
+  upload queue finishes — handy for an overnight queue. Off by default.
+- **New: restore a save straight from a USB drive** on the PS5 (the counterpart
+  to Save-to-USB), plus **find unused games** on the Installed Apps screen —
+  sort by play time and surface the ones you haven't touched, then uninstall.
+- **Fixed: a dead payload in the catalogue** (the Lapy JB Daemon source had
+  moved) and a batch of **UI text that always showed in English** even in other
+  languages.
+- Routine dependency and CI updates.
+
+## 3.3.24
+
+- **New: back up a PS5 save straight to a USB drive.** From the Saves screen you
+  can now copy a save (or all of them) to a USB drive plugged into the PS5 — each
+  backup lands in its own timestamped folder so nothing gets overwritten. There's
+  a configurable save path in Settings too. *(Thanks to @Twice6804 for the
+  contribution.)*
+- **Fixed: a few payloads in the catalogue showed "Not Found."** ps5-app-dumper
+  and Itemzflow had moved to different repos and were 404ing in the Payloads
+  catalogue — both now point at their current homes.
+- Routine dependency and CI updates.
+
+## 3.3.23
+
+- **Fixed: game updates that couldn't install on newer firmware.** When the PS5's
+  in-app installer turned an update away (a common first step on firmware 11/12),
+  the tool was deleting the staged update file a split second too early — so the
+  fallback installer (the one that actually lands updates) had nothing left to
+  install. The update file is now kept until the whole install cascade has had its
+  turn, so updates can fall through to the path that works. Your base game is never
+  touched either way. *(Needs a final confirmation on real firmware-12 hardware.)*
+- **Fixed: the "Close game" button did nothing on some firmware.** On firmware
+  12.20, the PS5's clean "close app" call is rejected, and the tool was giving up
+  there instead of trying its backup way of stopping the game. It now falls through
+  to the backup stop so the button actually closes the game.
+- **Faster uploads while the app is open.** The Installed Apps and Library screens
+  quietly check what's running on your PS5 every few seconds. That check shares a
+  channel with uploads, and on big multi-part games (exfat/ShadowMount dumps) it
+  could drag transfer speed down. Those checks now pause while an upload to that
+  console is running, and resume the moment it finishes.
+- Routine dependency and CI updates.
+
+## 3.3.22
+
+- **See what's playing, and stop it.** Installed Apps now shows a "Playing" badge
+  on whatever game is currently running, and the Play button turns into **Close
+  game** so you can stop it right from the app (with a confirm — it's the same
+  as quitting on the console).
+- **More patience when launching a game.** A first launch (just-installed, or a
+  cold start) can take a while to come up. Pressing Play now shows "Starting…"
+  and waits for the game to actually appear before saying it's playing — and it
+  won't let you fire a second launch into a game that's still starting (which is
+  what could knock it back down). If it's taking a while, you get a calm "give
+  it a moment" note rather than an error.
+
+## 3.3.21
+
+- **Fixed: moving files from USB to the internal SSD crashed the console.** Cut
+  & paste from a USB drive to internal storage was reliably kernel-panicking the
+  PS5 (a hard crash + reboot). The tool was asking the console to *rename* the
+  file across drives, which this kernel can't do — it panics instead of
+  reporting the error. ps5upload now detects a cross-drive move up front and
+  completes it the safe way (copy, then remove the original) — the same thing it
+  already did for copies. **Hardware-verified: the move that used to crash the
+  console now completes without a hitch.** (Same fix applied to the shell tab's
+  `mv` command.)
+
+## 3.3.20
+
+- **Installs wait for the PS5 to be ready — fewer "couldn't be applied" errors.**
+  Right after an install the PS5 has a brief recovery moment (the screen-black
+  blink); starting the next install during it was getting rejected with a
+  transient error, so you'd have to wait and retry by hand. ps5upload now checks
+  the console is settled before it installs, and if the PS5 says it's busy it
+  waits and retries automatically instead of failing — so back-to-back updates
+  and DLC just work. (Shows "Waiting for the PS5 to be ready…" while it waits.)
+
+## 3.3.19
+
+- **"Installed" no longer leaks between consoles.** If you staged the same .pkg
+  on more than one PS5 and installed it on just one, the others wrongly showed
+  it as already installed (Reinstall). Each console now tracks its own installs,
+  so a package reads as installed only on the console you actually installed it
+  on.
+
+## 3.3.18
+
+- **Cancel a single upload without stopping the whole queue.** The item that's
+  actively uploading now has a Cancel button. It stops just that transfer (the
+  partial upload stays resumable) and the rest of that console's queue keeps
+  going — handy when one big item is hogging the line. ("Stop" still halts
+  everything as before.)
+- **A ready-to-run engine Docker image.** The self-hosted transfer engine is
+  now published as an official multi-arch image at
+  `ghcr.io/phantomptr/ps5upload-engine` (`:latest` or pin `:<version>`), so you
+  can run it on a NAS or home server without building from source. As always:
+  the engine has no password — keep it on a trusted LAN, never the internet.
+  Thanks to @Twice6804 for the contribution.
+
+## 3.3.17
+
+UI polish pass — tighter on phones and small windows.
+
+- **"More actions" menus never run off the bottom of the screen.** A row's ⋮
+  menu now opens upward when it's near the bottom edge and scrolls inside itself
+  if it's very long, instead of spilling past the window.
+- **No more scrolling the page behind a dialog.** When a pop-up (a file/image
+  preview, an upload prompt, any modal) is open, the content behind it stays
+  put — especially noticeable on touchscreens.
+- **More of the app is ready for translation.** The new "Install from USB /
+  external drive" labels are now in the translation catalog, and a check was
+  added so future text can't quietly go missing from it.
+- Verified the whole app stays clean with no cut-off or off-edge content across
+  phone, tablet, and desktop widths.
+
+## 3.3.16
+
+- **You control when USB / external drives are scanned.** The "Install from USB
+  / external drive" section has a new **"Automatically scan when this tab
+  opens"** checkbox. Leave it on (the default) and it works as before; turn it
+  off and nothing is scanned until you click **Scan** — handy when no drive is
+  plugged in, or to skip the check each time you open the tab. The Scan button
+  is always there for an on-demand look.
+
+## 3.3.15
+
+- **An installed update or DLC now shows "Reinstall."** After you install a
+  patch or add-on from the Install Package tab (or via the upload queue), its
+  row correctly reads "Installed · Reinstall" instead of still offering
+  "Install." Base game, update, and DLC are each tracked on their own — the
+  console can only confirm the base game is present, so ps5upload now remembers
+  the specific updates and DLC you've installed itself (and remembers across
+  restarts).
+
+## 3.3.14
+
+- **Upload progress no longer overshoots the file size.** If an upload's
+  connection blipped and resumed, the progress could read past 100% — e.g.
+  "36 GiB / 24.6 GiB". The progress now caps at the file size (the upload itself
+  was always fine; this was just the counter double-counting resent bytes).
+
+## 3.3.13
+
+Smoother, smarter installs — especially when queueing a game with updates + DLC.
+
+- **Installs now go in the right order: base game → update → DLC.** Queue a game
+  with its updates and add-ons and they install base-first, so an update or DLC
+  never tries to install before the game it belongs to (which wasted the upload
+  and space). Items within the same kind keep the order you added them.
+- **A heads-up before an install that won't fit.** ps5upload now checks free
+  space up-front and, if a package is clearly too big for what's left, tells you
+  to free up space *before* you wait through a doomed install (estimate-based —
+  the real installed size can vary a little).
+- **No more spurious "Delete failed" after a successful install.** The staged
+  package is now removed with a brief wait + retry (the PS5 can hold the file
+  for a moment right after installing), and if cleanup still can't happen it's
+  left quietly for "Clear finished" instead of throwing an error at you.
+- **Queues of small updates/DLC no longer stall on FW 12.** After each install
+  the app waits for the console to settle (the brief "screen goes black" blip on
+  FW 12) before starting the next item's upload.
+
+## 3.3.12
+
+- **Download a PS5 file or folder straight to a `.zip`.** In the File System
+  browser, each entry now has a "Download as ZIP" button next to Download. It
+  streams the file(s) from the PS5 and zips them on the fly — no temporary copy,
+  no waiting for a separate compress step. Great for grabbing a save folder, a
+  homebrew folder, or a single big file as one tidy archive.
+
+## 3.3.11
+
+Installs you can watch from anywhere, plus a few handy touches.
+
+- **Installs now show in the activity bar at the bottom, with a live %.** Start
+  an install and it appears in the bottom activity strip just like uploads and
+  downloads do — so you can browse the rest of the app and still see what's
+  progressing and how far along it is.
+- **A toast pops on the PS5 itself when an install finishes** (in addition to
+  the in-app notification), so you get the "done" confirmation on the console
+  screen even when the app isn't in front of you.
+- **Drag a payload file onto the Send file screen** to fill in its path — no
+  need to click Choose every time.
+- **The File System returns to /data when a folder no longer exists.** Land on a
+  remembered path that's since been deleted (or an unplugged drive) and it now
+  drops you back to /data with a note, instead of a stuck error.
+
+## 3.3.10
+
+Smoother installs and a few UI fixes.
+
+- **Installs no longer cry failure while the PS5 is still installing.** On newer
+  firmware the PS5 registers a game and then downloads/extracts it in the
+  background (its own "Downloading…" tile). ps5upload used to give up after two
+  minutes and show a scary "nothing was installed" error even though the install
+  was fine. It now waits much longer for the console to finish, the message
+  (if it ever does time out) explains the background install instead of alarming
+  you, and you get a notification when a title finishes and is ready to play.
+- **The Install Package screen no longer flashes "Install" on every package**
+  for a split second when you open it — it remembers which titles are installed.
+- **Fixed the Play button on disc-image titles** being squeezed and clipped to
+  "Pla" on wide windows.
+
+## 3.3.9
+
+A clearer, more helpful "Install from USB / external drive" section.
+
+- **The USB / external drive section is redesigned.** It used to hide itself
+  whenever a scan found nothing — so it "popped in" only after results arrived,
+  and when a drive was empty the whole thing (Refresh button included)
+  disappeared, leaving no way to look again. It's now always present with clear
+  **Scanning…**, **nothing found**, and **list** states, a refresh that's always
+  available, and a short explanation of what it does (it copies the package onto
+  the console first — your drive's copy is left untouched — then installs it).
+- **External packages now show real details.** Each one is read on demand for
+  its cover art, real game title, version (e.g. `v01.02`), and an Update/DLC
+  badge — so two packages for the same game (a base and its update) are finally
+  distinguishable instead of both just showing a code. The list still appears
+  instantly; the details fill in as it reads each package. (PS5-native packages
+  that can't be read keep their filename.)
+- **Your uploaded packages show their version too.** The package version (and
+  whether it's a base game, update, or DLC) now appears on packages already in
+  your library, read straight from the package on the console — so it shows even
+  for packages you added before this update, with no need to re-upload them.
+- **PS4 game updates now install.** Applying a game's update (its patch) used
+  to fail on some firmware with a confusing "PKG header — corrupt or wrongly
+  named" — the update shares the base game's ID, and the usual install path
+  couldn't apply it. ps5upload now routes updates through the PS5's own update
+  installer, which applies the update on top of your game **without touching the
+  base** (hardware-confirmed: a Jak X update applied with the 3.8 GB base game
+  fully intact). If an update still can't apply — usually because it doesn't
+  match your installed version — you get a clear message instead of a scary one,
+  and your base game is never at risk.
+- **Installing some USB / external packages no longer fails to register.**
+  Packages whose name already includes the game's ID were staged under the wrong
+  filename and rejected by the PS5; ps5upload now reads the real ID from the
+  package first and stages it correctly.
+
+## 3.3.8
+
+Tell a game's updates apart at a glance — and stop an update from looking
+"installed" when it isn't.
+
+- **An update/DLC no longer shows "Installed · Reinstall" just because the base
+  game is installed.** A PS4 update shares the base game's title id, so once the
+  base was on the console its never-installed update inherited the "installed"
+  badge and a "Reinstall" button. Add-ons now always read as installable —
+  only the base game shows as installed (its install state is the one the PS5
+  can actually confirm).
+- **Each package now shows its version and original filename.** Updates share a
+  ContentID *and* a title, so they used to look identical apart from the
+  "update" badge. The library now shows the real package version (e.g. `v01.04`,
+  read straight from the package) plus the filename you uploaded — so you can
+  tell `[v01.00]` from `[v01.04]` at a glance. (Newer uploads carry this; an
+  already-staged package shows it again once re-uploaded.)
+
+## 3.3.7
+
+The 3.3.6 data-loss fix now actually covers PS4 game updates — plus clearer
+messaging when an install fails.
+
+- **Installing a PS4 game's update (patch) can no longer delete the base game.**
+  3.3.6 added this protection, but it relied on the update being labelled as one
+  in a way the install couldn't always see — so a PS4 patch still looked like a
+  full game, reinstalled the shared ID, and **wiped the installed base**
+  (hardware-confirmed on two consoles: a Jak X patch deleted its 3.8 GB base).
+  The app now reads the real "update vs. full game" flag **straight from the
+  package on the console** at install time, so an update is recognised no matter
+  how it reached the PS5 (uploaded, copied from USB, or picked from the file
+  browser) — while a normal full-game re-install still works as before. Verified
+  on real hardware, internal *and* extended storage: the base game stays put and
+  an update that can't apply on top simply fails harmlessly.
+- **Clearer guidance when an install fails or stalls.** A failed install no
+  longer blames free space, tells you the empty tile it left behind is safe to
+  delete, and points to the PS5's own Package Installer for stubborn packages.
+  An "out of space" error from the PS5 now notes it can mean fragmented storage
+  even when space is free (rebuild the database from Safe Mode).
+- **The Library no longer flickers.** When nothing was running, the "Running
+  apps" panel flashed in and out every few seconds as it refreshed; it now stays
+  hidden until there's actually something to show.
+- **The Avatar changer shows the selected user's current avatar.** The picture
+  box now loads the chosen user's existing avatar by default (instead of a blank
+  placeholder), so you can see what's there before replacing it. (Picking
+  different users was already supported.)
+- **Screenshots show thumbnails.** Each row now shows a small preview of the
+  shot instead of a generic icon. Previews decode lazily as you scroll (PS5
+  screenshots are HDR JPEG XR, so this is desktop-only — same as Convert/Preview)
+  and are cached so each decodes once.
+- **Run the engine separately / point the app at a remote engine.** You can now
+  host the transfer engine elsewhere (including a tiny Docker image) and set its
+  URL in Settings; the app talks to it instead of the bundled one. Game/app
+  cover art now loads from a remote engine too. Thanks @Twice6804. *(Security:
+  the engine's API has no password — only use the "allow extra IP" option on a
+  trusted home network, never expose the engine to the internet.)*
+
+## 3.3.6
+
+A data-loss fix: installing a game's update can no longer delete the game.
+
+- **Installing an update (patch) can never overwrite or delete your base game.**
+  A game's update shares the same ID as the game itself, so the installer could
+  end up *re-installing that ID* — wiping the installed game instead of patching
+  it (hardware-confirmed: a 26 GB game was deleted by installing its update). An
+  update now installs **only** via the safe path that applies it on top; if that
+  can't apply it, the update **fails harmlessly and your game stays completely
+  intact** — never replaced or removed. Base games and DLC are unaffected.
+  *(If an update won't install through the app on your firmware, install it from
+  the PS5's own Package Installer — your game is safe either way.)*
+- **Installed Apps cards line up evenly.** Tiles with a longer two-line name no
+  longer knocked their neighbours out of alignment.
+
+## 3.3.5
+
+USB install fixes — no more stuck "downloading" tile, and a copy that survives a flaky connection.
+
+- **Installing a big game from USB no longer leaves a broken "Downloading…"
+  tile.** 3.3.4 tried to install straight off the USB drive, which made the PS5
+  register the game as a download it then streamed off USB at a crawl (a 25 GB
+  game showed *"Downloading… 50 hours left"* and left an undeletable tile eating
+  space). Installs now always copy to internal storage first and never trigger
+  that. *(If you have a stuck Bloodborne/other tile from 3.3.4: delete it from
+  the PS5 to reclaim the space — your PKG on the USB drive is untouched.)*
+- **The USB→internal copy survives connection drops.** A 25 GB copy used to die
+  the instant the PS5 connection blipped — even though the console was still
+  copying fine. The copy is now tracked by how much data has actually landed, so
+  a dropped connection (or Wi-Fi hiccup) no longer aborts a healthy copy, and a
+  **live percentage** shows throughout. *(For very large games, uploading from a
+  PC is still the most reliable path — that transfer is fully resumable.)*
+
+## 3.3.4
+
+Install verification + extended-storage fixes.
+
+- **Installs to an extended / M.2 SSD are recognized correctly.** If your PS5
+  installs games to an extended drive (not internal storage), the app used to
+  report the install as *failed* — even though the game installed perfectly and
+  plays — because it only looked for the game in internal storage. It now
+  confirms an install by the actual data written to **any** drive, so
+  extended-storage installs are no longer wrongly flagged as failures. (If you
+  hit this before: the game was fine all along — just launch it.)
+- **A "hollow" install still can't masquerade as success.** The app confirms a
+  title's content actually landed before reporting success, and tells you
+  honestly if it didn't — now measured by what was really written, so it's
+  accurate on every drive *and* still catches a genuinely empty "dead tile."
+- **Firmware-aware installs.** On newer firmware (11.xx/12.xx) the installer runs
+  under the correct system authority so content lands properly; on FW 9.60 and
+  below the proven path is unchanged.
+- **Big games install from USB without the slow copy.** Installing a PKG from a
+  USB drive used to copy the entire file to internal storage first — a single
+  blocking step that, for a 25 GB game, could run for hours and then fail. The
+  app now installs **directly from the USB path** when it can, falling back to a
+  copy only if needed, with a live install **percentage** throughout.
+
+## 3.3.3
+
+A big-install data-loss fix, plus the in-app updater.
+
+- **Large PKGs (25 GB, 100 GB, 200 GB+) install reliably now.** The tool used to
+  decide an install was "done" after a fixed ~100-second timer, then delete the
+  uploaded PKG — but Sony's installer reads that PKG for the *entire* install,
+  which for a big game takes many minutes. So a 25 GB game would upload, get
+  deleted mid-install, and leave you with no game and no PKG (the reported
+  Bloodborne case on FW 12.20). The tool now **watches the install actually
+  finish** instead of guessing: it tracks the title landing on the console and
+  the bytes writing to disk, with no size limit, and only deletes the staged PKG
+  once the install is genuinely complete. A live install **percentage** shows
+  while a big title installs in the background.
+- **Stalled installs keep your PKG.** If an install stops making progress before
+  it finishes, the tool now says so and **keeps the PKG on the PS5** so you can
+  retry — it never deletes a package for an install that didn't complete.
+- **In-app update works on Android (and everywhere).** "Download update" used to
+  fail on Android (it tried to launch a desktop-style opener); it now opens the
+  release via the proper system handler on every platform, with OS/arch detected
+  automatically.
+- **Processes screen won't offer to kill the tool itself.** The helper's own
+  process is now marked and its Kill/Restart actions disabled — no more
+  confusing "Operation not permitted" when trying to kill it.
+
+## 3.3.2
+
+A data-loss fix.
+
+- **"Auto Delete after installation" is now actually respected.** With it OFF,
+  an uploaded PKG was still being deleted after install — because the engine
+  always cleaned up the staged file regardless of the setting. It now keeps the
+  PKG when you ask it to. The same fix stops the File System → Install action
+  from deleting a PKG you point it at in place.
+- **Better install logging.** Bug reports now capture your Auto Install / Auto
+  Delete settings and log the exact install/delete decision for each PKG, so
+  issues like this are diagnosable without a repro.
+
+## 3.3.1
+
+A polish + fixes release.
+
+- **Hardware temperatures now show °F as well as °C** (e.g. `62°C / 144°F`).
+- **Bigger checkboxes.** Checkboxes everywhere (Settings included) were tiny;
+  they're now comfortably sized and accent-coloured, and larger still on touch.
+- **File System drive list is consistent.** `/data` used to look dimmer than
+  your USB/external drives; now every drive reads equally clearly, with just the
+  border + icon marking which is active/external/internal.
+- **Quieter PS5 kernel log.** The Hardware screen used to query `hw.physmem`,
+  which the PS5 rejects and logs as an error on every read. It now uses only
+  approved sources for the same RAM figure — no more log spam.
+- Fixed a handful of UI strings that weren't translatable.
+
+## 3.3.0
+
+A big feature release.
+
+- **Process manager (new Processes tab).** A live task-manager for your PS5:
+  see every running process with its memory and thread count, **Kill** anything,
+  or **Restart** a game (closes + relaunches it). User payloads and games show by
+  default; a toggle reveals system processes, and killing a system or game
+  process asks first. Hardware-verified.
+- **Quick bring-up.** One tap on the Connection screen runs your bring-up
+  payloads (kernel R/W, SMP), sends the helper, and waits until the PS5 is ready
+  — instead of sending each one by hand every boot. Configure the chain in
+  Payloads → Playlists.
+- **Auto-loader.** Pick a playlist that runs by itself whenever a PS5's helper
+  becomes ready (after first-time setup or a reconnect).
+- **Drag-and-drop payloads into a playlist.** Drag one or more payloads onto the
+  Playlists panel to build a playlist in one gesture (or "From files…").
+- **Unified file/folder picker.** The Upload screen's two buttons are now one
+  **Browse** menu, and drag-drop auto-detects file vs folder.
+- **Game art on the upload queue.** Queue rows now show the game's cover, name,
+  and PS4/PS5 badge so you can tell what's what at a glance.
+- **Faster Library.** Big libraries no longer lag on search and refresh —
+  rows are memoized, the list reconciles in place, search is debounced, and
+  thumbnails load as you scroll.
+- Plus a sweep of bug, logging, performance, and cross-platform fixes from a
+  multi-perspective review (kill/playlist failures now leave a trace in bug
+  reports, drag-drop hit-testing, process-poll throttling, and more).
+
+## 3.2.9
+
+- **Shutdown now fully powers off the PS5.** The Shutdown button was putting the
+  console into rest mode instead of turning it off, because the API it used
+  respects the system's rest-mode setting. It now does a true power-off (use the
+  separate **Rest mode** button if you want standby). Hardware-verified.
+
+## 3.2.8
+
+- **More large-Text-size layout fixes on the Payloads screen.** 3.2.6 fixed the
+  send form at the top; this fixes the rest. The payload catalog cards no
+  longer crush a payload's name to one letter per line, and playlist steps keep
+  the payload path visible instead of hiding it behind the controls. Verified
+  across a range of screen sizes and text scales.
+
+## 3.2.7
+
+- **Download files from mounted disc images.** Browsing a ShadowMount+ game
+  under `/mnt/shadowmnt` worked, but downloading a file from it (e.g.
+  `eboot.bin`) failed with "path not allowed". You can now read/download files
+  from mounted disc images.
+- **Preview SDR screenshots.** Consoles that save screenshots as `.jpg` (rather
+  than HDR `.jxr`) hit a "not a JPEG XR file" error on Preview. `.jpg`/`.png`
+  screenshots now preview and save directly; only HDR `.jxr` shots are
+  converted.
+
+## 3.2.6
+
+- **Properly fixed the Payloads "Send file" screen at large Text sizes.** The
+  previous attempt only fixed part of it — on some tablets (especially with a
+  bigger Text-size setting) the form still collapsed and the labels wrapped one
+  letter per line. The whole screen now reflows correctly at any text size and
+  window width. Verified across a range of phone, tablet, and desktop sizes.
+
+## 3.2.5
+
+A stability + bug-fix release from a round of user reports.
+
+**The helper is much better behaved.**
+
+- It no longer risks interfering with your *other* homebrew. A safety bug
+  could, after a reboot, target an unrelated tool you'd autoloaded (a cheat
+  loader, nanoDNS) when clearing a stale instance — it now only ever touches
+  an instance from the current boot session.
+- "Helper keeps dropping randomly" is fixed: the app no longer flips to
+  "Helper isn't running" on a single missed status check, and the helper
+  itself survives transient network hiccups instead of exiting.
+- Spurious "Delete failed" errors after installing a package (when
+  auto-delete is on) are gone — a file that's already gone or still briefly
+  in use is no longer treated as a hard error.
+
+**UI fixes.**
+
+- Deleting a PS5 in Manage PS5s now shows the confirmation dialog on top
+  instead of just dimming the background.
+- Larger Text-size settings no longer break the Payloads send screen
+  layout.
+- The Library no longer flickers a wall of placeholder rows during a scan.
+- Installed Apps gained an **Open folder** button (for homebrew/disc titles)
+  that jumps to the app's folder in the File System browser.
+
+**Payloads.**
+
+- Added **CheatRunner** to the catalog.
+- Added a **search box** to the payload catalog.
+- A payload source that's temporarily unreachable now shows a quiet note
+  instead of a loud error, so it no longer looks broken or removed.
+
+## 3.2.4
+
+A big polish release built from real-user feedback and a full UI/UX pass.
+
+**Fewer reasons to restart your PS5.** If the helper gets stuck, the app now
+detects and force-clears the previous instance on its own before sending the
+new one — so you usually don't have to reboot the console or kill it by hand
+anymore. Verified on FW 5.10 and 9.60.
+
+**Packages & USB.**
+
+- Install a `.pkg` straight from the **File System** browser — right where the
+  file sits, no detour through the scan.
+- PS4 packages now show up reliably with the correct PS4/PS5 badge, and
+  scanning USB/external drives for packages is much faster.
+- The "copying to your PS5" notice now explains it's a temporary stage that's
+  removed after install, so it won't fill up your SSD.
+
+**Save data & screens.**
+
+- Save data shows the **game's name** next to its ID (e.g. "Saros
+  (PPSA07631)"), and missing save thumbnails now fall back to cover art.
+- Unplugging a USB drive in the File System browser drops you back to `/data`
+  instead of throwing an error.
+- Installed Apps no longer flashes a "needs ShadowMount+" warning on load, and
+  Play is clearly disabled (not just failing) for disc games that need it.
+
+**A clearer, more consistent app.**
+
+- **Payloads** moved next to **Connection** in the sidebar — sending the helper
+  is a setup step, so it now lives with "get started".
+- Added an **automatic update check** (on by default) that notifies you when a
+  new version is out.
+- Tidier loading states, consistent modals, clearer labels and terminology, a
+  redesigned bottom status bar, and accessibility improvements throughout — in
+  all 18 languages.
+
+## 3.2.3
+
+- **Clearer status bar.** The strip along the bottom used to cram five
+  things together (`engine | Fat | v3.2.0 | PS5 | FW 5.10`), which was hard
+  to read. It now shows just the two things that matter at a glance — the
+  **Engine** and your **PS5** (with its firmware) — neatly separated. The
+  console name dims when it's not connected, and the helper version and
+  kernel details are tucked into the tooltip when you hover.
+
+## 3.2.2
+
+- **New look, and a new theme.** The two main themes are now **PS5 Dark** and
+  **PS5 Light** — coloured after the console's own black- and white-plastic
+  panels with the PlayStation-blue accent. And there's a brand-new **Rose**
+  theme: warm, bright, and soft, built around a bold rose accent. Pick any of
+  them (plus OLED) in **Settings → Appearance**.
+- **Tidier releases.** The engine now carries the same version number as the
+  app, and each release also ships the engine binary on its own for every
+  platform.
+
+## 3.2.1
+
+- **Save Data now shows game cover art.** The save thumbnails were trying to
+  read each save's own icon, which lives inside a sealed container and always
+  failed — so every save showed a plain icon and the log filled with warnings.
+  They now use the game's cover, which actually displays.
+- **No more harmless-but-noisy errors in the log.** Opening Install Package
+  logged a string of `502` errors while checking for update/DLC folders that
+  didn't exist yet. The check is now done without those false errors.
+
+## 3.2.0
+
+- **Install games straight from a USB or external drive.** Plug a drive with
+  `.pkg` files into the PS5 and install them right from the app — no uploading
+  from your computer first. A new **External Packages** section finds them
+  automatically. (The app copies the package onto the console before installing,
+  because the PS5's installer can't read a USB drive directly.)
+- **PS4 / PS5 badges on every package**, so you can tell at a glance which
+  console a `.pkg` is for.
+- **Installs are honest about whether they actually worked.** The app now
+  confirms the game really landed on the console before saying "installed" — and
+  reworked which install method it uses under the hood, so packages that used to
+  quietly fail now install correctly. (Verified end-to-end on real hardware
+  across multiple firmwares.)
+- **Base games and their updates no longer clash.** A game and its update share
+  the same ID; the app keeps them apart so one never overwrites the other, and
+  warns you if you try to install an update before its base game is on the
+  console.
+- **A friendlier, more visual interface.** Preview a screenshot before
+  downloading it, search inside a single game instead of the whole console, see
+  all your drives at the top of the File System tab, get a heads-up banner when a
+  new version is out, and reach quick actions (Open folder, Copy details) from a
+  menu on each package. Game artwork shows up in more places.
+- **Adjust the text size.** If the app renders too large (common on some Android
+  phones with a big display-size setting), Settings now has a Text size control
+  that resizes the whole interface.
+- **Now officially covers firmware up to 12.70.**
+
+## 3.1.6
+
+- **Renaming a profile sticks now.** Renaming a console user updated the name
+  everywhere except the PS5 home screen, which kept showing the old name after a
+  reboot — even though the console still said the new name was "already taken."
+  The rename now also updates the home-screen display name so the two match, and
+  your avatar is left untouched. (Verified end-to-end on a real console.)
+- **No more shutdown moving a game from an external SSD to internal.** A
+  cross-volume move falls back to a local copy, and the faster copy path added
+  in 3.1.4 could flood the kernel with un-flushed writes during a multi-GB game
+  and panic the console. The copy now flushes on a fixed cadence so that backlog
+  can't build up. (Stress-tested with a sustained multi-GB copy on real
+  hardware.)
+- **Package installs stop claiming success when they didn't.** On FW 12.x an
+  install could be accepted and then fail in the background, leaving a
+  "corrupted" tile while the app showed "Installed." The app now waits for the
+  install to actually finish and surfaces a real error — pointing you to the
+  PS5's own Package Installer — instead of a false success. The Cancel button
+  can no longer interrupt a real install mid-way either.
+- **Android: bug reports and exports save again.** Saving a bug report, crash
+  bundle, settings / search / stats / log export, or save-data backup failed on
+  Android ("No such file or directory"). They now land in your Downloads folder,
+  each with its own filename.
+- **A pile of reliability and UI fixes.** Switching consoles no longer leaves
+  stale info on the Profile, Hardware, Screenshots, or Upload screens; failed
+  exports now tell you instead of silently doing nothing; the USB autoloader no
+  longer gets stuck after a failed scan; the command palette scrolls to keep the
+  selected item in view; `.rar` uploads land in a correctly named folder; the
+  engine re-extracts itself if its file goes missing; and the settings backup
+  now captures every preference (and stops losing your play-time on restore).
+  Plus internal fixes to large uploads, the transfer engine, and broader
+  translation coverage.
+
+---
+
+## 3.1.5
+
+- **Stop a running upload, for real.** The Stop button on the Activity page now
+  actually halts the transfer on the spot — before, it only stopped *showing*
+  the upload while the PS5 kept receiving it in the background. Works for both
+  one-off uploads and queued ones; whatever already landed stays on the PS5, so
+  you can resume later if you want. (Verified on a real console mid-transfer.)
+
+---
+
+## 3.1.4
+
+- **Game details open on Android now.** Tapping a game's **Details** in the
+  Library did nothing on phones — the detail popup was being positioned to a
+  scrolled area instead of the screen, so it opened off-screen. It now opens
+  centered, every time.
+- Internal: green CI again (code formatting, translation coverage, and the
+  RAR test fixtures) — no user-facing change.
+
+---
+
+## 3.1.3
+
+- **Each PS5 keeps its own upload, even when you switch.** Pick a file and set
+  up an upload for one console, hop to another console in the top tabs, then
+  hop back — your picked file, password, and options are right where you left
+  them. The cut/copy clipboard and your place in the File System are remembered
+  per console too, so switching never loses what you were doing.
+- **No more accidental reloads.** Right-clicking no longer pops the WebView's
+  Back / Reload / Inspect menu (which could restart the app mid-upload and make
+  it look like everything stopped), and the reload shortcuts are blocked in the
+  packaged app. Right-click still works inside text fields for copy/paste.
+
+---
+
+## 3.1.2
+
+- **Windows packaging fixed.** The new `.rar` support pulled in a library that
+  didn't link cleanly on Windows, which broke the 3.1.0 / 3.1.1 Windows builds
+  (so those never shipped). Fixed — this release packages on every platform
+  again, and includes everything from 3.1.0 and 3.1.1 below.
+
+---
+
+## 3.1.1
+
+Fixes and polish from your feedback.
+
+- **Community payloads download again.** Fixed the download for NP Fake
+  Sign-in and the other earthonion payloads (their host moved), and **added
+  Ghostpad** (virtual controller / input redirection) to the payload list.
+- **Library details open on your phone.** On Android the game row's
+  Play / Details / ⋯ buttons could be pushed off the edge of the screen and
+  were untappable — the row now wraps so every action is reachable.
+- **A clearer Activity log.** Clearing history no longer removes uploads that
+  are still running; you can **delete individual entries**; each row has a
+  **View** button that shows the full details; and an upload that hasn't
+  started moving bytes now says **"Preparing…"** (compressed `.rar`/`.7z`
+  archives are extracted on your PC first, so there's a wait before the speed
+  appears) instead of a confusing "Uploading…" with no progress.
+- **Upload button tidy-up.** The button just says **Upload** again; which PS5
+  you're sending to is shown as a small chip next to it, so a long console
+  name no longer stretches the button.
+- **Profile changes tell you to reboot.** After changing a console avatar or a
+  local username, a note reminds you the change only shows on the PS5 after a
+  restart.
+
+---
+
+## 3.1.0
+
+More formats, faster big uploads, and packages that install themselves.
+
+- **Upload `.7z` and `.rar` archives, not just `.zip`.** Pick a compressed
+  game dump and it's decompressed on your PC and streamed in — it lands
+  already extracted on the PS5. RAR also handles **multi-part sets** (just
+  pick the first part — the rest are found automatically) and
+  **password-protected** archives. (RAR is desktop-only; Android does `.zip`
+  and `.7z`.)
+- **Packages install themselves — in your queue.** Add a `.pkg` on the Upload
+  tab and it uploads, installs, and (optionally) deletes the staged copy as
+  one step, right alongside your folders, images, and archives. Add it to the
+  queue and it ends up playable — no separate trip to the Install Package tab
+  (which is still there as a package manager).
+- **Big uploads stay fast the whole way.** Fixed a slowdown where a large
+  single file — like a 150 GB disk image — would crawl to a few KB/s partway
+  through and only recover if you restarted. It now holds full speed from
+  start to finish.
+- **Every PS5 keeps its own everything.** Switch consoles and the library,
+  uploads, saves, and installed-apps lists all switch with you — no leftover
+  data from the other console, and no risk of a Restore or Uninstall landing
+  on the wrong PS5 mid-switch.
+- **Profile pictures + rename local users.** Set a console avatar and rename
+  offline accounts right from the Profile screen.
+- **Text fits everywhere.** Fixed text wrapping one letter per line in tight
+  or large-font layouts (the Register overflow menu and others) — on every OS.
+- **Steadier under the hood.** Fixed a payload crash during profile reads and
+  tightened a few rough edges.
+
+---
+
+## 3.0.0
+
+The big redesign. Same tool, sharper look, fewer steps, fewer surprises.
+
+- **A fresh look across the whole app.** Deeper, richer dark theme with real
+  depth and a more vivid PlayStation blue; refreshed light and OLED themes;
+  smooth animations on dialogs, menus, and page changes (and the four
+  PlayStation shapes as the new loading mark). Every button and field now
+  shows a visible focus ring for keyboard users, and motion respects your
+  system's reduced-motion setting.
+- **Keep your PS5 awake — your choice.** Settings → Upload now has a
+  three-way "Keep the PS5 awake" option: **Off**, **During transfers**
+  (default, protects long uploads from rest mode), or **Always while
+  connected** — your PS5 never auto-enters rest mode while the app is open.
+  Putting the console to rest manually always still works. A small ⚡ in the
+  status bar shows when always-on is active. Verified on real consoles.
+- **Games go straight to your home screen.** Upload a game folder and it's
+  registered on the PS5 automatically when the transfer finishes (works from
+  the queue too) — no more hunting for "Register" in the Library. You can
+  turn this off per upload, and the menu is now called **"Add to home
+  screen"** so it says what it does.
+- **No more dead ends.** Every screen now tells you exactly what's wrong and
+  how to fix it — no console set up yet, console offline, helper not
+  running, or the engine not responding — with a button that takes you
+  there. New installs land directly on the Connection screen.
+- **Errors can't slip past you anymore.** When a delete, move, mount, rename
+  or download fails, the error now also lands in the notification inbox —
+  navigating away no longer makes it vanish.
+- **Quality of life.** Loading screens show smooth placeholders instead of
+  blank space; huge game libraries render instantly ("Show all" expands the
+  rest); scheduled power-ticks now always target the console you created
+  them for; Dashboard moved next to Connection where you'd look for it.
+- **Fully translated.** Every string in the app is now translated in all
+  18 languages — no English fallbacks left anywhere.
+
+---
+
+## 2.30.0
+
+- **Running several PS5s hard at once won't crash a console.** When work
+  overlapped on one console — reading its live temperature while a package was
+  installing, or registering a game on one PS5 while another was mid-install —
+  the helper's low-level kernel operations could collide and, in the worst
+  case, black-screen and restart the console. Those operations are now
+  serialized internally, so heavy concurrent use across consoles stays stable.
+  Verified on real hardware (PS5 and PS5 Pro) under a thousand-plus
+  concurrent operations.
+- **One busy console no longer freezes the app for the others.** A slow or
+  very large upload (especially from a network drive) used to be able to stall
+  the desktop engine for *every* connected console at once. Each console's
+  work is now handled independently, so a busy PS5 keeps to itself.
+- **The Upload screen always shows the right console.** Switching tabs mid-
+  upload now correctly shows each console's own progress, and the "stay awake"
+  and folder-comparison helpers follow the console you're actually uploading
+  to. Switching consoles also clears the previous console's game list
+  immediately, so an action can never land on the wrong PS5.
+
+---
+
+## 2.29.1
+
+- **Connecting two (or more) PS5s at once is stable again.** A status-checking
+  bug introduced in 2.29.0 could flood the consoles with rapid back-to-back
+  reconnect checks, which knocked the second console offline a few seconds
+  after it connected. The app now checks each console at a steady pace, so
+  every PS5 stays connected.
+- **Recover a crash log after the helper drops.** In the bug report, when the
+  helper is disconnected you can now reconnect it in one tap to grab the PS5
+  kernel log — it survives the helper crash, so you can still capture what went
+  wrong (just don't reboot the console first, which clears it).
+
+---
+
+## 2.29.0
+
+- **Run multiple PS5s at the same time.** When you have more than one console,
+  a tab strip appears at the top — one tab per PS5, each with its own live
+  status. Switch between them freely; every console keeps its own uploads and
+  package installs running in parallel in the background. Installing on one
+  console no longer makes the others wait — start work on each independently.
+- **Big uploads are reliable again.** Fixed a crash that could drop the
+  connection partway through very large uploads (you'd have had to re-send the
+  helper). On top of that, if a transfer ever drops, the app now automatically
+  re-deploys the helper and resumes from where it left off instead of giving up.
+
+---
+
+## 2.28.3
+
+- **The app fits your phone screen now.** Pages that used to run off the right
+  edge on Android (Settings and others) always fit the screen width — only
+  vertical scrolling, the way it should be. This holds in every language,
+  including the longer ones.
+- **Easier to tap.** Buttons and controls are now finger-sized (44px) on phones
+  and tablets, while desktop keeps its compact layout.
+
+---
+
+## 2.28.2
+
+- Docs only: added a troubleshooting entry for the Hardware screen dropping
+  the connection (the actual fix shipped in 2.28.1) with the recovery steps.
+  No app changes from 2.28.1.
+
+---
+
+## 2.28.1
+
+- **Fixes a crash that could drop the PS5 connection when opening the Hardware
+  screen.** On some console/loader combinations a single misbehaving hardware
+  reading could take the whole helper down (you'd see "connection refused" and
+  have to re-send the payload). Now a reading that misbehaves on a given
+  firmware just shows as "unavailable" for that one field instead of dropping
+  the connection — and the helper logs exactly which reading misbehaved so
+  the cause is easy to pin down.
+- Built against the latest PS5 payload SDK.
+
+---
+
+## 2.28.0
+
+- **Fixes games that install but won't start on newer firmware.** Installing a
+  package now always prefers the methods that produce a *launchable* game and
+  only falls back to the riskier last-resort method when everything else
+  fails. If it ever has to use that fallback, the app clearly warns you — and
+  points you to the PS5's own Package Installer — instead of showing a
+  misleading "Installed." This targets the "can't start the game or app" error
+  some people hit on recent firmware.
+- **Smoother upload speed readout.** Speed and ETA now update continuously as
+  data goes out instead of jumping once per chunk, so they no longer sawtooth
+  on Wi-Fi or slower links.
+- Plus better firmware diagnostics and more install-path test coverage.
+
+---
+
+## 2.27.1
+
+- Routine dependency updates (frontend libraries and a networking crate). No
+  user-facing changes — just keeping things current and secure.
+
+---
+
+## 2.27.0
+
+- **Report a bug without leaving the app.** A new **Bug Report** page (under
+  Diagnostics) lets you describe what happened, attach screenshots, and bundle
+  the app's logs plus a snapshot of your PS5 into a single `.zip` to post on
+  Discord — so issues come with enough detail to actually fix. Your PS5's IP and
+  serial are stripped by default.
+- **Capture screenshots in one click.** A camera button in the status bar grabs
+  whatever screen you're on and saves it; on the Bug Report page you pick which
+  captures to include. Works on every platform.
+- **Much better logging.** The app now keeps a detailed log on disk (with an
+  adjustable detail level) that survives a crash, and it captures engine and
+  helper errors and crashes — so a bug report contains what actually went wrong
+  instead of a blank. You choose how much of the recent log to package.
+- **The helper no longer leaves a stuck copy behind.** Resending the helper
+  after it crashed could spawn a second copy that couldn't be removed; it now
+  cleans up the old one on startup. (If one is ever truly stuck, a quick PS5
+  reboot clears it.)
+- Plus connection-stability fixes for the Hardware screen and assorted polish.
+
+---
+
+## 2.26.1
+
+- **Turn PS5 screenshots into normal pictures.** The PS5 saves screenshots as
+  HDR `.jxr` files that most photo viewers and browsers can't open. The
+  Screenshots screen now has a **Convert** button on each shot that turns it into
+  a regular `.png` you can open and share anywhere — no extra apps or extensions
+  needed. (Desktop app.)
+- **Fan speed in the Hardware screen.** "Read sensors" now also shows the
+  console's current fan duty, next to temperatures and CPU clock.
+- **Reading sensors is safe on every console.** The one sensor that could freeze
+  the helper on some firmware (power draw) is no longer read, so live readings
+  can never knock the connection offline — on any PS5 model or firmware.
+- Screenshots that used to appear twice (the full-size shot and its thumbnail)
+  now show as a single row.
+- Build and packaging fixes so the app keeps building cleanly on Windows, macOS,
+  and Linux.
+
+---
+
+## 2.25.5
+
+- **System → Hardware no longer drops the connection.** On some consoles,
+  opening the Hardware screen (or the dashboard's live readouts) could break the
+  connection to the helper and force you to send it again. Live temperatures and
+  CPU clock are now read in a way that's safe on every firmware, so the
+  connection stays put. (Power draw now shows as "unavailable" on firmware where
+  reading it isn't safe — a deliberate trade so it can never knock the helper
+  offline.)
+- **File search can't run the console out of memory.** Indexing a very large
+  drive is now capped, so a big game library won't exhaust the helper's memory;
+  the results just show as partial when the limit is hit.
+- Hardened the helper against malformed and out-of-range values so it stays
+  stable under unusual conditions.
+
+---
+
+## 2.25.4
+
+- **Plays nice with ShadowMount+.** If you run ShadowMount+, ps5upload now hands
+  games off to it instead of doing its own thing and clashing. Uploading or
+  registering a game adds it to ShadowMount+'s install list and lets SMP do the
+  mounting + registering — so trophies, disc images, and nested PFS all work,
+  and the two tools stop fighting over the same title. Falls back to ps5upload's
+  own mount/register when ShadowMount+ isn't running.
+- **nanoDNS support.** Added the nanoDNS payload — a tiny on-console DNS server
+  that blocks PlayStation Network / update domains (and can redirect any domain)
+  — to the Payloads list, plus a new **nanoDNS** screen to edit its config and a
+  guide for pointing your PS5's DNS at it.
+- **More disc-image formats.** You can now upload `.ffpfs` and `.ffpfsc` (PFS and
+  compressed/nested PFS) images, alongside the existing `.exfat` and `.ffpkg`.
+- Refreshed the payload info for ShadowMount+ and kstuff-lite (firmware 12.xx),
+  and fixed a couple of small Installed Apps glitches.
+
+---
+
+## 2.25.3
+
+- **A much better Installed Apps screen.** Every game now has a **Play** button
+  to launch it straight from the app. Titles are grouped by what they are —
+  installed games & apps, disc images, folder homebrew, and system — and each is
+  tagged **PS4** or **PS5**. The screen also warns you when **kstuff** isn't
+  active (so you know games won't launch) and when a disc image needs
+  **ShadowMount+**, with a one-tap button to send it to the console.
+
+---
+
+## 2.25.2
+
+- **Installed packages actually launch now.** Installing a `.pkg` from the
+  Install Package page registered the game's icon but never laid down its
+  actual content — so the tile appeared on the PS5 but launching it failed with
+  "can't start the game or app." Installs now go through the path that installs
+  the full game content (the same approach etaHEN uses), so the game launches.
+
+---
+
+## 2.25.1
+
+- **Installed games actually launch now.** Some games installed without any
+  error but wouldn't start ("can't start the game or app"). They now install
+  with their full content and launch normally.
+- **Interrupted uploads resume for real.** If a big folder upload drops partway
+  through, it keeps everything that already made it across and continues from
+  there — instead of re-sending the whole game every time — and it holds onto
+  that progress across several interruptions in a row.
+- **Manage several PS5s at once.** The upload queue is now grouped by console:
+  each PS5 has its own Start and Stop, consoles upload in parallel, and you can
+  reorder one console's games while another console is still uploading.
+- **Translated into every supported language.**
+
+---
+
+## 2.25.0
+
+- **More reliable uploads by default.** Sending several streams at once could
+  crash the PS5 helper mid-upload on some consoles, so uploads now use a single
+  stream by default. You can still turn streams up in Settings — with a heads-up
+  that it's less stable — but the single-stream path is the rock-solid one.
+- **Uploads recover on their own.** If a transfer drops mid-upload — most often
+  because the helper crashed — the app now re-sends the helper and picks up
+  exactly where it left off, retrying a few times before giving up. Real
+  problems like the PS5 running out of space still stop right away. On by
+  default.
+- **Keeps your PS5 awake while uploading.** Long uploads used to die when the
+  console slipped into rest mode. The app now keeps the PS5 awake for the
+  duration of a transfer. On by default.
+- **Finds your PS5 across every network.** "Find PS5s on the network" now scans
+  all of your computer's connections at once (Ethernet + Wi-Fi), so it locates
+  your console even when it's not on your computer's main network.
+- **Reset everything.** A new button under Settings → Data & reset wipes all
+  local app data — settings, saved consoles, history, and caches — and starts
+  fresh. Nothing on your PS5 is touched.
+- **Cleaner, easier-to-read interface.** Bigger text and logo, a tidier layout
+  that wastes less space, and friendlier "nothing here yet" screens. Settings is
+  reorganized into clear sections, and the upload-speed limit is now a proper
+  control there.
+
+---
+
+## 2.24.0
+
+- **Much faster downloads (backup console → PC).** Saving a game to your PC
+  used to reconnect for every small chunk; it now keeps one connection open
+  and reads ahead, and pulls folders over several connections at once. A big
+  single file roughly doubled to about full network speed, and folder backups
+  are much quicker. It also resumes from where it left off if the connection
+  drops. Nothing new to send to your PS5 — it's all in the app.
+- **See which console each upload is for.** Every item in the upload and
+  install queues now shows its target console, so a mixed queue isn't a
+  guessing game.
+- **Upload to several consoles at once (optional).** New setting under
+  Settings → Upload to send queued games to different consoles in parallel
+  instead of one console at a time. Off by default.
+- **Pick a payload version — and downgrade.** The Payloads catalog now lets
+  you choose any past release of a payload, not just the latest, and flags
+  pre-release builds as possibly unstable. Handy for rolling back when a fresh
+  build misbehaves.
+- **Adding a game's update no longer clashes with its base.** A base game and
+  its update share an ID, which made the app treat an added update as the base
+  again. They're now kept separate, with clear "Update" / "DLC" labels.
+- **Tidy up the staged-package list.** New "Clear finished" and "Clear all"
+  buttons, plus an optional "auto-delete after install."
+
+---
+
+## 2.23.11
+
+- **Uploads no longer abort with a "buffer space" error on Windows.** During a
+  fast multi-stream upload, Windows could briefly run out of network buffers
+  (`os error 10055`), and the app treated that as fatal — stopping the whole
+  transfer partway through. It now waits a moment and retries the connection
+  automatically, so a temporary hiccup no longer ends your upload. Engine-only
+  fix; no need to re-send the payload to your PS5.
+
+---
+
+## 2.23.10
+
+- **Faster uploads from network drives / NAS.** The app now reads the next chunk
+  from your source while the current one is still going out over the network, so
+  the connection no longer sits idle waiting on a slow disk read. No change if
+  your files are on a fast local drive (there the PS5 or the network is the
+  limit) — this specifically helps slow or network sources.
+- **More stable uploads of huge multi-file folders.** Removed per-file memory
+  churn in the PS5 payload's write path that could fragment the console's memory
+  on very large folders — especially now that uploads use several parallel
+  streams. (Requires sending the updated payload to your PS5.)
+
+---
+
+## 2.23.9
+
+- **Faster uploads — large folders now send over several connections at once.**
+  A single upload stream is limited by the console's per-connection write speed
+  (around 40 MB/s on non-Pro PS5s — a single-thread limit, not your network or
+  SSD). Uploads now split a folder's files across up to 4 parallel streams,
+  which adds up to a much higher total. Measured on wired gigabit: ~1.7× faster
+  on a PS5 (fat) and ~1.4× on a PS5 Pro (which was already close to the network
+  limit). It turns on automatically and falls back to a single stream on older
+  payloads; you can change it under Settings → Upload → Parallel upload streams.
+  (Tiny-file folders are limited by the console's filesystem, not bandwidth, so
+  they don't speed up — this helps games with real-sized files.)
+
+---
+
+## 2.23.8
+
+- **Uploading from a network drive no longer crashes the helper.** When the
+  source folder lives on a network share (SMB/UNC), scanning it can take
+  minutes. The app was sometimes running several of those scans at once — a
+  background "diff vs PS5" preview on top of your actual upload — which fought
+  over the same share and could take the helper down on big games. Now only one
+  scan runs at a time, and the preview pauses while a transfer is in progress
+  and resumes when it's done.
+
+---
+
+## 2.23.7
+
+- **Queued uploads are more reliable.** Before running a queue, the app now
+  makes sure your PS5 is on the matching helper, and it paces jobs so a long
+  list no longer crashes the helper partway through.
+- **Install and upload now take turns instead of colliding.** Starting an
+  install (or adding a .pkg) while something is uploading no longer drops the
+  connection — it waits in line and starts automatically when the current
+  transfer finishes, and the screen tells you it's waiting (with a Cancel
+  option). The transfer also no longer needlessly blips during a package
+  install.
+
+---
+
+## 2.23.6
+
+- **No more phantom crash reports during uploads.** A harmless browser-engine
+  hiccup that could happen as a screen changed mid-upload was being recorded
+  as a crash. It's now ignored, and genuine errors capture more detail to make
+  them easier to track down.
+
+---
+
+## 2.23.5
+
+- **Android build restored.** The 2.23.4 window-placement fix didn't compile
+  for Android, so that release shipped desktop-only (no APK). The same fixes
+  — a centered, on-screen window and a working "Open folder" — are back on
+  Android too.
+- **Logs: Copy and Download work again.** "Copy" now reliably puts the log on
+  your clipboard, and both buttons confirm when they're done.
+- **Removed the experimental Date & Time settings** from the Hardware screen.
+- **Fewer phantom crash reports.** A harmless internal hiccup is no longer
+  recorded as a crash.
+
+---
+
+## 2.23.4
+
+- **Fix: the crash-report "Open folder" and "Clear" buttons (Settings →
+  Diagnostics) no longer stay greyed out.** "Open folder" now reliably opens
+  the reports folder — and if your OS blocks that (or on Android, where the
+  folder is private to the app), it shows you the exact path instead. The
+  folder location is now also shown under the report count.
+
+---
+
+## 2.23.3
+
+- **Big uploads are much more stable.** Large game folders (thousands of
+  files) no longer crash the on-PS5 helper mid-upload — the app now talks to
+  the console one directory scan at a time instead of flooding it. Validated
+  on real hardware across folder, `.zip`, and `.exfat` disc-image uploads.
+- **Unusual file/folder names work now.** Names containing characters like
+  `}`, or very long paths, no longer get the whole upload rejected with a
+  cryptic error. (Re-send the payload to your PS5 to pick this up —
+  Connection → Send payload.)
+- **One-click crash reporting.** If something goes wrong, the app now saves a
+  detailed report automatically and gives you a **"Report this crash"**
+  button (also in Settings → Diagnostics) that packages everything into a
+  `.zip` and opens our Discord so you can post it.
+- **Fully translated.** All 18 languages now cover every screen, including
+  error and troubleshooting messages (previously English-only).
+- Smaller fixes: an `etaHEN/games` upload destination preset, and "Save logs"
+  in the Logs tab works again.
+
+---
+
+## 2.22.0
+
+- **Android: the screen now stays on during transfers.** While an upload,
+  download, or install is running, your phone or tablet no longer dims or
+  sleeps and drops the transfer mid-stream. Settings → Keep Awake also works
+  on Android now, to hold the screen on while the app is open. Desktop
+  already did this; Android has caught up. Verified on-device (Pixel 9,
+  Android 16).
+
+---
+
+## 2.21.3
+
+- **Fix: a playlist step ran off the edge on phones.** In Payloads →
+  Playlists, a step's path plus its per-step IP / port / sleep fields and
+  buttons were packed into one row that overflowed narrow screens. The
+  controls now wrap neatly underneath on small screens; desktop is
+  unchanged.
+
+---
+
+## 2.21.2
+
+- **Fix: the Android app still crashed on launch — now fixed for real.** It
+  opened, then closed after about a second. The 2.21.1 fix turned out to
+  address an unrelated issue; the actual cause was a native crash in the
+  startup file-access permission check, which read an Android system
+  context that Tauri doesn't set up. It now obtains that context itself.
+  Verified working on-device (Pixel 9, Android 16). The app is fully
+  self-contained — it runs its own engine on the phone and talks to your
+  PS5 over Wi-Fi; it never needs the computer.
+
+---
+
+## 2.21.1
+
+- **Fix: the Android app crashed on launch.** The 2.21.0 build shipped
+  modern JavaScript that older Android System WebViews couldn't run, so
+  the app opened to the first screen and then closed. Builds now target a
+  broadly-compatible JavaScript level, so it launches on those devices.
+  (Desktop was unaffected. The Android app is fully self-contained — it
+  runs its own engine on-device and talks to your PS5 over Wi-Fi; it
+  never needs the computer.)
+
+---
+
+## 2.21.0
+
+- **Install Package is now a package library.** Upload a `.pkg` to your
+  PS5 once and it stays there. The screen shows all your uploaded
+  packages with cover art and size, and you can **Install**, **Reinstall**,
+  or **Delete** any of them in a click — no need to re-upload to install
+  again. There's no install-method picker anymore: installs go through the
+  DPI daemon, the most reliable path on current firmware.
+- **Under-the-hood updates.** Refreshed the desktop and UI toolchain
+  (React, Tauri, build tooling) and dependencies to their current releases.
+
+---
+
+## 2.20.2
+
+- **Package install now works on firmware 9.60+.** Installing a `.pkg`
+  no longer fails (or knocks the payload offline) on consoles where
+  Sony's installer rejects the streamed install. Both **Stream** and
+  **Upload & install** complete reliably, and the app falls back from
+  Stream to Upload automatically when needed.
+- **New: Installed Apps screen.** See everything installed on your PS5
+  with cover art, grouped by how it got there — installed from a
+  package vs. mounted/registered from a folder or disc image — and
+  uninstall any title in a click. Works on desktop and Android.
+- **Android: SD cards and USB-OTG drives now show up.** The in-app file
+  picker lists removable storage alongside internal storage, so you can
+  upload a game straight from a memory card or a plugged-in USB drive.
+
+---
+
+## 2.20.1
+
+- **Android setup is clearer.** The app now proactively explains the
+  required All files access permission, rechecks it after returning from
+  Android settings, and documents the common Android upload/install issues
+  in the FAQ.
+- **Engine startup diagnostics are easier to find.** If the local engine
+  fails to start, PS5 Upload now records the reason in the app log and
+  status tooltip instead of only showing a red engine dot.
+- **Release and docs cleanup.** Updated stale release workflow references,
+  marked the Android feasibility doc as historical, and tightened ignored
+  Android build artifacts.
+
+---
+
+## 2.20.0
+
+- **Android: pick game folders and files from your phone.** "Choose
+  folder" and "Choose file" now work on Android — browse your phone's
+  storage in an in-app file browser and upload a game folder or a `.zip`
+  straight to the PS5, with no copying. PS5 Upload asks once for
+  permission to read your files. The same picker fixes file/folder
+  selection across the whole app on Android: Library downloads, Install
+  Package, Save-data restore, Screenshots, Payloads, and File System.
+  (Desktop is unchanged — it keeps using the native file dialogs.)
+
+- **ShadowMount+ (and other zip-packaged payloads) now install.** The
+  "Set up your PS5" one-click chain and the payload catalogue failed on
+  ShadowMount+ with "downloaded asset is not an ELF" — newer ShadowMount+
+  releases ship the payload inside a `.zip` instead of as a bare `.elf`.
+  PS5 Upload now detects a zip-packaged payload, extracts the real `.elf`
+  from inside it, and sends that. Affected the recommended chain on every
+  platform (desktop and Android).
+
+- **Android: your settings now survive app updates.** Earlier Android
+  builds were each signed with a throwaway key, so installing a newer
+  version meant uninstalling the old one first — which wiped all your
+  PS5 Upload settings. Releases are now signed with a single stable key,
+  so new versions install **in place** and your settings carry over,
+  just like on the computer. (One-time step: uninstall the current build
+  and install this one; every update after that keeps your settings.)
+- **Settings included in device backup.** Your settings are now part of
+  Android's backup/restore, so they can also come back after a full
+  reinstall or a move to a new phone.
+
+---
+
+## 2.19.1
+
+- **Android: fixed the engine showing red.** On the 2.19.0 Android build
+  the app couldn't reach its own built-in engine, so the status bar
+  showed **engine** in red and transfers couldn't start. Release Android
+  builds block plain-HTTP loopback traffic by default; the app now
+  permits it for its own local engine only (everything else stays
+  blocked). Desktop builds were never affected.
+
+---
+
+## 2.19.0
+
+The notifications-everywhere release — plus the first Android build.
+
+- **System notifications.** PS5 Upload can now post to your computer's
+  notification center (macOS, Windows, Linux — and the Android shade)
+  when a transfer finishes or fails while the app is in the background,
+  so you don't have to keep it in front of you. Toggle it under
+  **Settings → Notifications**.
+- **The PS5 tells you too.** Uploads now flash a "started" and a
+  "complete" message on the console screen itself.
+- **No more sleep-interrupted transfers.** Your computer is kept awake
+  automatically for the duration of any upload, download, or install.
+  The Settings switch is reworded to make clear it keeps the machine
+  awake while PS5 Upload is open.
+- **Android (preview).** The first experimental Android build — the same
+  interface, with mobile-friendly navigation, safe-area handling, and our
+  app icon. It connects to and manages your PS5 over Wi-Fi today; download
+  the `.apk` from the release assets to try it. Treat it as early access.
+- Reliability fixes across notifications and the release pipeline.
+
+---
+
+## 2.18.7
+
+- **Choose where a `.zip` unpacks.** When you pick a `.zip`, the Upload
+  screen now asks **"Where should the .zip unpack?"** with two options,
+  each showing a live preview of where the files will land:
+  - **Put everything in a new folder named after the zip** (the default,
+    unchanged from before) — best for a plain `.zip` of loose game files.
+  - **Extract the contents straight into the destination** — no wrapper
+    folder. Use this when the `.zip` already contains the game's own
+    folder (e.g. `CUSA12345/`), so it doesn't end up double-nested.
+  The choice applies to one-shot uploads, queued uploads, and mirroring
+  to other consoles alike.
+
+---
+
+## 2.18.6
+
+A correctness + hardening sweep — 16 fixes found by a deep multi-agent
+audit across the engine, desktop app, and tooling, plus a release-pipeline
+fix so new versions publish automatically.
+
+- **Releases now publish on their own.** Tagging a release used to need a
+  separate manual "publish" step that was easy to forget (v2.18.5 was
+  tagged but never published because of it). The publish workflow now
+  fires automatically on the version tag, with the manual trigger kept as
+  a fallback.
+- **Hostile/corrupt `.zip` files can no longer crash the preview.** A
+  crafted ZIP64 archive could make the engine abort while inspecting it
+  (a huge declared entry count, or an overflowing offset). Both are now
+  clamped/checked.
+- **Windows: `.ffpkg` extraction can't escape the chosen folder.** A
+  malicious archive entry named like `C:evil.exe` could write outside the
+  destination on Windows. Such names are now rejected.
+- **IPv6 PS5 addresses work.** The address helper used to mangle IPv6
+  literals (e.g. `fe80::1` became `fe80`), breaking every call to an
+  IPv6-only console. IPv6 is now handled and bracketed correctly.
+- **Several panels stop silently failing when you paste an `ip:port`.**
+  The Saves thumbnails, Library panels, Disk Usage, Dashboard sensors, and
+  Kernel Log now go through the canonical address helper, so a host typed
+  with a port no longer produces a broken `ip:port:9114`.
+- **Destructive menu items show as red again.** Delete/uninstall items in
+  overflow menus referenced a non-existent color and rendered like normal
+  items.
+- **Better error guidance for stuck PS5 downloads** (`0x80B22101`) — the
+  specific "clear the notification and retry" message is shown instead of
+  a generic one.
+- **Windows update/metadata fetches are memory-bounded even without a
+  Content-Length**, the cross-device "file is still on disk" message now
+  shows on Windows, the keep-awake toggle can't abort config loading, the
+  Linux USB-drive picker no longer lists fixed/network mounts, archive
+  uploads correctly clear their resume marker, a window-listener leak is
+  closed, and the i18n prune tool works against the current locale layout.
+
+---
+
+## 2.18.5
+
+- **`.zip` uploads — much faster scanning, with a live progress count.**
+  Dropping a `.zip` game dump used to show "Inspecting…" with no
+  feedback while the app walked the archive. On big dumps (60 GB+
+  with tens of thousands of files), this could take long enough to
+  trip the same "engine request failed: error sending request" timeout
+  that 2.18.4 fixed for folder deletes — the user saw a baffling error
+  even though nothing was actually broken. 2.18.5 makes the scan
+  **dramatically faster** (effectively instant once the disk is
+  awake) and the few seconds you do wait now show a live "Scanning
+  archive… N entries" counter so you can see the app is working.
+- **Clearer errors when a `.zip` can't be read.** Bad path, wrong
+  file type, unsupported compression method — the message now tells
+  you exactly what's wrong instead of a generic "engine request
+  failed."
+- **Fix: the "extracted" size in the .zip preview was sometimes
+  blank.** Archives made by some tools (notably `bsdtar` on macOS/Linux
+  and anything using libarchive) set a flag that the old code couldn't
+  read past, so the Upload card would show file count but a blank
+  "extracted" size. Now you see the real expanded size for every
+  archive.
+- No payload changes needed; this is a desktop-app-only release.
+
+---
+
+## 2.18.4
+
+- **Hotfix for "engine request failed" on huge folder deletes/copies.**
+  Deleting (or copying / moving) a folder with tens of thousands of
+  files on the PS5 surfaced as `engine request failed: error sending
+  request for url (http://127.0.0.1:19113/api/ps5/fs/delete)` after
+  about a minute — even though the operation was still running and
+  eventually succeeded on the console. Cause: the desktop app's
+  HTTP client to its own embedded engine had a 60-second ceiling
+  that wasn't long enough for big-tree operations (the PS5 needs
+  many minutes to walk and unlink tens of thousands of inodes).
+  v2.18.4 raises the ceiling to one hour for the three destructive
+  endpoints (`fs/delete`, `fs/copy`, `fs/move`), matching the
+  engine's own internal deadline. Other endpoints stay at 60 s so
+  a wedged sidecar still surfaces fast.
+- No payload changes needed; this is a desktop-app-only fix.
+
+---
+
+## 2.18.3
+
+- **Hotfix for multi-file upload crash.** A user reported uploading a
+  large game folder (~46,000 files / ~13 GB on disk) with v2.18.2
+  consistently fails partway through with "PS5 stopped responding."
+  Reproduced and tracked down: the buffer-size bump shipped in
+  v2.18.2 (per-shard I/O buffer from 4 MiB to 8 MiB on the PS5)
+  doubled the per-shard malloc/free pressure on the multi-file
+  upload path. On folders with many non-packed files (each one
+  separately spawning the on-PS5 writer thread + 2 × 8 MiB buffer),
+  the PS5's heap fragmented faster than its allocator could
+  compact and the payload listener died after roughly 5 minutes.
+- **What changed:** the buffer is reverted to 4 MiB. v2.18.2's
+  measured speed change on the original PS5 was within run-to-run
+  noise anyway, so reverting costs you nothing observable.
+- **Reload the payload** after upgrading. The buffer-size lives in
+  the on-PS5 ELF, not in the desktop app.
+
+---
+
+## 2.18.2
+
+- **Background:** a user reported sustained single-file upload speed
+  dropping from "100 MB/s before" to "30 MB/s now" after switching
+  console hardware. We measured carefully and the cause is the
+  underlying PS5 model's internal-SSD write speed — the original
+  PS5 sustains ~30 MB/s on this code path; the PS5 Pro sustains
+  meaningfully more. Both numbers are network-fast (the host pushes
+  bytes into the PS5 at gigabit line rate) but disk-bound at the
+  console end.
+- **What changed in this release:** the transfer layer was tuned
+  toward fewer/larger frames and bigger writer-thread buffers on the
+  PS5 (64 MiB shards, 256 MiB inflight, 8 MiB writer slots, up from
+  32/64/4 respectively). On a 10 GB `.exfat` over wired gigabit the
+  measured wall-clock change was within run-to-run noise — small
+  positive on the writer-wait portion, small negative on the
+  per-shard overhead, net-neutral. The changes ship anyway because
+  they are at worst neutral on every console class and are a
+  better default for any future console with a slower destination.
+- **What this release does NOT do:** there is no headline speed
+  improvement for original-PS5 single-file uploads. We are honest
+  about that. Going materially past the current ceiling needs
+  payload-side changes deeper than buffer tuning (e.g. a third
+  writer-slot for more producer headroom, or a different write
+  pattern); we'll trial that in a future release.
+- **Reload the payload** after upgrading to pick up the writer-slot
+  change. An older payload still pairs fine with this app.
+
+---
+
+## 2.18.1
+
+- **Picking a large game folder now shows what the app is doing.**
+  When you pick a folder with tens of thousands of files, the
+  Upload + "Add to queue" buttons used to grey out for ~30 seconds
+  with no visible feedback. The source card now shows a clear
+  "Scanning game folder…" banner with a hint explaining the wait,
+  and hovering the disabled buttons tells you why.
+
+---
+
+## 2.18.0
+
+- **The "Finalizing on PS5" wait now shows a live counter.** When a
+  big folder upload reaches 100% and enters the PS5-side commit
+  phase, the row used to sit on a generic "Finalizing on PS5"
+  badge with no movement for 10–30 minutes. The PS5 now streams
+  per-file progress back to the app while it's committing, so you
+  see "Finalizing on PS5 — 12,400 / 84,216 files" climbing through
+  the wait. Same signal in the Upload screen banner, the Upload
+  Queue row, and the Activity tab.
+- **Old payloads still work.** If you haven't pushed the new PS5
+  payload yet, the upload still completes — you just see the same
+  countless "Finalizing on PS5" badge as before. New payloads
+  enable the counter automatically; nothing for users to toggle.
+
+---
+
+## 2.17.9
+
+- Internal lab tool fix only. The `ps5upload-lab transfer-dir`
+  command's post-commit verification step was calling the wrong
+  PS5 port and showing a spurious error after every successful
+  multi-file upload. The fix lives in the developer lab tool;
+  no user-facing change.
+
+---
+
+## 2.17.8
+
+- Internal cleanup pass after the 2.17.3 → 2.17.7 rapid-fire shipping.
+  No user-visible behaviour changes — comments and inline rationale
+  brought in line with reality (the commit-timeout helper now covers
+  both single- and multi-file paths, the begin-timeout helper covers
+  only multi-file as designed, throughput recording's known bias is
+  documented, and the unused `MAX_AGE_MS` constant carries an explicit
+  "reserved for P3" note so future readers don't try to wire it
+  without context).
+
+---
+
+## 2.17.7
+
+- **Uploading very large game folders no longer fails before the
+  first file leaves your computer.** Folders with tens of thousands
+  of files build a multi-megabyte "manifest" the PS5 has to receive
+  and parse before any upload bytes are sent. On real hardware that
+  parse step can take longer than the previous 30-second cap on a
+  single request — meaning the upload failed instantly with
+  "Resource temporarily unavailable." The app now waits up to 5
+  minutes for the PS5 to acknowledge that manifest before giving
+  up. Once acknowledged, normal transfer continues unchanged.
+- Verified end-to-end on a 169,401-file / 162 GB game folder upload
+  (Ghost of Yotei). Total upload time on the test rig: 3 h 13 m,
+  with 19.5 min of post-100% PS5 commit (still well within the
+  30-minute commit window we shipped in 2.17.5).
+
+---
+
+## 2.17.6
+
+- **Upload screen now tells you how long a huge folder will take
+  *before* you click Upload.** For folders with 10,000+ files (game
+  dumps with tens of thousands of files inside), the source-info
+  card now shows a transfer-time estimate, a PS5-commit-time
+  estimate, and a total — so the multi-minute wait after the
+  progress bar hits 100% isn't a surprise. A short hint tells you
+  Resume mode will save an hour or more on re-uploads.
+- **The estimate sharpens after your first upload to each PS5.** The
+  app remembers the throughput from your last successful upload to
+  each PS5 host and uses that figure next time, instead of a generic
+  default.
+
+---
+
+## 2.17.5
+
+- **Huge game-folder uploads no longer fail during the "Finalizing
+  on PS5" wait.** A user-reported 85,000-file upload (Ghost of
+  Yotei) reached 100%, sat on the new "Finalizing on PS5" indicator
+  for 10–15 minutes, and then said "upload failed." The PS5 was
+  actually still committing — the app just stopped waiting too
+  early. The wait window is now long enough to outlast realistic
+  worst-case commit times (30 min cap), with TCP keeping the dead-
+  PS5 case detectable as before.
+
+---
+
+## 2.17.4
+
+- **The "kstuff-lite (EchoStretch)" entry in the Payloads catalog
+  now points at the correct repository.** It was previously linking
+  to `EchoStretch/kstuff` (the full build); the entry's display name
+  said "kstuff-lite" so the download was a different artifact than
+  the one named. Now correctly resolves to
+  `EchoStretch/kstuff-lite`.
+
+---
+
+## 2.17.3
+
+- **Uploading a game folder with tens of thousands of files no
+  longer freezes the app.** The per-file status list was trying to
+  render every entry to the DOM on every poll tick — for a 50,000-
+  file folder that pinned the main thread until the upload finished.
+  The list now shows a moving window around the file currently
+  being sent (current row + a slice of what's coming up + a slice of
+  what just finished). Small folders are unchanged.
+
+---
+
+## 2.17.2
+
+- **Rebooting your PS5 from the Hardware tab no longer shows a fake
+  error.** The reboot itself always worked, but the app would
+  display `power: EOF while parsing an object at line 1 column 28`
+  right after, because the payload's "ok, rebooting now" reply was
+  missing one byte. Fixed on both ends.
+
+---
+
+## 2.17.1
+
+- **Big multi-file uploads no longer look frozen at 100%.** When all
+  the bytes have reached the PS5 but it's still committing the file
+  index — which can take many minutes for folders with tens of
+  thousands of files — the row now shows a clear "Finalizing on PS5"
+  badge with a hint telling you not to close the app. Same signal on
+  the Upload screen, Upload Queue, and Activity tab.
+- **Average-speed readouts on past uploads now show the actual number**
+  instead of the literal text `{speed}`. Cosmetic bug across every
+  language.
+
+---
+
+## 2.17.0
+
+The v2.16.1 release pipeline didn't make it out — an ESLint failure on the
+preflight banner string blocked the release run. 2.17.0 ships everything
+that was meant for 2.16.1, plus the fix.
+
+- **Game folders uploaded with ps5upload now launch first try.** Previously
+  some folders would land on the PS5 but refuse to launch with `CE-107750-0`,
+  while the same folder over FTP worked. Fixed at the source: files now land
+  with the right permissions inherently, no after-the-fact step.
+- **Live sensors auto-update again.** Temperatures, clock, and power readings
+  refresh every 5 seconds on the Hardware screen via a new direct-read path
+  that no longer briefly suspends the PS5 UI. The manual "Read sensors"
+  button has been removed — it's automatic now.
+- **"Find PS5s on the network" now finds yours even when your router
+  suppresses mDNS.** A short LAN sweep runs as a fallback so the button never
+  comes back empty just because of an unfriendly access point.
+- **Hardware → PS5 system log.** Optional collapsible panel that shows the
+  PS5's kernel log (the same data underlying `dmesg`). Handy when diagnosing
+  homebrew payload issues without leaving the app.
+- **Upload preflight no longer fails silently.** If the destination probe
+  can't reach the PS5, you now see a clear inline error instead of the
+  Upload button briefly spinning and then doing nothing.
+- **Install Package: much more reliable.** The "Stream" install method now
+  actually works (a v2.16.0 regression made every streaming install 500;
+  fixed). System pkgs (NPXS-prefix) get a clear amber badge in the queue
+  before you try them. Cancelling a multi-GB install asks for confirmation
+  first. Failed installs show actionable messages for the common Sony
+  error codes ("clear PS5 notifications", "out of space", etc.) instead of
+  raw hex. The install panel also shows which path (in-process,
+  ShellUI-RPC, or legacy BGFT) accepted your request, and the URL the PS5
+  fetches the pkg from uses the pkg's canonical content-id as the filename.
+- **First-install no longer looks frozen.** When you click Start on the
+  install queue, a banner now shows "Preparing PS5 — checking / pushing
+  payload…" while the desktop verifies / refreshes the payload, instead of
+  ~30 seconds of silent waiting.
+- **Stopping the queue mid-install no longer orphans the row.** Rows that
+  were "running" when you click Stop now correctly go back to "pending" so
+  the next Start picks them up.
+- **Install preflight banner internals.** Refactored to carry
+  `{ message, ownerRunId }` instead of embedding the run-id via a zero-width
+  space in the banner string. Same user-visible behaviour; fixes the
+  no-irregular-whitespace ESLint failure that blocked the v2.16.1 release
+  pipeline.
+
+---
+
+## 2.16.0
+
+- **Folder uploads survive network blips.** Multi-hundred-GB game folders that
+  used to die on a single transient drop now reconnect and resume automatically
+  — same resilience single-file uploads always had. A 7.3 GiB / 1007-file game
+  folder now uploads cleanly in one shot on real hardware.
+- **Much faster on big folders.** Multi-GB files inside a folder upload now
+  preallocate disk space up front, removing the slow-down that hit long
+  transfers mid-stream. ~40 MiB/s sustained over gigabit Ethernet in testing.
+- **Honest error messages on upload failures.** When something actually goes
+  wrong mid-transfer (drive full, drive disconnected, etc.) the app now tells
+  you *why* instead of the generic "PS5 stopped responding."
+- **macOS junk filtered out.** Uploads from external drives no longer ship
+  `._*` AppleDouble metadata files into your PS5 game folders.
+- **New docs: direct-Ethernet setup.** The FAQ now has a per-OS guide
+  (Windows 11, macOS, Linux) for cabling the PS5 straight to your computer —
+  the most stable + fastest upload path for huge games.
+
+---
+
+## 2.15.0
+
+- **Folders with lots of tiny files now upload reliably.** Games like Astro
+  Bot could fail with a `packed_unsupported` error — most often when resuming.
+  Fixed.
+- **Big uploads no longer die when your computer sleeps.** While an upload,
+  download, or install is running, ps5upload keeps the computer awake
+  automatically (macOS, Linux, Windows), then lets it sleep when idle. The
+  Settings → Keep Awake toggle still works on its own for idle use.
+- **Native Linux packages.** Releases now ship a `.deb` (Debian/Ubuntu) and
+  `.rpm` (Fedora/RHEL/Bazzite) alongside the AppImage. These need a recent
+  distro (glibc 2.39+: Ubuntu 24.04+, Debian 13+, Fedora 40+).
+- **Safer folder uploads.** If the PS5 dropped mid-upload (rest mode or power
+  loss), a transfer could finish "successfully" with a file that was secretly
+  incomplete. It now fails clearly instead, and Resume re-sends only what's
+  missing — even after a full power-off.
+- **Docs:** how to keep long uploads alive (the PS5's own rest-mode timer)
+  and when to use Resume.
+
+---
+
+## 2.14.0
+
+A stability-focused release.
+
+- **Fixed: the Hardware screen could power off the PS5.** Live temperature,
+  clock, and power are now read on demand instead of auto-polling; system info,
+  uptime, storage, and the clock stay live.
+- **Linux white screen fixed** for the AppImage on double-click (Ubuntu /
+  SteamOS / NVIDIA), not just when launched via `PS5Upload.sh`.
+- **Diagnostics and exports now save** — the bug-report bundle and the
+  Settings / Search / Stats exports were failing silently.
+- **Send Payload** now enables the Send button on the first file pick.
+- **Payload playlists** can be reordered, with a one-click "recently run" list.
+- **Zip uploads** show a clear message for unsupported compression, and large
+  archives no longer hang while being inspected.
+- **Clearer install errors** when the desktop engine or PS5 helper isn't ready.
+- Plus a batch of safety and correctness fixes under the hood, including two
+  PS5-payload memory-safety fixes.
+
+---
+
+## 2.13.0
+
+**Upload a `.zip` and it lands extracted on the PS5.** Keep a game dump as a
+single compressed `.zip` on your PC — smaller and easier to move around — and
+upload it directly. ps5upload decompresses it on your computer and streams the
+files straight into the fast-transfer pipeline, so they arrive already
+extracted on the console — no manual unzip, and no temporary full-size copy
+on your disk. The Upload screen previews what the archive expands to (e.g.
+"12 GB zipped → 47 GB extracted · 1,204 files") and detects the game's title
+from its `param.json`. Resume, excludes, the bandwidth cap, and multi-console
+mirroring all work just like folder uploads. ZIP only — `.rar` stays
+unsupported (modern scene `.rar` is split + encrypted; unpack it first).
+
+**Reliability fixes (verified on real hardware):**
+
+- Folder downloads no longer double-nest (files landed at `…/foo/foo/`) and
+  no longer stop at 256 files — large directories now paginate correctly.
+- Uploading a single empty (0-byte) file works instead of failing at commit.
+- Upload-queue failures show the plain-language hint (e.g. "PS5 ran out of
+  space — click Retry to resume") instead of a raw error, and per-file
+  progress stays accurate when a transfer resumes.
+
+**Polish across the app:**
+
+- Rename (single and bulk) refuses to overwrite an existing file, matching
+  the guard the Move dialog already had.
+- Fixed several stale-data-after-host-switch bugs on the Hardware and
+  Volumes screens, and a Power control that showed a success line and an
+  error at the same time.
+- Disk Usage shows a drillable list for a folder whose children are all
+  subfolders, instead of a blank panel.
+- Smaller touches: a first-run installer Cancel button, correct Library
+  spinner labels, bulk screenshot/rename that continue past a failed item,
+  and localized Connection step messages.
+
+**Hardening.** Untrusted `.ffpkg`/UFS2 images and upload manifests are now
+validated before use — path-allowlist checks, bounded allocations, and depth
+caps — and hosting a large package over HTTP serves it completely instead of
+silently truncating.
+
+**Linux white-screen fix (Bazzite / SteamOS / NVIDIA).** The `PS5Upload.sh`
+launcher now disables WebKitGTK's accelerated compositing path, so the app no
+longer opens as a blank white window on affected GPU/compositor stacks.
+Launch via `./PS5Upload.sh` (the recommended entry point), and see the FAQ's
+"white screen on Linux" entry for the rare stack that needs more.
+
+---
+
+## 2.12.1
+
+Audit-fix + CI repair point release. 2.12.0's release build failed
+at link time because the bundled SDK pin (v0.38) predated the
+`getloadavg()` libc symbol our new load-average telemetry depends on
+(added in SDK v0.39). Fixing that plus seven adversarial-audit
+findings from a multi-agent pass-2 sweep:
+
+- Bumped pinned ps5-payload-sdk to v0.39 in CI + release workflows
+  so payload links cleanly against the version we develop with.
+- Hardened the SMP-meta control parser against embedded-NUL/control
+  byte injection that could false-match action prefixes.
+- Closed a race in the SMP-meta worker initializer where a concurrent
+  caller could see "watcher started" while the pthread had actually
+  failed to create.
+- Added `O_NOFOLLOW`/`O_EXCL` to the appmeta heal copy so a hostile
+  package can't symlink-redirect writes into system paths.
+- Serialized the fan threshold ioctl + pin update so concurrent
+  callers can't leave the kernel and the auto-reapply pin out of
+  sync.
+- Tightened the SMP-meta run-now trigger so triggers arriving during
+  a sweep are no longer dropped.
+- Made the SMP-meta interval setter refuse the update when the JSON
+  payload omits the interval field, instead of clamping to the
+  floor.
+- Added a static repo-host allowlist for the catalog (github.com +
+  git.earthonion.com) so a hypothetical malicious catalog PR can't
+  silently point at an arbitrary HTTPS host.
+
+---
+
+## 2.12.0
+
+High-level fixes and packaging cleanup:
+
+- Shell is now stateful by session: `cd /data`, then `ls` or `pwd`,
+  keeps the expected working directory across commands.
+- Fixed shell argument parsing so commands with paths, like
+  `cd /data` and `ls /data`, no longer collapse to the first word.
+- Added live-test coverage for shell cwd persistence and a lab CLI
+  command for direct shell testing against a running payload.
+- Improved Linux release guidance around AppImage/WebKitGTK startup
+  issues on Fedora/Bazzite-style systems.
+
+---
+
+## 2.11.0
+
+Phase 1 of a 4-phase design coherence pass surfaced by a 4-agent
+audit (IA, workflow walkthroughs, conceptual model, cross-feature
+inconsistency). The other 3 phases (rename + IA restructure +
+shared primitive extraction) are intentionally scoped to follow-up
+releases — they touch many call sites and want their own focused
+verification windows.
+
+This release lands 5 discrete fixes that fell out of the audit as
+real user-visible bugs, none of which were on the radar before the
+review:
+
+- **The OperationBar at the bottom now lights up for Upload Queue
+  and Install Queue runs.** Previously `activityWiring.ts` only
+  subscribed to 3 of the relevant stores; queue runs (Upload Queue
+  Start, Install Queue Start) fired real engine transfers but the
+  ActivityBar / Activity tab stayed dark — "where do I look to see
+  what's happening?" had inconsistent answers depending on which
+  surface kicked off the work. Now every queue item start/progress/
+  terminal forwards into activityHistory, so cross-screen "what's
+  in flight" reads from a single source again.
+- **The Upload screen and the Upload Queue panel are now mutually
+  exclusive.** The PS5 payload's transfer port is single-client, so
+  starting the queue while a one-shot upload is in flight (or vice
+  versa) would block at the socket while both UIs displayed
+  "running". The Upload button now disables with an explanatory
+  tooltip while the queue runs; the queue Start button does the
+  symmetric disable on one-shot in-flight. "Add to queue" stays
+  enabled because it's a staging action, not a network one.
+- **AppShell drag-drop now uses `safeUnlisten`** to match Upload +
+  InstallPackage. Was the lone holdout using a bare `try/catch`
+  that the global unhandled-rejection handler from 2.7.1 only
+  caught after-the-fact; this brings every drag-drop site to the
+  same pattern and prevents the next regression of forgetting it.
+- **First-Run wizard step numbers are now 1/2/3** instead of 1/3/4.
+  `SetupCard index={3}` was a leftover from a removed step 2 — the
+  numbers in the UI looked like a typo without a footnote.
+- **Default PS5 host is now empty** (was hardcoded
+  `192.168.137.2`, the USB-tether-on-Windows-ICS gateway). Wrong
+  for ~95% of users, who clicked Check on first launch, got a red
+  error, and may not have noticed the field already had a value.
+  Empty default lets the placeholder (`192.168.1.50`) do its job
+  and forces the user to read what they're typing. The Discover
+  panel remains the recommended onboarding.
+
+### Deferred to Phase 2-4
+
+- **B3** (real cancel — payload-side ABORT_TX frame) needs a
+  C-payload change plus hardware verification; held for a focused
+  payload session.
+- **B4** (open-coded poll loops in Library/FileSystem) and **B8**
+  (dual `toMgmtAddr` signatures) get fixed when the Phase 3
+  primitives (`useCancelableJob`, `lib/addr.ts`) land — extracting
+  them now would mean two refactors of the same code.
+- **Phase 2 + 4** (vocabulary cleanup + sidebar IA restructure +
+  Send Payload / Payload library merge with tabs + Settings split)
+  is a separate i18n-heavy release with ~300 translation key
+  changes; held until the primitive refactor is in (Phase 3) so
+  renames land on stable shapes.
+- **Phase 3** (extract `useCancelableJob`, `lib/addr.ts`,
+  `useStaleHostGuard`) is a substantial refactor pass: ~300 new
+  LOC of primitives, ~600+ LOC of duplication removed, touches 5
+  long-running-action stores and ~40 call sites. Wants its own
+  focused session with careful test coverage.
+
+The full audit lives in this session's notes; the design report
+identified ~20 actionable items across the 4 phases, with credit
+also given to 5 things the team has clearly designed exceptionally
+well (the OperationBar contract, Saves' handleRestore host guard,
+transfer.ts' resume architecture, Connection's VersionBlock
+rechecking UX, InstallPackage's diagnostic block).
+
+---
+
+## 2.10.0
+
+Adds a full **Date & Time settings** panel to the Hardware screen
+that exposes the PS5's timezone, daylight-saving policy, NTP
+auto-sync flag, date/time format preference, and tzdata version —
+all read/writable from ps5upload. To the best of our research (see
+`reference_ps5_date_registry_keys.md`), ps5upload 2.10.0 is the
+first public PS5 homebrew project to write to the
+`SCE_REGMGR_ENT_KEY_DATE_*` registry namespace. Write side is
+marked experimental until per-key behaviour is confirmed on real
+hardware.
+
+**Important — what this does and doesn't do.** Six community-
+known gotchas are surfaced inline as an expandable warnings panel:
+
+- The PS5 has **two clocks**: the user-visible wall clock (which
+  this panel reads and writes) plus a SAMU-protected secure RTC
+  that signs trophies and licenses. **Setting the wall clock
+  cannot fake trophy timestamps.**
+- Setting the clock far in the past breaks PSN sign-in (TLS cert
+  `notBefore` validation fails).
+- Setting the clock far in the future breaks game cert validation
+  (GTAV-stuck-at-90%-load class).
+- "Use Sony's NTP" silently re-syncs the wall clock on every
+  reboot — manual time doesn't persist unless you turn it OFF
+  first.
+- DST rules are bundled in the firmware's tzdata; recently-changed
+  regions (Lebanon 2023, Mexico 2022) may be wrong until the next
+  firmware update.
+- Write side is novel territory; Sony's Settings will reset any
+  field that misbehaves.
+
+### What landed (new code paths)
+
+- New payload module `payload/src/sys_registry.c` — generic
+  `sceRegMgrGet/SetInt`, `GetStr`, and `sceRtcGetCurrentNetworkTick`
+  wrappers via `dlsym(RTLD_DEFAULT, ...)`, same envelope our
+  existing `sys_time.c` already uses for
+  `sceSystemServiceSet/GetCurrentDateTime`.
+- New FTX2 frames 136-139 (`TimeStateGet`/`Ack`/`Set`/`Ack`) and
+  matching `runtime.c` handlers (`handle_time_state_get` /
+  `handle_time_state_set`) that read every DATE key best-effort and
+  surface per-field availability flags so the desktop can degrade
+  gracefully when a key isn't reachable on the user's firmware.
+- New Rust types `PsTimeState`, `PsTimeStateSetRequest`,
+  `PsTimeStateSetResult` in `ps5upload-core/src/sys_time.rs`; new
+  `ps5_time_state_get` / `ps5_time_state_set` engine functions; new
+  axum routes `/api/ps5/time/state/get` and `/api/ps5/time/state/set`.
+- New Tauri commands `ps5_time_state_get` / `ps5_time_state_set`
+  registered in `lib.rs::invoke_handler`.
+- New `DateTimeStateCard` component on the Hardware screen.
+  Renders below the existing "System time" card. Tz/DST/format are
+  staged in a pending-edit buffer and committed in one "Apply"
+  click — same UX shape as Sony's Settings. The Apply response
+  surfaces per-field rc + err_code so the user sees exactly which
+  writes Sony accepted and which were rejected.
+- **NTP-drift indicator**: `sceRtcGetCurrentNetworkTick` (cached
+  NTP-derived tick, not a fresh sync) shown next to the wall clock
+  so a large divergence visibly flags "your manual time has drifted
+  from what NTP would say".
+- 41 new i18n keys, translated into all 17 non-English locales.
+- New memory note `reference_ps5_date_registry_keys.md` documents
+  per-key hardware-verification status and the rationale for which
+  DATE namespace keys we deliberately don't expose (devkit /
+  unknown blob formats).
+
+### What the panel intentionally does NOT do (research, then deferred)
+
+- **Secure-RTC manipulation** (trophy timestamp clock) — requires
+  kernel patches and per-firmware offset tables, out of scope.
+- **NTP-server override** (`DATE_rtc_net`) — bin8 blob format isn't
+  reverse-engineered yet; wrong write could brick the NTP daemon
+  until Settings → Init.
+- **Synthetic NTP-tick injection** (`sceRtcSetCurrentNetworkTick`) —
+  unknown impact on Sony's sync daemon and trophy / license state.
+
+These are documented in the research note for a possible later
+release after community verification.
+
+---
+
+## 2.9.0
+
+A 4-agent self-audit (race conditions, security, silent failures,
+resource cleanup) surfaced ~30 issues. This release bundles the 4
+data-loss-class bugs, 7 medium-severity security findings, the
+6-screen host-stale-clobber family, and 5 standalone correctness
+fixes. Total: 13 real fixes, with a long list of patterns the agents
+investigated and verified clean.
+
+### Data-loss / silent-corruption fixes (4)
+
+- **Payload shard-write OOM no longer reports success.** Under PS5
+  RAM pressure (kstuff loaded + other payloads alive + ShellUI bloat),
+  `runtime_write_shard_persistent`'s malloc-fallback path was
+  returning `0` from `drain_shard_data`, which the dispatcher
+  interpreted as "shard persisted" — SHARD_ACK fired, the host
+  advanced its cursor, the missing bytes were never retried, and
+  the user saw "Upload complete" on a corrupt file. All 4 OOM /
+  open-failure paths now drain-then-return `-1` with a stderr log,
+  so the tx aborts cleanly and the user sees a real error. This
+  bug was silently corrupting uploads for unknown duration.
+- **Saves restore no longer wipes the wrong PS5 if the user
+  switches roster mid-flow.** Restore goes confirm → file dialog
+  → unzip → wipe → upload (often 30+ seconds for big saves). The
+  recursive `fsDelete` previously used whatever IP was current at
+  await-resolution time, so a roster swap during the dialog would
+  silently target a different console. Now snapshots the host at
+  click time and refuses with an explicit "Host changed during
+  restore" error if it's no longer the same.
+- **FileSystem screen no longer deletes the wrong file after fast
+  navigation.** A slow `ps5_list_dir` (1-3s on big `/data` trees)
+  resolving AFTER the user navigated to a deeper folder would
+  display the OLDER directory's contents under the NEWER URL. A
+  per-row Delete click joins the CURRENT path with the displayed
+  name — so the user thinking they're deleting `/data/foo`'s
+  "screenshots" could actually delete `/data/homebrew/screenshots`
+  if a coincidentally-named file existed there. The refresh now
+  drops stale results via probed-host + probed-path guards.
+- **`transfer.ts` mount no longer leaves RW when user picked RO.**
+  Starting a second image upload with a different `mountReadOnly`
+  flag while a previous `fsMount` was in flight produced a race
+  where the OLDER mount could win the same mount point. Now
+  best-effort unmounts the superseded mount before returning,
+  closing the silent RO/RW divergence window.
+
+### Security hardening (3 Medium → 0)
+
+- **`/pkg-host/*` URL is now bound to the PS5 it was issued for.**
+  Previously any host on the LAN that could observe the PS5↔engine
+  TCP stream (promiscuous WiFi, ARP-spoof, SOHO router admin) could
+  recover the session UUID from the first GET and hammer the URL
+  with Range requests to drive 16 MiB allocations per call, OOMing
+  the engine and potentially the Tauri shell. Now compared against
+  the session's recorded `ps5_mgmt_addr`; loopback callers still
+  allowed for dev workflows. Logs every reject with peer + expected.
+- **Payload `is_path_allowed` now blocks symlink-escape.** The
+  lexical check confirmed paths started with `/data`/`/mnt/...`,
+  but a symlink in a user-mounted `.ffpkg` (e.g.
+  `/mnt/ps5upload/usermount/evil → /system_ex`) escaped — the
+  subsequent open() followed the symlink and operated on the
+  forbidden target. Same CWE-59 class as CVE-2007-2374. Now calls
+  `realpath()` and re-validates the canonical form; symlinks
+  pointing outside the allowlist refuse with a stderr log.
+- **Engine planner's `spawn_blocking` cleanups now timeout at 10s.**
+  The 3 staging-file cleanup tasks in `pkg_install.rs` used bare
+  `fs_delete` with the default 30s socket timeout PLUS waiting for
+  ACK; a wedged PS5 (kernel hang, payload crashed, unreachable
+  LAN) parked a blocking-pool worker AND a TCP socket per call.
+  Repeated register-rejects could stack and exhaust the 512-thread
+  pool. Now uses `fs_delete_with_timeout(Some(10s))`.
+
+### Host-stale-clobber pattern across 6 screens
+
+Ported `Library`'s `probedHost` + `isStale()` guard to:
+**Saves, Volumes, Screenshots, Hardware (both `refresh` and
+`refreshPs5`), SendPayload (`probeFile`)**, and **InstallPackage
+(`addPkgPath`)**. Each had the same shape — slow async call
+resolves after the user switched PS5, OLD host's data lands in
+state attributed to NEW host. Most were P1 (misleading UI), but
+combined with the Saves restore P0 they enabled the
+"wipe-wrong-console" cascade above. Six bugs closed by adopting one
+proven template.
+
+### Other correctness + DX wins
+
+- **Payload `posix_fallocate` ENOSPC now aborts the tx immediately**
+  instead of silently falling back to sparse `ftruncate`. Front-of-
+  60GB-upload disk-full is information the user needs NOW, not 50
+  GB later via a piecewise "open failed" message.
+- **Save backup no longer produces empty zips on `file_type()`
+  failure.** `flatten_wrapper_subdirs`'s 4 `.unwrap_or(false)` sites
+  silently treated I/O errors as "not a match," sometimes descending
+  past real data layers and producing empty backups that the user
+  was told succeeded. Now propagates the error with path context.
+- **Engine planner skips + warns on metadata failure** instead of
+  defaulting to `size=0` (which corrupted the `total_bytes`
+  denominator and surfaced later as a misleading "open <path>: io
+  error" mid-transfer).
+- **`engineLogsTail` now escalates after 10s of failures.**
+  Previously retried silently forever — a permanently-broken
+  bridge (engine binary corrupt, wrong-arch, hung sidecar) hid the
+  very logs the user would need to diagnose it. Now emits one
+  `log.error` after 10 consecutive failures, with a recovery log
+  if it comes back.
+- **Payload binaries no longer git-tracked.** `payload/ps5upload.elf*`
+  are now `.gitignore`d. CI rebuilds them from C source on every
+  release (`make payload`), and the desktop build script errors
+  with a clear "Build it first: make -C payload all" if missing.
+  Closes the "binary churn after CI run" friction we hit twice in
+  2.8.0 development AND the risk of a contributor shipping a
+  desktop build that embeds a stale payload.
+
+### Things the audit verified clean (NOT bugs)
+
+For credit + future reference: agent findings that turned out to
+be false positives — `Hardware` tickers DO gate on
+`useDocumentVisible()` (just at the call site, not the deps),
+`extract_json_string_field` DOES handle JSON escape sequences
+correctly (via `json_string_end`/`json_copy_unescaped_string`
+helpers, just at a different layer), and the existing
+`payloads_release` stale-cache already handles network errors
+(but didn't handle HTTP 4xx/5xx, which 2.8.0 fixed). Two false
+positives out of ~30 findings — trust-but-verify rule paid off.
+
+---
+
+## 2.8.0
+
+This release lifts a handful of ideas from sonicloader (sister
+project) after a deep cross-read of their PKG install path. Three
+concrete improvements landed; the big one — bundling DPI as a new
+install tier — is split into a catalogue entry now and a full
+install-runner integration in a follow-up release.
+
+Also fixes a long-latent Upload-screen race that was held back from
+2.7.x for verification.
+
+- **The Upload screen no longer shows the wrong file/folder in the
+  destination preview after picking a second source.** When
+  inspectFolder for the first pick resolved AFTER the user had
+  already picked a different source, its closure-captured `path`
+  would overwrite the newer source.path — the destination preview
+  then rendered the OLD name even though the user had moved on, and
+  hitting Upload would land the wrong source at the displayed path.
+  Fixed by guarding the post-await `set()` with `get().source?.path
+  === path` so stale inspect results are dropped. 4 unit tests
+  cover the race patterns (folder→folder, folder→file, stale
+  failure, no-race control).
+
+- **Staged-install PKGs now land on the PS5 as `<ContentID>.pkg`
+  instead of `<queue-id>_<ts>.pkg`.** Sony's installer keys on the
+  basename for some FW points and silently rejects mismatched
+  names — a class of "PKG installer rejected the file" failures
+  that looked like the PKG was bad but were actually a naming
+  mismatch. Fix is symmetric with sonicloader's
+  `canonicalise_pkg_filename` (homebrew.c:436). Falls back to the
+  legacy `<id>_<ts>.pkg` shape when the PKG header has no parseable
+  ContentID, so malformed homebrew PKGs still get a shot at install.
+- **The Payloads release info now survives a GitHub outage.** The
+  cache was already saving release JSON on disk and falling back on
+  network errors, but a 403 (rate-limited) or 5xx (Cloudflare
+  hiccup) bypassed it — the user saw "fetch failed" even when a
+  perfectly good cached snapshot was sitting there. Now any non-2xx
+  response (or malformed body, or read error) also falls back to
+  the cached snapshot, with a yellow "couldn't refresh — showing
+  cached" banner so it's clear the data might be stale. Pattern
+  ported from sonicloader's `src/releases.c:383-409` with the
+  `refreshError` field name kept.
+- **`ezremote-dpi` (cy33hc/ps5-ezremote-dpi) is now in the payload
+  catalogue.** DPI is a long-lived install daemon that owns Sony's
+  install state machine for a PKG's full lifetime, sidestepping
+  the class of "install accepted then evaporates" bugs that hit
+  cross-process callers. Install it from the Library tab. In a
+  follow-up release the install runner will offer "DPI" as a new
+  install method that proxies through it; this release lands the
+  catalogue entry so anyone can install DPI today.
+
+Sonicloader fields we explicitly verified we don't need to port
+(already covered): persistent notification inbox (we have
+`state/notifications.ts` with the same 64-entry ring + persistence
+shape), /data → /user/data sandbox path rewrite (already in
+`payload/include/config.h`), and the FTX2 wire protocol (strictly
+more capable than their loopback DPI socket / chunked HTTP).
+
+---
+
+## 2.7.2
+
+- **drakmor/kstuff-lite is now in the payload catalogue.** It's a
+  fork of EchoStretch's kstuff-lite with a hot path for `.ffpkg`
+  (UFS) mounting — measured 3-4× faster end-to-end — and lower
+  overhead in the repeated mount/unmount cycles that ShadowMount+
+  exercises heavily. Narrower firmware range (3.00 → 10.01) than
+  the default kstuff (which covers 1.00 → 12.x via runtime NID
+  resolution), so it's a sibling option, not a replacement. Browse
+  to the Payloads tab to install. Pick only one kstuff variant —
+  both write the same `/data/kstuff.elf` marker, and autoload runs
+  whichever you put in your autoload list.
+- **Library tab now nudges you toward the faster build if you
+  actually use `.ffpkg` / `.exfat` images.** A small dismissible
+  tip appears under the "Disk images" section header (only when
+  you have at least one image in your library) with a one-click
+  link to the drakmor repo. Translated in all 17 non-English
+  locales.
+
+---
+
+## 2.7.1
+
+- **Resending the payload now shuts down the running one first.**
+  Before re-uploading to `:9021`, the desktop opens `:9114` and
+  sends a graceful `Shutdown` frame (200 ms total budget). The old
+  payload exits cleanly, the new ELF mmaps into a fresh process,
+  and the cascade of stale-state errors after every resend is gone
+  (most visibly the `pkg_install` retry storm on the Install Package
+  screen, which was the old payload still answering long after a
+  new one had been "loaded"). If nothing's listening on `:9114`
+  (first boot, payload crashed), the pre-shutdown is a no-op and
+  the send proceeds.
+- **Sidebar no longer triggers React's "setState during render"
+  warning.** A dev-only i18n missing-key warning was calling
+  `console.warn` synchronously from inside `t()`; the patched
+  `console.warn` in the log capture wrote into the logs store, and
+  the Sidebar — which reads error-count from that same store —
+  closed the loop. Warning is now deferred via `queueMicrotask`,
+  so it still fires once per missing key but outside the render
+  frame.
+- **Tauri listener-teardown race is swallowed quietly.** When a
+  webview unmounts mid-`unregisterListener` the inner Promise
+  rejects with `TypeError: undefined is not an object (evaluating
+  'listeners[eventId].handlerId')`. The listener is already gone —
+  exactly what we wanted — so the global `unhandledrejection`
+  handler now intercepts that specific message, prevents the
+  default ERROR banner, and logs at `debug` instead.
+- **Three missing i18n keys added in all 17 non-English locales:**
+  `queue_strategy_overwrite`, `queue_strategy_resume`, and the
+  pluralized `logged_error_one` / `logged_error_many` used by the
+  Sidebar error chip. These were template-literal lookups the
+  phantom extractor can't auto-detect; non-English users were
+  seeing English fallbacks on the Install Package strategy buttons
+  and the Logs nav badge.
+
+---
+
+## 2.7.0
+
+- **New "Sync time" card on the Hardware screen.** Shows the PS5
+  clock alongside your PC's clock plus the live drift between them
+  (updates once a second). One click sets the PS5 system clock to
+  match your PC's UTC time. Confirmation prompt before the set
+  (clock changes can affect trophies, save timestamps, and DRM
+  checks).
+- The set goes through Sony's `sceSystemServiceSetCurrentDateTime`,
+  which lives in `SceShellCore` IPC. Requires a ucred-elevated
+  loader (kstuff or equivalent) — without it, Sony's authid check
+  rejects the call and the desktop surfaces the Sony err_code with
+  a hint to reload via kstuff.
+- The payload bookends every set with a get-before + get-after and
+  reports both unix epochs. On some firmwares the SDK stub returns
+  rc=0 but the underlying syscall is a no-op; the desktop detects
+  this (post-set unix more than 5 s away from the requested target)
+  and renders a clear "PS5 reported success but the clock didn't
+  actually move" warning instead of a misleading success message.
+
+---
+
+## 2.6.0
+
+- **Stream install (DPI 2.0) is the new default for Install Package.**
+  The desktop now serves the `.pkg` over HTTP and BGFT pulls + installs
+  it in one pass — no upload step, no 2× disk space, native pause/
+  resume from BGFT itself. The previous "upload then install" path
+  stays available as a one-click fallback on the failure card for the
+  rare LAN topologies where the PS5 can't reach the desktop's HTTP
+  port (firewall, segregated VLAN).
+- A new segmented control on the Install Package screen lets you pick
+  the default install method; per-row badges (`stream` / `staged`)
+  show at a glance which path each queued item is using.
+- The engine-side HTTP serve route, BGFT URL handover, and Range
+  support were already in tree — this release wires the UI choice
+  through so the path actually gets used by default.
+
+---
+
+## 2.5.2
+
+- **Windows `.exe` launches on a freshly-installed Windows 11**,
+  including arm64. Previous releases dynamically linked the MSVC C++
+  runtime (`VCRUNTIME140.dll`, `MSVCP140.dll`), which isn't preinstalled
+  on a vanilla Windows install — especially Windows 11 on arm64, where
+  almost nothing has pulled the Visual C++ Redistributable in yet. Users
+  saw "The code execution cannot proceed because VCRUNTIME140.dll was
+  not found." Both binaries shipped to Windows (`PS5Upload.exe` and the
+  `ps5upload-engine.exe` sidecar) now statically link the MSVC CRT via
+  `+crt-static`, so they're self-contained — no redistributable
+  required.
+- **Linux `.AppImage` launches on a freshly-installed Ubuntu 24.04+**.
+  Ubuntu 24.04 dropped `libfuse2` from the default install, which the
+  AppImage's type-2 self-mount needs at startup — so on a brand-new
+  desktop the AppImage just failed silently. The release zip now also
+  contains a `PS5Upload.sh` launcher that sets
+  `APPIMAGE_EXTRACT_AND_RUN=1` so the AppImage self-extracts to `/tmp`
+  instead of fuse-mounting — no apt install, no libfuse2, no kernel
+  module. Users with libfuse2 already installed can still run the
+  `.AppImage` directly if they prefer.
+- A new **Fresh-Install Verification Matrix** in `TESTING.md` documents
+  the historical "ships green, fails on fresh install" failure modes
+  per platform/arch and the hands-on test pass that catches them before
+  tagging.
+
+---
+
+## 2.5.1
+
+- **Windows release `.zip` opens in Windows Explorer again.** The
+  2.5.0 release workflow used `tar -a -c -f *.zip` (bsdtar /
+  libarchive) to wrap `PS5Upload.exe`. bsdtar streams output, so it
+  sets the zip local-header flag bit 3 ("data descriptor follows") —
+  Windows Explorer's built-in unzip rejects bit-3 zips on many
+  builds with "the compressed (zipped) folder is invalid", even
+  though 7-Zip / WinRAR / unzip open them fine. The workflow now
+  uses PowerShell's `Compress-Archive` (`.NET ZipFile`) which writes
+  sizes + CRC in the header — guaranteed openable by every Windows
+  Explorer build. If you grabbed 2.5.0 and saw the "invalid folder"
+  error, this is the fix.
+
+---
+
+## 2.5.0
+
+- **`.jar` payloads** can now be sent — both from the Send Payload
+  screen and as steps inside playlists. Useful for BD-JB / BDJ-runtime
+  loaders. A new collapsible reference under the port field lists
+  typical loader ports per format (`.elf` → 9021 elfldr, `.js` →
+  50000 WebKit-stage, `.lua` → 9026, `.jar` → 9025 BD-JB) with a
+  note that custom loaders may listen on any port.
+- **Sidebar nav and other data-driven UI** now translate correctly in
+  all 17 non-English locales. Labels like "Dashboard", "Save data",
+  "Screenshots", "Disk usage", "Payload library", "Kernel log", and
+  "Shell" used to silently fall back to English even when the locale
+  had a translation, because the keys never made it into the
+  canonical English dictionary. A dev-mode console warning now
+  catches any future occurrences of the same gap.
+- **Full translation refresh** across all non-English locales —
+  roughly 190 keys per locale of pending backlog caught up, including
+  Connection screen, Upload status messages, Install Package
+  diagnostics, and all the small UI fragments that had been showing
+  in English for months.
+- **Multi-pass bug sweep** fixed several real correctness issues
+  across the engine, the Tauri shell, and the PS5 payload metadata
+  parsers — including a payload-version flicker on transient probe
+  misses, a library-refresh race on host switch, a Windows port-
+  killer that could `taskkill` an unrelated PID, an unsafe drive-path
+  acceptance in the USB autoloader wizard, and three corruption-error
+  paths in the PKG / UFS2 parsers that always surfaced as a generic
+  EOF instead of the descriptive `BlockOutOfRange` variant.
+- **Internal**: every user-visible string in JSX is now enforced at
+  build time to route through the translator — adding a hardcoded
+  label is a lint error, not a silent gap.
+
+---
+
+## 2.4.0
+
+- Save data backup is now a clean `<title_id>.zip` with just the image
+  and sealed key inside — matches the format save-resigning tools use.
+  Restores re-add the on-PS5 prefix automatically, so backups and
+  resigner output are now interchangeable.
+- Save backup correctly handles PS2/PSP-Classic titles whose layout on
+  PS5 hides the real data inside nested wrapper folders; the backup
+  zip now contains the actual save, not an empty folder or duplicate
+  copies.
+- Single-file uploads (.pkg / .ffpkg / large images) can now resume
+  from where they stopped after a wifi drop or other failure — the
+  next click of Retry picks up at the last acknowledged shard instead
+  of restarting from zero. Retry budget for single-file uploads
+  raised to survive several wifi blips per long upload.
+- Pre-flight free-space check on the destination drive before a
+  single-file upload starts. If the drive can't fit the file, you
+  see a clear "needs X more GB free" message in seconds instead of
+  the upload silently dying hours later.
+- Failed-upload error cards now show a humanized hint (e.g. "PS5 ran
+  out of free space — free space and click Retry") with the raw
+  payload error tucked in a collapsible "raw error" expander for
+  debugging.
+- Install Package: better warning that the PS5 screen may go black
+  during install — that's normal, the install keeps running.
+- Install Package: queue progress now survives a tab switch — opening
+  another tab and coming back no longer resets the in-flight bar.
+- Listener cleanup race fixed across screens — no more occasional
+  "TypeError: undefined is not an object" console errors during
+  navigation or hot-reload.
+- Startup is faster: language packs (18 locales, ~1 MB total) now
+  lazy-load on demand instead of all-eagerly. The main JS bundle
+  drops from ~1 MB to ~200 KB.
+
+## 2.3.0
+
+- Install Package: tries the in-process installer first (no home-screen
+  flash on most pkgs); falls back to the ShellUI route only when Sony's
+  installer requires it.
+- Install Package: cleaner status — a row succeeds, fails, or rolls
+  back. No more low-level "we couldn't extract pkg metadata" notes; if
+  it fails, the error tells you why.
+- Better error for DLC installs whose base game isn't installed yet
+  (was previously a misleading "BGFT not available" message).
+- Shell tab now works on PS5 (no `/bin/sh` on the console — built-in
+  commands: `help`, `ls`, `cat`, `stat`, `ps`, `mount`, `df`, `id`,
+  `uname`, `env`, `sysctl`, `hostname`, `echo`, `sleep`).
+- Save data + Screenshots tabs now populate correctly (older builds
+  used wrong filesystem paths and hex-vs-decimal user-ID parsing).
+- Hardware → Network: lists real interfaces (eth0 / wlan / lo) via
+  the FreeBSD getifaddrs fallback when Sony's API returns empty.
+- Disk Usage: better text visibility — small folders no longer get
+  cells too narrow to read, and the layout fills the window.
+- Kernel Log: optional filter panel groups Sony's routine PSN /
+  storage / framework chatter so you can focus on real issues
+  (default: show everything; click Filters → "Hide Sony noise" to
+  collapse).
+- Mount modal: warns up front when the chosen path is in the Sony-
+  reserved `/mnt/usb*` or `/mnt/ext*` namespaces, with one click to
+  switch to `/mnt/ps5upload/`.
+- Bundled-payload extraction now handles concurrent app launches +
+  shows the real error if extraction fails (no more misleading
+  "run make payload" hint).
+- Smaller fixes: GoldHEN entry removed from the payload library
+  (PS4-only); Compare PS5s tab removed.
+
+---
+
+## 2.2.61
+
+**13-pass audit: boot reliability, install correctness, DoS hardening**
+
+- Takeover handshake no longer hangs on a wedged previous payload
+  (added a 2 s `recv` deadline) and tolerates big-COMMIT_TX tails
+  (port-release wait bumped from 2 s to 10 s).
+- Install path serializes correctly across files: the AppInstUtil
+  install-start and status-poll calls in `bgft.c` now share the same
+  Sony-API mutex as register / launch / uninstall in `register.c`,
+  closing a FW 9.60 deadlock window where a status poll concurrent
+  with a register on another mgmt thread could wedge the calling
+  thread inside Sony's kernel stub.
+- Browser-launch RPC now serializes against the rest of the Sony
+  install/launch surface (was the only call site missing the mutex).
+- pkg-host range responses capped at 16 MiB per request, preventing
+  a malicious LAN client from forcing a multi-GB allocation by
+  requesting `bytes=0-{total-1}` on a large pkg.
+- ELF-loader (port 9021) destination rejects non-ELF files before
+  connecting; .bin / .js / .lua flows on custom loader ports
+  unaffected. Closes a silent wrong-file-picked failure where the
+  loader received garbage and the UI showed "send succeeded" with
+  no payload coming up.
+- Boot-failure reasons now surface as PS5 toast notifications
+  instead of vanishing into stderr (which is invisible on a
+  :9021-loaded payload).
+- Cleanup-on-failure for `pthread_create(mgmt)` no longer leaves a
+  stale ownership record.
+- Deleted ~159 LOC of dead code (`payload_loader.rs`); fixed several
+  stale comments (notably the "we eagerly call
+  register_services_init" claim that contradicted the actual code).
+- Tests: +21 pinned (Rust connection.rs partial-write retry,
+  probes.rs ELF-magic + size-cap + non-default-port behaviour,
+  pkg-host range cap), 255 client TS tests still green.
+
+---
+
+## 2.2.60
+
+**Install Package, Library Play / Unmount, sensor fixes**
+
+- Install Package works end-to-end on FW 9.60: a three-tier pipeline
+  routes Sony's installer through ShellUI's authid via ptrace RPC for
+  game pkgs (CUSA / PPSA / PCSA / EP / UP). NPXS-prefix system pkgs
+  get a fire-and-forget path with on-PS5 verification.
+- Library Play always registers first (idempotent), retries with a
+  DRM-type patch on rejection, then launches.
+- Unmount unregisters every title inside the image first, so the
+  dashboard stays clean — no ghost tiles, no stale title-id errors.
+- Hardware sensors stop drifting over time: bgft.c restore is now
+  retry-with-verify; the sensor retry path re-arms the debugger
+  authid.
+
+---
+
+## 2.2.50 – 2.2.59
+
+**Install Package: optional `file://` flow, mount visibility, audit
+fixes**
+
+- Install Package gains an optional PS5-side path (`file://` flow)
+  for upload-then-install workflows.
+- Mounted `.ffpkg` / `.exfat` at user-chosen paths surface in
+  Volumes and the Library mount badge correctly.
+- AppInstUtil error code humanization with actionable copy.
+- Mount errors now go through a humanizer (especially nmount EPERM).
+- Multi-pass audits across the install / mount paths: 9 + 4 fixes
+  spanning SSRF defense, pagination, JSON parsing, retry semantics.
+
+---
+
+## 2.2.31 – 2.2.49
+
+**Install Package tab, Library polish, switch to AppInstUtil**
+
+- New Install Package tab: drop `.pkg` files, queue serial installs.
+- Switched primary install backend from BGFT to AppInstUtil
+  (compile-time linked) with synthetic task IDs to route status
+  polls.
+- BGFT: try multiple library paths and symbol-name variants before
+  giving up.
+- Library row: 7+ buttons collapsed into one primary action +
+  Details + overflow menu. Play auto-registers; 60 s launch timeout.
+- Library Game Details: cover art for both PS5 (`PPSA…`) and PS4
+  (`CUSA…`) titles via title-id prefix routing, with hostname-allowlist
+  SSRF defense and a per-platform cover-host regex.
+- 18 languages reach 100%+ string coverage.
+- Engine: graceful axum shutdown, install-queue persist debouncing,
+  PKG session GC on a longer schedule.
+
+---
+
+## 2.2.26 – 2.2.30
+
+**Live sensors and Launch on FW 9.60**
+
+- Hardware tab returns real CPU / SoC temperature, frequency, and
+  power readings on FW 9.60. Sony gates these APIs on caller pid =
+  `SceShellUI.pid`; we route the calls through a ptrace-based RPC
+  into ShellUI itself so the check passes.
+- Library Launch starts games on FW 9.60 via the same RPC path.
+- Process list switched to `sysctl(KERN_PROC_PROC)` with stable
+  `kinfo_proc` offsets — real names show up, no per-firmware table
+  needed.
+- Audit pass: 27 bug fixes across payload, engine, and client —
+  COMMIT_TX corruption guard, single-file resume reopen, spool
+  fallback heap migration, atomic DRM patch, updater host pinning,
+  download path-traversal block, JSON-escape-safe app register.
+- Load order doesn't matter anymore — the loader can land before or
+  after our payload; the next request picks up the new privilege.
+
+---
+
+## 2.2.25
+
+**Library mount picker + Library search bar**
+
+- Mount picker: pick volume, subpath, and name. Resolved path
+  appears in real time. Last-used selection persists per host.
+- Live search across Library: matches name, title ID, path, scope,
+  volume; multi-word AND across fields.
+- Payload `mount_point` field plumbed through engine, Tauri command,
+  and TS API end-to-end. Older payloads gracefully degrade to the
+  legacy name-only path.
+- Audit hardening: hex-escape mount-tracker keys (collision-proof),
+  zero-init out-buffers, picker syncs with live volume probe.
+
+---
+
+## 2.2.20 – 2.2.24
+
+**Move-progress accuracy, FileSystem volume picker, engine lifecycle**
+
+- FileSystem screen gets a volume picker dropdown above the
+  breadcrumb. Last-browsed path persists per host.
+- PS5 host now persists across launches.
+- Library Move shows live byte progress on current payloads;
+  threshold-specific banner when the payload is older than the
+  app.
+- Connection screen flips to fresh version + kernel data
+  immediately on Replace payload, with a "rechecking…" spinner
+  while the probe is in flight.
+- OperationBar covers every in-flight op (uploads, downloads,
+  FileSystem ops, Library actions).
+- Engine lifecycle: stdin-EOF watcher prevents orphans on
+  ungraceful exits, port-killer reaper cleans up pre-existing
+  orphans, single-instance plugin keeps double-launch from
+  killing the first instance's engine.
+- CI: workflows on Node 24, coverage job green again on
+  ubuntu-24.04 with rustup-resolved llvm-cov.
+
+---
+
+## 2.2.16 – 2.2.19
+
+**Cross-mount move progress, payload DoS-safety, FS_OP slots**
+
+- Cross-mount moves keep their speed/byte counter — buffer for
+  `FS_OP_STATUS` JSON snapshot bumped to fit two maxed-out
+  PS5-path strings.
+- Payload caps `BEGIN_TX` manifest bodies at 256 MiB; oversize
+  refused with `begin_tx_body_too_large` and the connection
+  closed cleanly.
+- `fs_op` slot allocation is strict first-fit; no eviction.
+  Refuses new ops with a clear reason instead of silently blinding
+  an in-flight op's progress poll.
+- Library Move modal pre-flights the destination via debounced
+  `FS_LIST_DIR`; warns inline on existing-path collisions.
+- Engine error responses carry the full anyhow chain so the root
+  cause reaches the client.
+- `make run-client` fails fast on missing GTK / WebKit dev libs
+  with a copy-pasteable apt / dnf / pacman command.
+
+---
+
+## 2.2.10 – 2.2.15
+
+**Activity tab, OperationBar, internationalization**
+
+- Activity tab: persistent record of the last 100 operations with
+  start time, duration, outcome, bytes moved. "Running now" /
+  "Recent" sections; Clear button.
+- OperationBar (always-visible footer strip) shows in-flight ops
+  across screens; click to expand per-op rows.
+- Stop button on every long-running surface: FS bulk delete +
+  paste, Library row download / delete / chmod / mount / unmount,
+  uploads.
+- PS5-internal copy/paste throughput: read+write overlap via a
+  worker thread + double-buffered ring (16 MiB × 2). Throughput
+  bounded by the slower device, not the sum.
+- Live progress + Stop on Library Move via `FS_OP_STATUS` polling
+  and `FS_OP_CANCEL`.
+- Engine `/api/version` endpoint; cancelled `fs_copy` cleans the
+  partial destination so retries have a clean slate.
+- 18 languages: Activity tab, Settings keep-awake hint,
+  OperationBar, Connection screen + StatusBar, sidebar nav, Upload
+  drop zone — every visible string runs through `tr()`.
+
+---
+
+## 2.2.0 – 2.2.9
+
+**Resume, in-app updates, broader firmware coverage**
+
+- One build covers PS5 firmware 1.00 – 12.70. Core transfer,
+  mount, and file features work on every supported firmware.
+- In-app update check (Settings → Updates): polls GitHub once a
+  day; archives land in Downloads — replace the app manually, no
+  installer.
+- Resume survives app restart: close mid-upload, reopen, pick up
+  where you left off (24 h window).
+- Folder uploads keep their name; destination preview shows the
+  exact PS5 path as you type.
+- Cross-platform six bundles: macOS arm64 + x64, Windows x64 +
+  arm64, Linux x64 + arm64.
+- Payload no longer crashes when a client disconnects mid-transfer
+  (SIGPIPE ignored).
+- Multi-GiB single-file uploads stream a single shard-sized buffer
+  instead of memory-mapping; peak RAM bounded by shard size.
+- Folder excludes (`.DS_Store`, `Thumbs.db`, `*.esbak`, `.git/**`).
+- Image uploads can mount on completion via the PS5 kernel's LVD
+  backend.
+- Engine sidecar restarts cleanly when the prior child is
+  unresponsive.
+- Real cancel + live progress for PS5-internal copy / move.
+- Better humanized error messages on Upload and Volumes screens.
+
+---
+
+## 2.1 and earlier
+
+**Direct-write transfer pipeline, single-file resume, FTX2**
+
+- Single-file transfer: direct-write to `.ps5up2-tmp` sibling;
+  atomic rename on COMMIT — no spool overhead.
+- Multi-file transfer: manifest JSON + binary search per shard;
+  packed-shard worker pool absorbs transient I/O hiccups.
+- BLAKE3 per-shard verification.
+- Reconcile: size + hash compare for resume.
+- FTX2 binary protocol with a 28-byte LE frame header
+  (magic / version / type / flags / body_len / trace_id), plus
+  86 frame types covering Tx lifecycle, FS ops, mount, app
+  register / unregister / launch, hardware, pkg install.

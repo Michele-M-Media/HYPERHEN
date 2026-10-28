@@ -21,6 +21,7 @@ along with this program; see the file COPYING. If not, see
 #include "defs.h"
 #include "external_symbols.hpp"
 #include "homeui_top_nav_patch.hpp"
+#include "hyper_p5_bridge.hpp"
 #include "ipc.hpp"
 #include "plugin_ui_bridge_client.hpp"
 #include "proc.h"
@@ -375,7 +376,7 @@ void init_resource_names() {
 bool init_version_string(const OrbisKernelSwVersion& sw) {
   /* XOR with base64_decode(kXorKeyB64) == "SISTR0_I_SEE_YOU" (not the b64 text). */
   /* XOR "HyperHEN " with SISTR0_I_SEE_YOU. Regenerate: encryptver.py "HyperHEN " */
-  const char enc_ver[] = "\x1c\x27\x3a\x3b\x3c\x78\x1a\x07\x7f"; /* "HyperHEN " */
+  const char enc_ver[] = "\x1b\x30\x23\x31\x20\x78\x1a\x07\x7f"; /* "HyperHEN " */
   const std::string key = base64_decode(kXorKeyB64);
   auto dev_ver_bytes =
       encrypt_decrypt(reinterpret_cast<const unsigned char*>(enc_ver),
@@ -753,6 +754,7 @@ int main(int argc, char const* argv[]) {
    * ShellUI is simply not captured.
    */
   onion_log_configure("ShellUI", "/user/data/HyperHEN/HyperHEN.log");
+  LOG_INFO("HyperHEN R29 ShellUI entry pid=%d", static_cast<int>(pid));
 
   if (!resolve_native_symbols(pid))
     return -1;
@@ -823,6 +825,7 @@ int main(int argc, char const* argv[]) {
   toolbox_i18n::apply_system_or_ui_lang(g_settings.ui_lang);
 
   shellui_hooks_publish_ready();
+  LOG_INFO("HyperHEN R29 ShellUI hooks ready pid=%d", static_cast<int>(pid));
   /*
    * Home already cached pre-inject state. Display-TID spoof and the top-nav
    * RNPS patch both need NPXS40002 ReloadApp on the UI thread (OnRender), not
@@ -832,6 +835,7 @@ int main(int argc, char const* argv[]) {
   hooked = true;
   if (g_settings.hype_voice && !shellui_play_startup_voice())
     LOG_WARN("Startup voice unavailable from the SceShellUI audio context");
+  hyper_p5_bridge_start();
   run_keep_alive();
   return 0;
 }

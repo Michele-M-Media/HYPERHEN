@@ -1,0 +1,234 @@
+import { useEffect, useRef, useState } from "react";
+import { useStore } from "zustand";
+import { Plus, X, Check } from "lucide-react";
+
+import { useRosterStore, profileAccentForHost } from "../state/roster";
+import { useHostRuntime } from "../state/connection";
+import { useUploadQueueStore } from "../state/uploadQueue";
+import { pkgLibraryStore } from "../state/pkgLibrary";
+import { hostOf } from "../lib/addr";
+import { useEdgeFade } from "../lib/edgeFade";
+import { useTr } from "../state/lang";
+import { consoleLight, consoleLightColor } from "../lib/consolePower";
+import { consoleLightLabel } from "../lib/consoleLightLabel";
+
+/**
+ * Console tab strip — one tab per PS5, always visible above the content.
+ *
+ * Each tab is effectively its own ps5upload "instance": switching tabs changes
+ * which console you VIEW, but every console's operations (uploads + installs)
+ * keep running in their own per-host background loops regardless of which tab
+ * is active. Each tab shows a live status dot (from the fan-out poller's
+ * per-host runtime) and an activity badge when that console is uploading or
+ * installing — so you can run up to ~12 consoles at once and see them all.
+ */
+
+function StatusDot({ host }: { host: string }) {
+  const rt = useHostRuntime(host);
+  const tr = useTr();
+  // Rest mode is a calm accent with its own tooltip, not the red of a fault.
+  const light = consoleLight(rt);
+  const quiet = light === "rest" || light === "unreachable";
+  return (
+    <span
+      className="inline-block h-2 w-2 shrink-0 rounded-full"
+      style={{ background: consoleLightColor(light) }}
+      data-light={light}
+      title={quiet ? consoleLightLabel(light, tr) : undefined}
+      aria-hidden
+    />
+  );
+}
+
+/** True when this console has an upload or install running right now. */
+function useConsoleBusy(host: string): boolean {
+  const key = hostOf(host);
+  const uploading = useUploadQueueStore((s) => !!s.runningHosts[key]);
+  const installing = useStore(pkgLibraryStore(host), (s) => s.installing);
+  return uploading || installing;
+}
+
+/** How many items wait in this console's queue (a number, so the tab only
+ *  re-renders when the count changes, not on every progress tick). */
+function useQueuedCount(host: string): number {
+  const key = hostOf(host);
+  return useUploadQueueStore(
+    (s) =>
+      s.items.filter((i) => i.status === "pending" && hostOf(i.addr) === key)
+        .length,
+  );
+}
+
+function ConsoleTab({
+  id,
+  name,
+  host,
+  accent,
+  active,
+  onClick,
+}: {
+  id: string;
+  name: string;
+  host: string;
+  /** This console's identity color (roster-position palette). */
+  accent: string | null;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const busy = useConsoleBusy(host);
+  const queued = useQueuedCount(host);
+  const tr = useTr();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${name} — ${host}`}
+      aria-current={active ? "page" : undefined}
+      data-console-id={id}
+      // A chip: the console on show is the filled white pill.
+      className={`chip flex min-h-9 max-w-[14rem] shrink-0 items-center gap-2 px-3.5 text-sm ${
+        active ? "is-active" : ""
+      }`}
+      // Identity edge: each console keeps its own color on the pill's edge
+      // (full strength when active, dimmed otherwise). Two same-model
+      // consoles with similar default names stay tellable apart at a
+      // glance, and the same color repeats on activity chips so rows match
+      // tabs without reading names. Hex palette → append alpha for the dim.
+      style={
+        accent ? { borderColor: active ? accent : `${accent}66` } : undefined
+      }
+    >
+      <StatusDot host={host} />
+      <span className="truncate">{name}</span>
+      {busy && (
+        <span
+          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full"
+          style={{ background: accent ?? "var(--color-accent)" }}
+          aria-hidden
+        />
+      )}
+      {queued > 0 && (
+        <span
+          className="shrink-0 rounded-full bg-[var(--color-surface-3)] px-1.5 text-xs tabular-nums text-[var(--color-muted)]"
+          title={tr("console_tab_queue_count", { n: queued }, `${queued} in queue`)}
+        >
+          {queued}
+        </span>
+      )}
+    </button>
+  );
+}
+
+export default function ConsoleTabs() {
+  const tr = useTr();
+  const profiles = useRosterStore((s) => s.profiles);
+  const activeId = useRosterStore((s) => s.active_id);
+  const setActive = useRosterStore((s) => s.setActive);
+  const add = useRosterStore((s) => s.add);
+
+  const [adding, setAdding] = useState(false);
+  const [ip, setIp] = useState("");
+  const [name, setName] = useState("");
+
+  // The strip scrolls sideways when the tabs don't fit beside the top-bar
+  // buttons. Fade the clipped edge so a half-cut pill reads as "more this
+  // way", and keep the console on show in view (it could be scrolled out of
+  // sight after a switch from the sidebar picker or the command palette).
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  useEdgeFade(stripRef, `${profiles.length}:${adding}`);
+  useEffect(() => {
+    stripRef.current
+      ?.querySelector<HTMLElement>('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeId, profiles.length]);
+
+  // Below ~2 consoles the strip adds clutter without value — only show it once
+  // the user actually manages multiple PS5s (single-console users keep the
+  // clean layout). The sidebar roster picker remains for full management.
+  if (profiles.length < 2 && !adding) return null;
+
+  const submitAdd = () => {
+    const host = ip.trim();
+    if (!host) {
+      setAdding(false);
+      return;
+    }
+    const idNew = add({ name: name.trim() || `PS5 (${host})`, host });
+    setActive(idNew);
+    setIp("");
+    setName("");
+    setAdding(false);
+  };
+
+  return (
+    <div
+      ref={stripRef}
+      className="fade-x flex min-w-0 items-center gap-2 overflow-x-auto px-1 py-1.5"
+    >
+      {profiles.map((p) => (
+        <ConsoleTab
+          key={p.id}
+          id={p.id}
+          name={p.name}
+          host={p.host}
+          accent={profileAccentForHost(p.host, profiles)}
+          active={p.id === activeId}
+          onClick={() => setActive(p.id)}
+        />
+      ))}
+
+      {adding ? (
+        <div className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--glass-edge)] bg-[var(--color-surface-raised)] px-1.5 py-1">
+          <input
+            autoFocus
+            value={ip}
+            onChange={(e) => setIp(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitAdd();
+              if (e.key === "Escape") setAdding(false);
+            }}
+            placeholder={tr("console_tab_ip", "PS5 IP")}
+            inputMode="decimal"
+            className="w-28 rounded-full bg-[var(--color-surface)] px-3 py-1 text-sm outline-none"
+          />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitAdd();
+              if (e.key === "Escape") setAdding(false);
+            }}
+            placeholder={tr("console_tab_name", "Name (optional)")}
+            className="w-32 rounded-full bg-[var(--color-surface)] px-3 py-1 text-sm outline-none"
+          />
+          <button
+            type="button"
+            onClick={submitAdd}
+            aria-label={tr("add", "Add")}
+            className="rounded-full p-1 text-[var(--color-good)] hover:bg-[var(--color-surface-3)]"
+          >
+            <Check size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdding(false)}
+            aria-label={tr("cancel", "Cancel")}
+            className="rounded-full p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-3)]"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          aria-label={tr("console_tab_add", "Add a console")}
+          title={tr("console_tab_add", "Add a console")}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-dashed border-[var(--color-border-strong)] text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"
+        >
+          <Plus size={16} />
+        </button>
+      )}
+    </div>
+  );
+}

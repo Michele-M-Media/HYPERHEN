@@ -39,6 +39,8 @@ along with this program; see the file COPYING. If not, see
 #include <onion/elfldr.h>
 #include <onion/elfldr_log.h>
 #include <onion/pt.h>
+#include "elf-image.h"
+extern intptr_t hhp_elf_map(pid_t, const uint8_t *, size_t);
 
 
 #ifndef IPV6_2292PKTOPTIONS
@@ -330,8 +332,8 @@ elfldr_load(pid_t pid, uint8_t *elf) {
 /**
  * Create payload args in the address space of the process with the given pid.
  **/
-intptr_t
-elfldr_payload_args(pid_t pid) {
+static intptr_t
+elfldr_payload_args_impl(pid_t pid, int plugin_abi) {
   int victim_sock;
   int master_sock;
   intptr_t buf;
@@ -394,6 +396,18 @@ elfldr_payload_args(pid_t pid) {
   intptr_t payloadout = buf + 0x300;
   intptr_t getpid      = pt_resolve(pid, "HoLVWNanBBc");
 
+  if(plugin_abi) {
+    /* TacHen/SDK v0.43 plugin ABI. Keep legacy internal payloads unchanged. */
+    intptr_t dlsym = pt_resolve(pid, "LwG8g3niqwA");
+    uint8_t call[5];
+    int32_t relative;
+    if(!dlsym || pt_copyout(pid, dlsym + 4, call, sizeof(call)) ||
+       call[0] != 0xe8) return 0;
+    memcpy(&relative, call + 1, sizeof(relative));
+    getpid = dlsym + 9 + relative;
+  }
+  if(plugin_abi && (!getpid || !kpipe_addr)) return 0;
+
   pt_setlong(pid, args + 0x00, getpid);
   pt_setlong(pid, args + 0x08, rwpipe);
   pt_setlong(pid, args + 0x10, rwpair);
@@ -409,12 +423,16 @@ elfldr_payload_args(pid_t pid) {
   return args;
 }
 
+intptr_t elfldr_payload_args(pid_t pid) {
+  return elfldr_payload_args_impl(pid, 0);
+}
+
 
 /**
  * Prepare registers of a process for execution of an ELF.
  **/
 static int
-elfldr_prepare_exec(pid_t pid, uint8_t *elf) {
+elfldr_prepare_exec(pid_t pid, uint8_t *elf, size_t size, int plugin_abi) {
   intptr_t entry;
   intptr_t args;
   struct reg r;
@@ -424,17 +442,18 @@ elfldr_prepare_exec(pid_t pid, uint8_t *elf) {
     return -1;
   }
 
-  if(!(entry=elfldr_load(pid, elf))) {
+  if(!(entry=plugin_abi ? hhp_elf_map(pid, elf, size) : elfldr_load(pid, elf))) {
     LOG_PUTS("elfldr_load failed");
     return -1;
   }
 
-  if(!(args=elfldr_payload_args(pid))) {
+  if(!(args=elfldr_payload_args_impl(pid, plugin_abi))) {
     LOG_PUTS("elfldr_payload_args failed");
     return -1;
   }
 
-  pt_setlong(pid, r.r_rsp - 8, r.r_rip);
+  if(plugin_abi) r.r_rsp &= ~0xfl;
+  if(pt_setlong(pid, r.r_rsp - 8, r.r_rip) && plugin_abi) return -1;
   r.r_rsp -= 8;
   r.r_rip = entry;
   r.r_rdi = args;
@@ -471,8 +490,8 @@ elfldr_set_procname(pid_t pid, const char* name) {
 }
 
 
-int
-elfldr_exec(pid_t pid, int stdio, uint8_t* elf) {
+static int
+elfldr_exec_impl(pid_t pid, int stdio, uint8_t* elf, size_t size, int plugin_abi) {
   uint8_t caps[16];
   intptr_t jaildir;
   intptr_t rootdir;
@@ -520,7 +539,7 @@ elfldr_exec(pid_t pid, int stdio, uint8_t* elf) {
     pt_close(pid, stdio);
   }
 
-  if(elfldr_prepare_exec(pid, elf)) {
+  if(elfldr_prepare_exec(pid, elf, size, plugin_abi)) {
     error = -1;
   }
 
@@ -542,12 +561,16 @@ elfldr_exec(pid_t pid, int stdio, uint8_t* elf) {
     error = -1;
   }
 
-  if(pt_detach(pid, 0)) {
+  if(pt_detach(pid, plugin_abi && error ? SIGKILL : 0)) {
     LOG_PERROR("pt_detach");
     error = -1;
   }
 
   return error;
+}
+
+int elfldr_exec(pid_t pid, int stdio, uint8_t *elf) {
+  return elfldr_exec_impl(pid, stdio, elf, 0, 0);
 }
 
 
@@ -629,9 +652,90 @@ elfldr_rfork_entry(void* argv) {
   return -1;
 }
 
+/* Dedicated plugin spawn follows TacHen's bounded stopped-child handshake.
+ * Legacy internal payload startup keeps its existing kqueue route. */
+static int plugin_wait_stop(pid_t pid, int signal_number, unsigned timeout_ms) {
+  for(unsigned elapsed=0; elapsed<timeout_ms; elapsed+=10) {
+    int status=0;
+    pid_t waited=waitpid(pid, &status, WNOHANG | WUNTRACED);
+    if(waited==pid)
+      return WIFSTOPPED(status) && WSTOPSIG(status)==signal_number ? 0 : -1;
+    if(waited<0 && errno!=EINTR) return -1;
+    usleep(10000);
+  }
+  return -1;
+}
 
-pid_t
-elfldr_spawn(int stdio, char* const argv[], uint8_t* elf, size_t payload_size) {
+static void plugin_abort_child(pid_t pid, void *stack) {
+  (void)kill(pid, SIGKILL);
+  for(unsigned attempt=0;attempt<100;++attempt) {
+    int status=0; pid_t waited=waitpid(pid,&status,WNOHANG | WUNTRACED);
+    if((waited==pid && (WIFEXITED(status)||WIFSIGNALED(status))) ||
+       (kill(pid,0)<0 && errno==ESRCH)) { free(stack); return; }
+    usleep(1000);
+  }
+  /* An uncertain rfork child still owns the shared stack: never free it. */
+}
+
+#define ELFLDR_PTRACE_AUTHID 0x4800000000010003ULL
+
+typedef struct elfldr_service_ptrace_scope {
+  uint64_t authid;
+  uint8_t caps[16];
+  int restore_needed;
+} elfldr_service_ptrace_scope_t;
+
+static int
+elfldr_service_ptrace_leave(elfldr_service_ptrace_scope_t *scope) {
+  int error = 0;
+  if(!scope->restore_needed) {
+    return 0;
+  }
+  if(kernel_set_ucred_authid(getpid(), scope->authid)) {
+    error = -1;
+  }
+  if(kernel_set_ucred_caps(getpid(), scope->caps)) {
+    error = -1;
+  }
+  if(!error) {
+    scope->restore_needed = 0;
+  }
+  return error;
+}
+
+/* The package helper is born while HyperDeck is SYSTEM so AppInstUtil keeps
+ * the same context as websrv. Only its parent's remote-loader window needs
+ * PTRACE, and it must always be restored before returning to the web server. */
+static int
+elfldr_service_ptrace_enter(elfldr_service_ptrace_scope_t *scope) {
+  static const uint8_t caps[16] = {0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
+                                   0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+  memset(scope, 0, sizeof(*scope));
+  if(!(scope->authid=kernel_get_ucred_authid(getpid())) ||
+     kernel_get_ucred_caps(getpid(), scope->caps)) {
+    return -1;
+  }
+  scope->restore_needed = 1;
+  if(kernel_set_ucred_authid(getpid(), ELFLDR_PTRACE_AUTHID) ||
+     kernel_set_ucred_caps(getpid(), caps)) {
+    (void)elfldr_service_ptrace_leave(scope);
+    return -1;
+  }
+  return 0;
+}
+
+static void
+elfldr_abort_child(pid_t pid) {
+  if(pt_detach(pid, SIGKILL)) {
+    (void)kill(pid, SIGKILL);
+  }
+}
+
+
+static pid_t
+elfldr_spawn_impl(int stdio, char* const argv[], uint8_t* elf,
+                  size_t payload_size, int plugin_abi,
+                  int prepare_before_relocation) {
   uint8_t int3instr = 0xcc;
   struct kevent evt;
   intptr_t brkpoint;
@@ -639,13 +743,18 @@ elfldr_spawn(int stdio, char* const argv[], uint8_t* elf, size_t payload_size) {
   void *stack;
   pid_t pid;
   int kq;
+  int result = -1;
+  elfldr_service_ptrace_scope_t service_scope = {0};
 
+  HhpElfImage checked;
   if(!argv || !argv[0] || !elf || payload_size < sizeof(Elf64_Ehdr) ||
-     elfldr_sanity_check(elf, payload_size)) {
+     (plugin_abi ? hhp_elf_inspect(elf, payload_size, &checked, NULL, 0)
+                 : elfldr_sanity_check(elf, payload_size))) {
     return -1;
   }
 
-  if((kq=kqueue()) < 0) {
+  kq = plugin_abi ? -1 : kqueue();
+  if(!plugin_abi && kq < 0) {
     LOG_PERROR("kqueue");
     return -1;
   }
@@ -665,80 +774,121 @@ elfldr_spawn(int stdio, char* const argv[], uint8_t* elf, size_t payload_size) {
     return -1;
   }
 
-  EV_SET(&evt, pid, EVFILT_PROC, EV_ADD, NOTE_EXEC, 0, 0);
-  if(kevent(kq, &evt, 1, &evt, 1, 0) < 0) {
-    LOG_PERROR("kevent");
-    free(stack);
-    close(kq);
-    return -1;
-  }
-
-  if(waitpid(pid, 0, 0) < 0) {
-    LOG_PERROR("waitpid");
-    free(stack);
-    close(kq);
-    return -1;
+  if(plugin_abi) {
+    if(plugin_wait_stop(pid,SIGTRAP,10000)) {
+      plugin_abort_child(pid,stack); return -1;
+    }
+  } else {
+    EV_SET(&evt, pid, EVFILT_PROC, EV_ADD, NOTE_EXEC, 0, 0);
+    if(kevent(kq, &evt, 1, &evt, 1, 0) < 0) {
+      LOG_PERROR("kevent"); free(stack); close(kq); return -1;
+    }
+    if(waitpid(pid, 0, 0) < 0) {
+      LOG_PERROR("waitpid"); free(stack); close(kq); return -1;
+    }
   }
 
   free(stack);
-  close(kq);
+  if(kq >= 0) close(kq);
+
+  /* websrv prepares its fixed package-installer child before the platform's
+   * process-parameter relocation. Keep this ordering isolated to callers
+   * that explicitly request the service path; normal payload and plugin
+   * launches retain their established behavior. */
+  if(prepare_before_relocation && elfldr_raise_privileges(pid)) {
+    LOG_PUTS("Unable to prepare service child");
+    (void)kill(pid, SIGKILL);
+    (void)waitpid(pid, 0, 0);
+    goto done;
+  }
+  if(prepare_before_relocation && elfldr_service_ptrace_enter(&service_scope)) {
+    LOG_PUTS("Unable to enter service ptrace context");
+    (void)kill(pid, SIGKILL);
+    (void)waitpid(pid, 0, 0);
+    goto done;
+  }
 
   if(pt_syscall(pid, 599)) {
     LOG_PT_PERROR(pid, "sys_dynlib_process_needed_and_relocate");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
   }
 
   elfldr_set_heap_size(pid, -1);
 
   if(!(brkpoint=kernel_dynlib_entry_addr(pid, 0))) {
     LOG_PUTS("kernel_dynlib_entry_addr failed");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
   }
   brkpoint += 58;
 
   if(kernel_mprotect(pid, brkpoint, PAGE_SIZE,
                      PROT_READ | PROT_WRITE | PROT_EXEC)) {
     LOG_PUTS("kernel_mprotect failed");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
   }
 
   if(pt_copyout(pid, brkpoint, &orginstr, sizeof(orginstr))) {
     LOG_PERROR("pt_copyout");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
   }
   if(pt_copyin(pid, &int3instr, brkpoint, sizeof(int3instr))) {
     LOG_PERROR("pt_copyin");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
   }
 
   if(pt_continue(pid, SIGCONT)) {
     LOG_PERROR("pt_continue");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
   }
-  if(waitpid(pid, 0, 0) == -1) {
+  if(plugin_abi ? plugin_wait_stop(pid,SIGTRAP,2000) : waitpid(pid, 0, 0) == -1) {
     LOG_PERROR("waitpid");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
+  }
+  if(plugin_abi) {
+    struct reg stopped;
+    if(pt_getregs(pid,&stopped) || stopped.r_rip != (uint64_t)brkpoint+1) {
+      elfldr_abort_child(pid); goto done;
+    }
   }
   if(pt_copyin(pid, &orginstr, brkpoint, sizeof(orginstr))) {
     LOG_PERROR("pt_copyin");
-    pt_detach(pid, SIGKILL);
-    return -1;
+    elfldr_abort_child(pid);
+    goto done;
   }
 
   elfldr_set_procname(pid, argv[0]);
-  if(elfldr_exec(pid, stdio, elf)) {
+  if(elfldr_exec_impl(pid, stdio, elf, payload_size, plugin_abi)) {
     kill(pid, SIGKILL);
-    return -1;
+    goto done;
   }
 
-  return pid;
+  result = pid;
+done:
+  if(elfldr_service_ptrace_leave(&service_scope)) {
+    LOG_PUTS("Unable to restore service ptrace context");
+    return -1;
+  }
+  return result;
+}
+
+pid_t elfldr_spawn(int stdio, char *const argv[], uint8_t *elf, size_t size) {
+  return elfldr_spawn_impl(stdio, argv, elf, size, 0, 0);
+}
+
+pid_t elfldr_spawn_service(int stdio, char *const argv[], uint8_t *elf,
+                           size_t size) {
+  return elfldr_spawn_impl(stdio, argv, elf, size, 0, 1);
+}
+
+pid_t elfldr_spawn_plugin(int stdio, char *const argv[], uint8_t *elf, size_t size) {
+  return elfldr_spawn_impl(stdio, argv, elf, size, 1, 0);
 }
 
 

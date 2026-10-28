@@ -10,14 +10,32 @@
 #ifndef HYPERHEN_CORE_ELF
 #define HYPERHEN_CORE_ELF "../assets/kstuff.elf"
 #endif
+#ifndef HYPERHEN_CORE_LITE_ELF
+#define HYPERHEN_CORE_LITE_ELF HYPERHEN_CORE_ELF
+#endif
+#ifndef HYPERHEN_CORE_940_ELF
+#define HYPERHEN_CORE_940_ELF HYPERHEN_CORE_ELF
+#endif
+#ifndef HYPERHEN_CORE_1270_ELF
+#define HYPERHEN_CORE_1270_ELF HYPERHEN_CORE_ELF
+#endif
 #ifndef HYPERHEN_AUTOMOUNT_ELF
 #define HYPERHEN_AUTOMOUNT_ELF "../assets/hyperhen_automount.elf"
+#endif
+#ifndef HYPERHEN_AUTOMOUNT_LITE_ELF
+#define HYPERHEN_AUTOMOUNT_LITE_ELF HYPERHEN_AUTOMOUNT_ELF
 #endif
 #ifndef HYPERHEN_HYPERVISOR_ELF
 #define HYPERHEN_HYPERVISOR_ELF "../assets/hyperhen_hypervisor.elf"
 #endif
+#ifndef HYPERHEN_HYPERVISOR_1270_ELF
+#define HYPERHEN_HYPERVISOR_1270_ELF HYPERHEN_HYPERVISOR_ELF
+#endif
 #ifndef HYPERHEN_HYPERVISOR_5XX_ELF
 #define HYPERHEN_HYPERVISOR_5XX_ELF "../assets/hyperhen_hypervisor_5xx.elf"
+#endif
+#ifndef HYPERHEN_HYPERVISOR_940_ELF
+#define HYPERHEN_HYPERVISOR_940_ELF "../assets/hyperhen_hypervisor_940.elf"
 #endif
 #ifndef HYPERHEN_LEGACY_HEN_ELF
 #define HYPERHEN_LEGACY_HEN_ELF "../assets/hyperhen_legacy_hen.elf"
@@ -28,6 +46,9 @@
 #ifndef HYPERHEN_LINUX_ELF
 #define HYPERHEN_LINUX_ELF "../assets/hyperlinux.elf"
 #endif
+#ifndef HYPERHEN_LINUX_1360_ELF
+#define HYPERHEN_LINUX_1360_ELF "../assets/hyperlinux_1360.elf"
+#endif
 #ifndef HYPERHEN_KLOGSRV_ELF
 #define HYPERHEN_KLOGSRV_ELF "../../../third_party/debug-tools/klogsrv-ps5.elf"
 #endif
@@ -37,8 +58,30 @@
 #ifndef HYPERHEN_DEBUG_ELFLDR_ELF
 #define HYPERHEN_DEBUG_ELFLDR_ELF "../../bin/hyperhen_debug_elfldr.elf"
 #endif
+#ifndef HYPERHEN_GARLIC_ELF
+#define HYPERHEN_GARLIC_ELF "../../bin/garlic-savemgr.elf"
+#endif
+#ifndef HYPERHEN_FW_SPOOF_ELF
+#define HYPERHEN_FW_SPOOF_ELF "../../../third_party/debug-tools/ps5-fw-spoof.elf"
+#endif
+#ifndef HYPERHEN_NP_FAKE_SIGNIN_ELF
+#define HYPERHEN_NP_FAKE_SIGNIN_ELF "../../../third_party/debug-tools/np-fake-signin-ps5.elf"
+#endif
+#ifndef HYPERHEN_NANODNS_ELF
+#define HYPERHEN_NANODNS_ELF "../../../third_party/debug-tools/nanodns.elf"
+#endif
+#ifndef HYPERHEN_CHUKEI_ELF
+#define HYPERHEN_CHUKEI_ELF "../../../third_party/debug-tools/chukei-ps5.elf"
+#endif
+#ifndef HYPERHEN_ZFTPD_ELF
+#define HYPERHEN_ZFTPD_ELF "../../../third_party/debug-tools/zftpd-ps5-zhttp-v1.6.0.elf"
+#endif
 #ifndef HYPERHEN_ICON_ASSET_DIR
 #define HYPERHEN_ICON_ASSET_DIR "../assets"
+#endif
+#if defined(HYPERHEN_EXPERIMENTAL_HYPERSHELL) &&                             \
+    !defined(HYPERHEN_HYPERSHELL_ENGINE_ELF)
+#define HYPERHEN_HYPERSHELL_ENGINE_ELF "../../bin/liveshell.elf"
 #endif
 
 __asm__(".intel_syntax noprefix\n"
@@ -107,6 +150,42 @@ __asm__(".intel_syntax noprefix\n"
     "kstuff_size:\n"
     ".int    kstuff_end - kstuff_start\n"
 
+    ".global kstuff_lite_start\n"
+    ".type   kstuff_lite_start, @object\n"
+    ".align  16\n"
+    "kstuff_lite_start:\n"
+    ".incbin \"" HYPERHEN_CORE_LITE_ELF "\"\n"
+    "kstuff_lite_end:\n"
+    ".global kstuff_lite_size\n"
+    ".type  kstuff_lite_size, @object\n"
+    ".align  4\n"
+    "kstuff_lite_size:\n"
+    ".int    kstuff_lite_end - kstuff_lite_start\n"
+
+    ".global kstuff_940_start\n"
+    ".type   kstuff_940_start, @object\n"
+    ".align  16\n"
+    "kstuff_940_start:\n"
+    ".incbin \"" HYPERHEN_CORE_940_ELF "\"\n"
+    "kstuff_940_end:\n"
+    ".global kstuff_940_size\n"
+    ".type  kstuff_940_size, @object\n"
+    ".align  4\n"
+    "kstuff_940_size:\n"
+    ".int    kstuff_940_end - kstuff_940_start\n"
+
+    ".global kstuff_1270_start\n"
+    ".type   kstuff_1270_start, @object\n"
+    ".align  16\n"
+    "kstuff_1270_start:\n"
+    ".incbin \"" HYPERHEN_CORE_1270_ELF "\"\n"
+    "kstuff_1270_end:\n"
+    ".global kstuff_1270_size\n"
+    ".type  kstuff_1270_size, @object\n"
+    ".align  4\n"
+    "kstuff_1270_size:\n"
+    ".int    kstuff_1270_end - kstuff_1270_start\n"
+
         ".global automount_start\n"
         ".type   automount_start, @object\n"
         ".align  16\n"
@@ -118,6 +197,18 @@ __asm__(".intel_syntax noprefix\n"
         ".align  4\n"
         "automount_size:\n"
         ".int    automount_end - automount_start\n"
+
+        ".global automount_lite_start\n"
+        ".type   automount_lite_start, @object\n"
+        ".align  16\n"
+        "automount_lite_start:\n"
+        ".incbin \"" HYPERHEN_AUTOMOUNT_LITE_ELF "\"\n"
+        "automount_lite_end:\n"
+        ".global automount_lite_size\n"
+        ".type   automount_lite_size, @object\n"
+        ".align  4\n"
+        "automount_lite_size:\n"
+        ".int    automount_lite_end - automount_lite_start\n"
 
         ".global hypervisor_start\n"
         ".type   hypervisor_start, @object\n"
@@ -131,6 +222,18 @@ __asm__(".intel_syntax noprefix\n"
         "hypervisor_size:\n"
         ".int    hypervisor_end - hypervisor_start\n"
 
+        ".global hypervisor_1270_start\n"
+        ".type   hypervisor_1270_start, @object\n"
+        ".align  16\n"
+        "hypervisor_1270_start:\n"
+        ".incbin \"" HYPERHEN_HYPERVISOR_1270_ELF "\"\n"
+        "hypervisor_1270_end:\n"
+        ".global hypervisor_1270_size\n"
+        ".type   hypervisor_1270_size, @object\n"
+        ".align  4\n"
+        "hypervisor_1270_size:\n"
+        ".int    hypervisor_1270_end - hypervisor_1270_start\n"
+
         ".global hypervisor_5xx_start\n"
         ".type   hypervisor_5xx_start, @object\n"
         ".align  16\n"
@@ -142,6 +245,18 @@ __asm__(".intel_syntax noprefix\n"
         ".align  4\n"
         "hypervisor_5xx_size:\n"
         ".int    hypervisor_5xx_end - hypervisor_5xx_start\n"
+
+        ".global hypervisor_940_start\n"
+        ".type   hypervisor_940_start, @object\n"
+        ".align  16\n"
+        "hypervisor_940_start:\n"
+        ".incbin \"" HYPERHEN_HYPERVISOR_940_ELF "\"\n"
+        "hypervisor_940_end:\n"
+        ".global hypervisor_940_size\n"
+        ".type   hypervisor_940_size, @object\n"
+        ".align  4\n"
+        "hypervisor_940_size:\n"
+        ".int    hypervisor_940_end - hypervisor_940_start\n"
 
         ".global legacy_hen_start\n"
         ".type   legacy_hen_start, @object\n"
@@ -179,6 +294,18 @@ __asm__(".intel_syntax noprefix\n"
         "hyperlinux_size:\n"
         ".int    hyperlinux_end - hyperlinux_start\n"
 
+        ".global hyperlinux_1360_start\n"
+        ".type   hyperlinux_1360_start, @object\n"
+        ".align  16\n"
+        "hyperlinux_1360_start:\n"
+        ".incbin \"" HYPERHEN_LINUX_1360_ELF "\"\n"
+        "hyperlinux_1360_end:\n"
+        ".global hyperlinux_1360_size\n"
+        ".type   hyperlinux_1360_size, @object\n"
+        ".align  4\n"
+        "hyperlinux_1360_size:\n"
+        ".int    hyperlinux_1360_end - hyperlinux_1360_start\n"
+
         ".global klogsrv_start\n"
         ".type   klogsrv_start, @object\n"
         ".align  16\n"
@@ -203,6 +330,18 @@ __asm__(".intel_syntax noprefix\n"
         "ftpsrv_size:\n"
         ".int    ftpsrv_end - ftpsrv_start\n"
 
+        ".global garlic_start\n"
+        ".type   garlic_start, @object\n"
+        ".align  16\n"
+        "garlic_start:\n"
+        ".incbin \"" HYPERHEN_GARLIC_ELF "\"\n"
+        "garlic_end:\n"
+        ".global garlic_size\n"
+        ".type   garlic_size, @object\n"
+        ".align  4\n"
+        "garlic_size:\n"
+        ".int    garlic_end - garlic_start\n"
+
         ".global debug_elfldr_start\n"
         ".type   debug_elfldr_start, @object\n"
         ".align  16\n"
@@ -214,5 +353,79 @@ __asm__(".intel_syntax noprefix\n"
         ".align  4\n"
         "debug_elfldr_size:\n"
         ".int    debug_elfldr_end - debug_elfldr_start\n"
+
+#if defined(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
+        ".global hypershell_engine_start\n"
+        ".type   hypershell_engine_start, @object\n"
+        ".align  16\n"
+        "hypershell_engine_start:\n"
+        ".incbin \"" HYPERHEN_HYPERSHELL_ENGINE_ELF "\"\n"
+        "hypershell_engine_end:\n"
+        ".global hypershell_engine_size\n"
+        ".type   hypershell_engine_size, @object\n"
+        ".align  4\n"
+        "hypershell_engine_size:\n"
+        ".int    hypershell_engine_end - hypershell_engine_start\n"
+#endif
+
+        ".global fw_spoof_start\n"
+        ".type   fw_spoof_start, @object\n"
+        ".align  16\n"
+        "fw_spoof_start:\n"
+        ".incbin \"" HYPERHEN_FW_SPOOF_ELF "\"\n"
+        "fw_spoof_end:\n"
+        ".global fw_spoof_size\n"
+        ".type   fw_spoof_size, @object\n"
+        ".align  4\n"
+        "fw_spoof_size:\n"
+        ".int    fw_spoof_end - fw_spoof_start\n"
+
+        ".global np_fake_signin_start\n"
+        ".type   np_fake_signin_start, @object\n"
+        ".align  16\n"
+        "np_fake_signin_start:\n"
+        ".incbin \"" HYPERHEN_NP_FAKE_SIGNIN_ELF "\"\n"
+        "np_fake_signin_end:\n"
+        ".global np_fake_signin_size\n"
+        ".type   np_fake_signin_size, @object\n"
+        ".align  4\n"
+        "np_fake_signin_size:\n"
+        ".int    np_fake_signin_end - np_fake_signin_start\n"
+
+        ".global nanodns_start\n"
+        ".type   nanodns_start, @object\n"
+        ".align  16\n"
+        "nanodns_start:\n"
+        ".incbin \"" HYPERHEN_NANODNS_ELF "\"\n"
+        "nanodns_end:\n"
+        ".global nanodns_size\n"
+        ".type   nanodns_size, @object\n"
+        ".align  4\n"
+        "nanodns_size:\n"
+        ".int    nanodns_end - nanodns_start\n"
+
+        ".global chukei_start\n"
+        ".type   chukei_start, @object\n"
+        ".align  16\n"
+        "chukei_start:\n"
+        ".incbin \"" HYPERHEN_CHUKEI_ELF "\"\n"
+        "chukei_end:\n"
+        ".global chukei_size\n"
+        ".type   chukei_size, @object\n"
+        ".align  4\n"
+        "chukei_size:\n"
+        ".int    chukei_end - chukei_start\n"
+
+        ".global zftpd_start\n"
+        ".type   zftpd_start, @object\n"
+        ".align  16\n"
+        "zftpd_start:\n"
+        ".incbin \"" HYPERHEN_ZFTPD_ELF "\"\n"
+        "zftpd_end:\n"
+        ".global zftpd_size\n"
+        ".type   zftpd_size, @object\n"
+        ".align  4\n"
+        "zftpd_size:\n"
+        ".int    zftpd_end - zftpd_start\n"
 
 );

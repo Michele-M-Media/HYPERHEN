@@ -1,5 +1,11 @@
 # HyperHEN components and technical overview
 
+> Historical 0.9.2 inventory. The firmware routing table and integration
+> summary below describe the previous public release. For the current 0.9.3
+> selectors, startup behavior and support boundaries, read the
+> [current README](../README.md), [release notes](../RELEASE_NOTES.md) and
+> [release build instructions](../BUILD_RELEASE.md).
+
 This document is the public technical inventory for HyperHEN. It describes
 what is built into the release, what remains an external dependency, how the
 firmware routes differ, and where each major component came from.

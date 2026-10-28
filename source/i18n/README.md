@@ -89,8 +89,10 @@ Missing toolbox keys render as the key itself (visible in the menu).
 4. Do not pass a raw English format string. Unknown keys are shown
    unchanged (English-looking leftover, or a debug `"%s"` passthrough).
 
-ShellUI's `notify("…")` helper forwards to the same catalog. Unpacker
-has its own `notify()` and does **not** use this catalog.
+ShellUI's `notify("…")` helper and the first-stage unpacker forward to
+the same catalog. Notifications always follow the console system language;
+the Toolbox language override applies only to Toolbox menu text. These
+two active language states are separate, including after settings reloads.
 
 ## How to add a language
 
@@ -124,6 +126,22 @@ same way as the Toolbox (`toolbox.language`, else the console system
 language) and updates live when the daemon's system-language poll pushes
 `BREW_UTIL_SET_SYSTEM_LANG` to util.
 
+## Selector and system language
+
+The 5.xx engine selector uses `notify.selector.*` entries from the same
+catalogs. Its HTML, accessibility labels, JavaScript status messages and
+post-selection page are rendered in the console language before serving
+them. It does not use the browser's language or a saved Toolbox override.
+Arabic text is RTL while the engine card order and controller navigation
+remain unchanged. Unknown system language IDs fall back to English.
+
+Host checks: `bash scripts/test_localization.sh /path/to/HyperHEN` tests
+notifications, Toolbox preferences and all 31 system IDs; after building
+the host UI with `bash scripts/build_selector_host.sh /path/to/HyperHEN`,
+run `python3 tools/check_selector_localization.py --binary
+build-hyperdeck/localization-host/hyperdeck-host-r18 --locales-dir source/i18n`
+for real HTTP, JavaScript and native-choice checks in every console locale.
+
 ## Intentional exclusions
 
 These user-visible strings are **not** in the JSON catalogs on purpose:
@@ -134,7 +152,6 @@ These user-visible strings are **not** in the JSON catalogs on purpose:
 | HomeUI top-nav `HyperHEN` | Brand token, same in every language. |
 | Notification watermark `[HyperHEN]` | Brand prefix in `onion_notify_format`. |
 | About names and project URLs | Proper nouns / addresses. |
-| Unpacker start-failure toasts | First-stage loader; no language setting and its own `notify()`. English only until it is wired to `onion_notify`. |
 | Cheat names / descriptions from cheat files | Come from the cheat JSON, not HyperHEN. |
 
 Logs (`LOG_*`) are developer-facing and stay English.

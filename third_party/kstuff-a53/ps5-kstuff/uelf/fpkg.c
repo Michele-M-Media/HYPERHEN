@@ -81,6 +81,11 @@ struct ppr_profile
     uint8_t verify_success_abi;
 };
 
+static int ppr_features_disabled_for_route(void)
+{
+    return FWVER == 0x940;
+}
+
 /*
  * verifyImage's mailbox request is stable across the supported retail
  * kernels, including its physical output destinations.  The wrapper keeps
@@ -97,6 +102,10 @@ struct ppr_profile
  */
 static const struct ppr_profile* get_ppr_profile(void)
 {
+    /* Byepervisor is the 9.40 hypervisor prerequisite.  Its route must never
+     * arm the independent A53/PPR plaintext profile. */
+    if(ppr_features_disabled_for_route())
+        return NULL;
     /* Keep the newer profiles and offsets available for later work, but do
      * not arm plaintext PPR interception where the integrated installer has
      * no exact profile.  11.60 is the first no-PPR compatibility route. */
@@ -191,7 +200,7 @@ static const struct ppr_profile* get_ppr_profile(void)
         return &fw7;
     case 0x800: case 0x820: case 0x840: case 0x860:
         return &fw8;
-    case 0x900: case 0x905: case 0x920: case 0x940: case 0x960:
+    case 0x900: case 0x905: case 0x920: case 0x960:
         return &fw9;
     case 0x1000: case 0x1001: case 0x1020: case 0x1040: case 0x1060:
         return &fw10;
@@ -461,6 +470,10 @@ int current_fpkg_syscall_scope(int is_nmount, int* is_ppr)
     if(get_current_ppr_thread(&td))
         return 0;
     uint64_t kind = fpkg_scope_for_thread(td) & FPKG_SCOPE_KIND_MASK;
+    if(ppr_features_disabled_for_route()
+    && (kind == KSTUFF_FPKG_SCOPE_PPR_MOUNT
+     || kind == KSTUFF_FPKG_SCOPE_PPR_UNMOUNT))
+        return 0;
     int allowed = is_nmount
                 ? (kind == KSTUFF_FPKG_SCOPE_GAME_MOUNT
                 || kind == KSTUFF_FPKG_SCOPE_PPR_MOUNT)
@@ -732,6 +745,10 @@ int control_ppr_plaintext_request(uint64_t magic, uint64_t mode,
     *result = 0;
     if(magic != 0x505052504c41494eull)
         return EINVAL;
+    if(ppr_features_disabled_for_route()
+    && mode != PPR_CONTROL_SCOPE_ENTER
+    && mode != PPR_CONTROL_SCOPE_LEAVE)
+        return EPERM;
     if(mode == PPR_CONTROL_TRACE)
     {
 #if KSTUFF_OBS
@@ -758,6 +775,10 @@ int control_ppr_plaintext_request(uint64_t magic, uint64_t mode,
     {
         if(arg0 != PPR_PLAINTEXT_PROTOCOL_VERSION)
             return EINVAL;
+        if(ppr_features_disabled_for_route()
+        && arg2 != KSTUFF_FPKG_SCOPE_GAME_MOUNT
+        && arg2 != KSTUFF_FPKG_SCOPE_GAME_UNMOUNT)
+            return EPERM;
         return mode == PPR_CONTROL_SCOPE_ENTER
              ? enter_fpkg_scope(td, arg2)
              : leave_fpkg_scope(td, arg2);
@@ -1827,6 +1848,8 @@ void handle_fpkg_trap(uint64_t* regs, uint32_t trapno)
 
 void handle_fpkg_syscall(uint64_t* regs, int is_nmount, int is_ppr)
 {
+    if(ppr_features_disabled_for_route())
+        is_ppr = 0;
     uint64_t dbgregs_for_fpkg[6] = {
         (uint64_t)sceSblServiceMailbox, 0, 0, 0,
         0, 0x401

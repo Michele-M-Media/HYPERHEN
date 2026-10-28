@@ -1,0 +1,82 @@
+/* ---- Files: search and disk usage ---- */
+.cw-dialog.cw-search,
+.cw-dialog.cw-usage {
+  display: flex;
+  flex-direction: column;
+}
+.cw-search-field {
+  width: 24rem;
+}
+.cw-search-scope {
+  display: inline-flex;
+  margin-left: 0.4rem;
+}
+.cw-search-scope .cw-button {
+  margin-right: 0.4rem;
+}
+.cw-search-scope [aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.cw-search-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+.cw-search-index {
+  flex: none;
+}
+.cw-search-index .cw-bar {
+  margin-top: 0.4rem;
+}
+.cw-search-pending {
+  display: block;
+  margin-top: 0.3rem;
+}
+.cw-search-body,
+.cw-usage-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.cw-search-body > p,
+.cw-usage-body > p {
+  margin: 0 0 0.4rem;
+}
+.cw-usage-row .cw-file-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cw-usage-bar {
+  display: block;
+  flex: 0 0 22rem;
+  margin: 0 1rem;
+}
+.cw-usage-bar .cw-bar {
+  display: block;
+  height: 0.7rem;
+  margin: 0;
+}
+.cw-usage-size {
+  flex: none;
+  width: 7.5rem;
+  text-align: right;
+}
+.cw-usage-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cw-usage-row .cw-button,
+.cw-usage-spacer {
+  flex: none;
+  box-sizing: border-box;
+  width: 2.8rem;
+  margin-left: 0.4rem;
+  padding: 0.3rem 0;
+  justify-content: center;
+}
+.cw-usage .cw-button[aria-disabled="true"] {
+  opacity: 0.4;
+}

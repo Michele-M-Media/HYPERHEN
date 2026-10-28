@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" dir="ltr" manifest="/cache.appcache">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>PS5Upload Minion</title>
+    <!-- Applies the stored theme before the first paint (the module bundle below is deferred).
+         Same keys and values as src/theme.ts; theme.test.ts keeps them in step. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("ps5upload.console.theme");
+          var h = localStorage.getItem("ps5upload.console.contrast") === "high";
+          var e = document.documentElement;
+          if (t === "light" || t === "oled" || t === "peach") e.setAttribute("data-theme", t);
+          if (h) e.setAttribute("data-contrast", "high");
+          if (t === "light" || t === "peach") {
+            var m = document.querySelector('meta[name="color-scheme"]');
+            if (m) m.setAttribute("content", "light");
+          }
+        } catch (x) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

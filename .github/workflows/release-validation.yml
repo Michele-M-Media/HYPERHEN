@@ -1,0 +1,182 @@
+name: release-validation
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published release tag supplying the retained build inputs
+        required: true
+        type: string
+      sdk_archive_url:
+        description: Complete PS5 Payload SDK ZIP URL (or repository variable)
+        required: false
+        type: string
+      sdk_archive_sha256:
+        description: Expected SDK ZIP SHA256 (or repository variable)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-validation-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install host-check tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build python3 xz-utils
+      - name: Check release metadata, catalogs and helper
+        run: |
+          set -euo pipefail
+          bash -n scripts/build_release.sh
+          python3 - <<'PY'
+          import json, pathlib, re
+          root = pathlib.Path('.')
+          version = (root / 'VERSION').read_text().strip()
+          assert re.fullmatch(r'\d+\.\d+\.\d+', version), 'Invalid product VERSION'
+          fallback = (root / 'source/include/onion/version.h').read_text()
+          assert '#define HYPERHEN_VERSION "v' + version + '"' in fallback
+          catalogs = sorted((root / 'source/i18n').glob('*.json'))
+          assert catalogs, 'Notification catalogs are missing'
+          for path in catalogs:
+              json.loads(path.read_text(encoding='utf-8'))
+          for folder in ('release-components', 'release-inputs'):
+              manifest = root / folder / 'SHA256SUMS'
+              seen = set()
+              for line in manifest.read_text().splitlines():
+                  match = re.fullmatch(r'([0-9a-f]{64}) [ *](.+)', line)
+                  assert match, f'Malformed checksum line in {manifest}'
+                  name = pathlib.PurePosixPath(match[2])
+                  assert not name.is_absolute() and '..' not in name.parts
+                  assert str(name) not in seen, f'Duplicate checksum path in {manifest}'
+                  seen.add(str(name))
+              assert seen, f'Empty checksum manifest: {manifest}'
+          print('Release metadata and catalog JSON checks passed')
+          PY
+          python3 tests/test_build_helper.py
+          python3 tests/test_firmware_docs.py
+      - name: Explain native rebuild availability
+        if: github.event_name == 'release' && (vars.PS5_PAYLOAD_SDK_ARCHIVE_URL == '' || vars.PS5_PAYLOAD_SDK_ARCHIVE_SHA256 == '')
+        run: |
+          echo '::notice::Native rebuild is skipped: configure PS5_PAYLOAD_SDK_ARCHIVE_URL and PS5_PAYLOAD_SDK_ARCHIVE_SHA256 with a complete, checksum-pinned SDK ZIP. Source/host checks still run; they do not validate a native rebuild.'
+          echo 'Native rebuild skipped: complete SDK archive URL/SHA256 repository variables are not configured.' >> "$GITHUB_STEP_SUMMARY"
+
+  native-rebuild:
+    needs: source-checks
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && vars.PS5_PAYLOAD_SDK_ARCHIVE_URL != '' && vars.PS5_PAYLOAD_SDK_ARCHIVE_SHA256 != '')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+      SDK_ARCHIVE_URL: ${{ inputs.sdk_archive_url || vars.PS5_PAYLOAD_SDK_ARCHIVE_URL }}
+      SDK_ARCHIVE_SHA256: ${{ inputs.sdk_archive_sha256 || vars.PS5_PAYLOAD_SDK_ARCHIVE_SHA256 }}
+      LLVM_CONFIG: /usr/lib/llvm-18/bin/llvm-config
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout the release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+      - name: Install native-build host tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential clang-18 lld-18 llvm-18 cmake ninja-build python3 xz-utils unzip curl
+      - name: Validate SDK selection
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_TAG"
+          test -n "$SDK_ARCHIVE_URL" || { echo 'Complete SDK ZIP URL is required' >&2; exit 1; }
+          [[ "$SDK_ARCHIVE_SHA256" =~ ^[0-9a-fA-F]{64}$ ]] || { echo 'SDK ZIP SHA256 is required' >&2; exit 1; }
+      - name: Download and validate retained release inputs
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/input-download"
+          cp release-components/SHA256SUMS "$RUNNER_TEMP/components.SHA256SUMS"
+          cp release-inputs/SHA256SUMS "$RUNNER_TEMP/inputs.SHA256SUMS"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern '*-build-inputs.zip' --dir "$RUNNER_TEMP/input-download"
+          python3 - <<'PY'
+          import os, pathlib, stat, zipfile
+          archives = list((pathlib.Path(os.environ['RUNNER_TEMP']) / 'input-download').glob('*.zip'))
+          assert len(archives) == 1, 'Expected exactly one build-inputs ZIP asset'
+          root = pathlib.Path.cwd().resolve()
+          with zipfile.ZipFile(archives[0]) as archive:
+              seen = set()
+              for item in archive.infolist():
+                  name = pathlib.PurePosixPath(item.filename)
+                  assert name.parts and name.parts[0] in ('release-components', 'release-inputs')
+                  assert not name.is_absolute() and '..' not in name.parts and '\\' not in item.filename
+                  assert not stat.S_ISLNK(item.external_attr >> 16), 'Symlink input is unsupported'
+                  assert str(name) not in seen, 'Duplicate archive entry'
+                  seen.add(str(name))
+                  destination = (root / pathlib.Path(*name.parts)).resolve()
+                  assert root in destination.parents
+              archive.extractall(root)
+          PY
+          cmp "$RUNNER_TEMP/components.SHA256SUMS" release-components/SHA256SUMS
+          cmp "$RUNNER_TEMP/inputs.SHA256SUMS" release-inputs/SHA256SUMS
+          (cd release-components && sha256sum --check --strict SHA256SUMS)
+          (cd release-inputs && sha256sum --check --strict SHA256SUMS)
+      - name: Install the checksum-pinned complete SDK
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -fL --retry 3 --url "$SDK_ARCHIVE_URL" -o "$RUNNER_TEMP/sdk.zip"
+          printf '%s  %s\n' "$SDK_ARCHIVE_SHA256" "$RUNNER_TEMP/sdk.zip" | sha256sum --check --strict
+          python3 - <<'PY'
+          import os, pathlib, stat, zipfile
+          with zipfile.ZipFile(pathlib.Path(os.environ['RUNNER_TEMP']) / 'sdk.zip') as archive:
+              for item in archive.infolist():
+                  name = pathlib.PurePosixPath(item.filename)
+                  assert not name.is_absolute() and '..' not in name.parts and '\\' not in item.filename
+                  if stat.S_ISLNK(item.external_attr >> 16):
+                      target = pathlib.PurePosixPath(archive.read(item).decode())
+                      assert not target.is_absolute(), 'Absolute SDK symlink is unsupported'
+                      depth = len(name.parent.parts)
+                      for part in target.parts:
+                          depth += -1 if part == '..' else 0 if part == '.' else 1
+                          assert depth >= 0, 'SDK symlink escapes the archive'
+          PY
+          mkdir -p "$RUNNER_TEMP/sdk-extracted"
+          unzip -q "$RUNNER_TEMP/sdk.zip" -d "$RUNNER_TEMP/sdk-extracted"
+          python3 - <<'PY'
+          import os, pathlib
+          roots = [p.parent.parent for p in (pathlib.Path(os.environ['RUNNER_TEMP']) / 'sdk-extracted').rglob('toolchain/prospero.cmake')]
+          assert len(roots) == 1, 'Expected one SDK root with toolchain/prospero.cmake'
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('PS5_PAYLOAD_SDK=' + str(roots[0]) + '\n')
+          PY
+      - name: Rebuild release-compatible payload
+        run: bash scripts/build_release.sh --jobs 2
+      - name: Record rebuild digest
+        run: |
+          set -euo pipefail
+          test -f build-release/bin/HyperHEN.elf
+          sha256sum build-release/bin/HyperHEN.elf > build-release/REBUILD_SHA256SUMS
+          printf 'Release-compatible native rebuild; bit-for-bit equality to the published ELF is not claimed.\n' > build-release/REBUILD_INFO.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-rebuild
+          path: |
+            build-release/bin/HyperHEN.elf
+            build-release/REBUILD_SHA256SUMS
+            build-release/REBUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 14

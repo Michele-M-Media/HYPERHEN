@@ -1,0 +1,256 @@
+import { useEffect, useState } from "react";
+import {
+  Bell,
+  Disc3,
+  Lightbulb,
+  Power,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
+import {
+  peripheralEject,
+  peripheralBdOff,
+  peripheralBdOn,
+  peripheralBeep,
+  peripheralLed,
+  peripheralLedDim,
+  type PeripheralAck,
+} from "../../api/ps5";
+import { Button, Spinner } from "../../components";
+import { useTr } from "../../state/lang";
+import { pushNotification } from "../../state/notifications";
+import { withConsolePrefix } from "../../state/roster";
+import { discDriveOf } from "./discDrive";
+
+/**
+ * Peripheral control: BD drive eject / power.
+ *
+ * Skipping USB port toggles in the default UI — they're rarely
+ * useful (modern USB devices handle their own power) and the
+ * `port` argument needs a port-picker. We expose them via the API
+ * for advanced workflows but the panel keeps to BD only.
+ */
+export default function PeripheralPanel({
+  mgmtAddr,
+  model,
+}: {
+  mgmtAddr: string;
+  /** HW_INFO's model code; a Digital Edition gets no disc-drive controls. */
+  model?: string | null;
+}) {
+  const tr = useTr();
+  const drive = discDriveOf(model);
+  const [busy, setBusy] = useState<null | "eject" | "off" | "on" | "indicator">(null);
+  const [last, setLast] = useState<PeripheralAck | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Clear the last ack / error when the active console changes — the panel
+  // stays mounted across host switches, so a stale "Eject" success from
+  // console A must not linger under console B.
+  useEffect(() => {
+    setLast(null);
+    setError(null);
+  }, [mgmtAddr]);
+
+  async function run(
+    kind: "eject" | "off" | "on",
+    fn: (addr: string) => Promise<PeripheralAck>,
+  ) {
+    setBusy(kind);
+    setError(null);
+    try {
+      const ack = await fn(mgmtAddr);
+      setLast(ack);
+      if (!ack.ok) {
+        setError(ack.err ?? `code ${ack.code}`);
+      } else {
+        pushNotification(
+          "info",
+          withConsolePrefix(
+            mgmtAddr,
+            tr(
+              "peripheral_action_done",
+              { action: ack.action ?? kind },
+              `BD ${ack.action ?? kind} requested`,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // The beeper and the front light: no notification (the console itself is the feedback),
+  // only the result line below.
+  async function runIndicator(fn: (addr: string) => Promise<PeripheralAck>) {
+    setBusy("indicator");
+    setError(null);
+    try {
+      const ack = await fn(mgmtAddr);
+      setLast(ack);
+      if (!ack.ok) {
+        setError(
+          tr(
+            "peripheral_indicator_failed",
+            { code: ack.err ?? String(ack.code) },
+            `The console did not accept that (${ack.err ?? `code ${ack.code}`}).`,
+          ),
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="surface-panel min-w-0 p-5 sm:p-6">
+      {drive !== "no" && (
+        <div data-testid="disc-controls" className="mb-4">
+          <header className="mb-4 flex items-center gap-2.5">
+            <span className="icon-disc" aria-hidden><Disc3 size={14} /></span>
+            <h3 className="text-sm font-semibold">
+              {tr("peripheral_title", undefined, "Disc drive")}
+            </h3>
+          </header>
+          {drive === "attachable" && (
+            <p className="mb-2 text-xs text-[var(--color-muted)]">
+              {tr(
+                "peripheral_drive_attachable",
+                undefined,
+                "This model has no built-in disc drive; these only do something with the add-on drive attached.",
+              )}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={
+                busy === "eject" ? (
+                  <Spinner size={12} tone="inherit" />
+                ) : (
+                  <Disc3 size={11} />
+                )
+              }
+              onClick={() => run("eject", peripheralEject)}
+              disabled={busy !== null}
+            >
+              {tr("peripheral_eject", undefined, "Eject disc")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={
+                busy === "off" ? (
+                  <Spinner size={12} tone="inherit" />
+                ) : (
+                  <Power size={11} />
+                )
+              }
+              onClick={() => run("off", peripheralBdOff)}
+              disabled={busy !== null}
+            >
+              {tr("peripheral_bd_off", undefined, "BD power off")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={
+                busy === "on" ? (
+                  <Spinner size={12} tone="inherit" />
+                ) : (
+                  <Power size={11} />
+                )
+              }
+              onClick={() => run("on", peripheralBdOn)}
+              disabled={busy !== null}
+            >
+              {tr("peripheral_bd_on", undefined, "BD power on")}
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-[var(--color-muted)]">
+            {tr(
+              "peripheral_explainer",
+              undefined,
+              "BD power-off can save 2-3W when you only play digital titles. Eject works whether the drive has a disc or not.",
+            )}
+          </p>
+        </div>
+      )}
+      <header className="mb-2 flex items-center gap-2">
+        <Lightbulb size={14} />
+        <h3 className="text-sm font-semibold">
+          {tr("peripheral_indicator_title", undefined, "Front light and beeper")}
+        </h3>
+      </header>
+      <div className="flex flex-wrap items-center gap-2" data-testid="indicator-controls">
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon={<Bell size={11} />}
+          onClick={() => runIndicator((a) => peripheralBeep(a, 1))}
+          disabled={busy !== null}
+        >
+          {tr("peripheral_beep", undefined, "Beep")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={<Lightbulb size={11} />}
+          onClick={() => runIndicator((a) => peripheralLed(a, false))}
+          disabled={busy !== null}
+        >
+          {tr("peripheral_led_off", undefined, "Light off")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={<Lightbulb size={11} />}
+          onClick={() => runIndicator((a) => peripheralLed(a, true))}
+          disabled={busy !== null}
+        >
+          {tr("peripheral_led_on", undefined, "Light back to normal")}
+        </Button>
+        {[0, 1, 2].map((level) => (
+          <Button
+            key={level}
+            variant="ghost"
+            size="sm"
+            onClick={() => runIndicator((a) => peripheralLedDim(a, level))}
+            disabled={busy !== null}
+          >
+            {tr(
+              "peripheral_led_dim",
+              { level: level + 1 },
+              `Brightness ${level + 1}`,
+            )}
+          </Button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-[var(--color-muted)]">
+        {tr(
+          "peripheral_indicator_note",
+          undefined,
+          "Brightness is kept by the console across restarts. The light's colour cannot be changed from here.",
+        )}
+      </p>
+      {last && last.ok && !error && (
+        <div className="mt-2 flex items-center gap-1 text-xs text-[var(--color-good)]">
+          <CheckCircle2 size={11} />
+          {last.action ?? "ok"}
+        </div>
+      )}
+      {error && (
+        <div className="mt-2 flex items-start gap-1 text-xs text-[var(--color-bad)]">
+          <AlertTriangle size={11} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+    </section>
+  );
+}

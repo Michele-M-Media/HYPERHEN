@@ -7,24 +7,37 @@
 #include "daemon_power_state.hpp"
 #include "globalconf.hpp"
 #include "toolbox_injection.hpp"
+#include "toolbox_webkit_gate.hpp"
+#include "toolbox_webkit_snapshot.hpp"
+#include "freebsd-helper.h"
+#include <onion/boot_mode_5xx.h>
 #include <onion/platform.h>
 #include <onion/proc_query.h>
 #include <onion/ready.h>
 #include <onion/settings.hpp>
 #include <ps5/kernel.h>
 #include <atomic>
+#include <cerrno>
 #include <cstdint>
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
 #include <pthread.h>
+#include <sys/sysctl.h>
+#include <time.h>
 #include <unistd.h>
 
 extern "C" {
 bool Inject_Toolbox(int pid, uint8_t *elf);
+bool Inject_Toolbox_Guarded(int pid, uint8_t *elf, bool (*pre_attach)(int));
 extern uint8_t shellui_elf_start[];
 }
 
 namespace {
 
 onion::ToolboxInject g_toolbox_inject;
+std::mutex g_toolbox_flow_mutex;
 std::atomic<pid_t> g_last_shellui{0};
 std::atomic<uint32_t> g_rest_gen{0};
 
@@ -65,6 +78,147 @@ constexpr useconds_t kRestRetryDelayUs[] = {
     1000 * 1000,
     2000 * 1000,
 };
+constexpr int kColdResolvePollMax = 20;
+constexpr int kColdSprxPollMax = 40;
+constexpr int kColdQuietPolls = 4;
+constexpr useconds_t kColdQuietPollUs = 250 * 1000;
+constexpr useconds_t kWebkitPollUs = 250 * 1000;
+constexpr size_t kWebkitSnapshotMaxBytes = 32u * 1024u * 1024u;
+constexpr int kWebkitSnapshotAttempts = 3;
+
+bool toolbox_is_5xx_selector_boot() {
+  const Onion5xxBootMode mode =
+      onion_5xx_boot_mode_read(ONION_5XX_BOOT_MODE_PATH);
+  return mode == ONION_5XX_BOOT_MODE_BYPERVISOR ||
+         mode == ONION_5XX_BOOT_MODE_HYPERCORE;
+}
+
+bool toolbox_clear_5xx_selector_marker() {
+  if (unlink(ONION_5XX_SELECTOR_ACTIVE_PATH) == 0 || errno == ENOENT)
+    return true;
+  LOG_WARN("5.xx: cannot clear selector-active marker errno=%d", errno);
+  return false;
+}
+
+/* A normal WebKit payload host also owns ShellUI state, on every firmware.
+ * Observe only the web content process: UI/network helper processes may
+ * persist after the user leaves the browser and are not blockers. */
+using onion::ToolboxWebkitSnapshot;
+static_assert(offsetof(kinfo_proc, ki_pid) == 72,
+              "WebKit query must use the existing PS5 process layout");
+static_assert(offsetof(kinfo_proc, ki_tdname) == 394,
+              "WebKit query must use the existing PS5 process layout");
+static_assert(offsetof(kinfo_proc, ki_comm) == 447,
+              "WebKit query must use the existing PS5 process layout");
+
+bool toolbox_webkit_snapshot(ToolboxWebkitSnapshot *out) {
+  if (!out) { errno = EINVAL; return false; }
+  for (int attempt = 0; attempt < kWebkitSnapshotAttempts; ++attempt) {
+    int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PROC, 0};
+    size_t size = 0;
+    if (sysctl(mib, 4, nullptr, &size, nullptr, 0) != 0)
+      return false;
+    if (size == 0 || size > kWebkitSnapshotMaxBytes) {
+      errno = EOVERFLOW;
+      return false;
+    }
+    void *buffer = std::malloc(size);
+    if (!buffer) { errno = ENOMEM; return false; }
+    const size_t capacity = size;
+    if (sysctl(mib, 4, buffer, &size, nullptr, 0) != 0) {
+      const int error = errno;
+      std::free(buffer);
+      if (error == ENOMEM && attempt + 1 < kWebkitSnapshotAttempts)
+        continue;
+      errno = error;
+      return false;
+    }
+    ToolboxWebkitSnapshot snapshot;
+    constexpr onion::ToolboxProcessLayout layout{
+        offsetof(kinfo_proc, ki_pid), offsetof(kinfo_proc, ki_comm),
+        sizeof(((kinfo_proc *)nullptr)->ki_comm),
+        offsetof(kinfo_proc, ki_tdname),
+        sizeof(((kinfo_proc *)nullptr)->ki_tdname)};
+    const bool valid = size > 0 && size <= capacity &&
+        onion::toolbox_parse_webkit_snapshot(buffer, size, layout, &snapshot);
+    std::free(buffer);
+    if (!valid) { errno = EPROTO; return false; }
+    *out = snapshot;
+    errno = 0;
+    return true;
+  }
+  errno = EAGAIN;
+  return false;
+}
+
+bool toolbox_monotonic_ms(uint64_t *out) {
+  timespec now{};
+  if (!out || clock_gettime(CLOCK_MONOTONIC, &now) != 0 || now.tv_sec < 0 ||
+      static_cast<uint64_t>(now.tv_sec) > UINT64_MAX / 1000u)
+    return false;
+  *out = static_cast<uint64_t>(now.tv_sec) * 1000u +
+         static_cast<uint64_t>(now.tv_nsec) / 1000000u;
+  return true;
+}
+
+bool toolbox_wait_webkit_exit(pid_t target_pid, uint32_t generation) {
+  uint64_t started = 0;
+  if (!toolbox_monotonic_ms(&started)) {
+    LOG_WARN("Toolbox R29 WebKit gate: clock unavailable; skipping injection");
+    return false;
+  }
+  onion::ToolboxWebkitGate gate(static_cast<int>(target_pid), started);
+  pid_t previous_web_pid = -1;
+  for (;;) {
+    if (g_rest_gen.load(std::memory_order_acquire) != generation) {
+      LOG_INFO("Toolbox R29 WebKit gate superseded pid=%d", static_cast<int>(target_pid));
+      return false;
+    }
+    ToolboxWebkitSnapshot snapshot;
+    const bool query_ok = toolbox_webkit_snapshot(&snapshot);
+    const int query_error = query_ok ? 0 : errno;
+    uint64_t now = 0;
+    if (!toolbox_monotonic_ms(&now)) {
+      LOG_WARN("Toolbox R29 WebKit gate: clock unavailable; skipping injection");
+      return false;
+    }
+    const auto decision = gate.observe(now, query_ok,
+        static_cast<int>(snapshot.shellui_pid), static_cast<int>(snapshot.web_pid));
+    if (decision == onion::ToolboxWebkitDecision::Ready) {
+      LOG_INFO("Toolbox R29 WebKit gate ready: pid=%d, browser absent for 2000 ms",
+               static_cast<int>(target_pid));
+      if (toolbox_is_5xx_selector_boot() &&
+          access(ONION_5XX_SELECTOR_ACTIVE_PATH, F_OK) == 0)
+        return toolbox_clear_5xx_selector_marker();
+      return true;
+    }
+    if (decision != onion::ToolboxWebkitDecision::Waiting) {
+      LOG_WARN("Toolbox R29 WebKit gate stopped: pid=%d decision=%d errno=%d",
+               static_cast<int>(target_pid), static_cast<int>(decision), query_error);
+      return false;
+    }
+    if (snapshot.web_pid > 1 && snapshot.web_pid != previous_web_pid) {
+      LOG_INFO("Toolbox R29 waiting for browser pid=%d to exit manually; target=%d",
+               static_cast<int>(snapshot.web_pid), static_cast<int>(target_pid));
+    }
+    previous_web_pid = snapshot.web_pid;
+    usleep(kWebkitPollUs);
+  }
+}
+
+bool toolbox_webkit_pre_attach(int target_pid) {
+  ToolboxWebkitSnapshot snapshot;
+  const bool allowed = onion::toolbox_pre_attach_allowed(
+      target_pid, [](ToolboxWebkitSnapshot *out) { return toolbox_webkit_snapshot(out); },
+      &snapshot);
+  if (!allowed) {
+    LOG_WARN("Toolbox R29 pre-attach cancelled: expected=%d shellui=%d web=%d errno=%d",
+             target_pid, static_cast<int>(snapshot.shellui_pid),
+             static_cast<int>(snapshot.web_pid), errno);
+    return false;
+  }
+  return true;
+}
 
 bool toolbox_sprx_loaded(pid_t pid, const char *name) {
   uint32_t handle = static_cast<uint32_t>(-1);
@@ -132,8 +286,70 @@ bool toolbox_wait_resume_delay(pid_t pid, uint32_t gen) {
          isProcessAlive(pid);
 }
 
+/*
+ * The initial daemon path used to inject as soon as it found SceShellUI.
+ * On 5.xx that can overlap the selector WebView teardown and the loader's
+ * first ShellUI patch.  Require the same ready SPRX set as recovery, then a
+ * short unchanged-PID window before ptrace touches the process.
+ */
+bool toolbox_wait_cold_target(pid_t expected_pid, pid_t *ready_pid) {
+  if (!ready_pid)
+    return false;
+
+  for (int retry = 0; retry < kRestRetryMax; ++retry) {
+    pid_t pid = expected_pid;
+    for (int resolve = 0; pid <= 1 && resolve < kColdResolvePollMax;
+         ++resolve) {
+      pid = toolbox_live_pid();
+      if (pid <= 1)
+        usleep(kColdQuietPollUs);
+    }
+    if (pid <= 1)
+      return false;
+
+    bool sprx_ready = false;
+    for (int poll = 0; poll < kColdSprxPollMax; ++poll) {
+      if (!isProcessAlive(pid) || toolbox_live_pid() != pid)
+        break;
+      if (toolbox_sprx_loaded(pid, kShellUiReadySprx[0]) &&
+          toolbox_sprx_loaded(pid, kShellUiReadySprx[1])) {
+        sprx_ready = true;
+        break;
+      }
+      usleep(kSprxPollUs);
+    }
+    if (!sprx_ready) {
+      if (expected_pid > 1)
+        return false;
+      continue;
+    }
+
+    bool stable = true;
+    for (int poll = 0; poll < kColdQuietPolls; ++poll) {
+      usleep(kColdQuietPollUs);
+      if (!isProcessAlive(pid) || toolbox_live_pid() != pid) {
+        stable = false;
+        break;
+      }
+    }
+    if (stable) {
+      *ready_pid = pid;
+      return true;
+    }
+    if (expected_pid > 1)
+      return false;
+  }
+  return false;
+}
+
 void toolbox_wait_kstuff() {
-  if (!onion_ready_wait(ONION_READY_KSTUFF, /*timeout_ms=*/5000,
+  const Onion5xxBootMode boot_mode =
+      onion_5xx_boot_mode_read(ONION_5XX_BOOT_MODE_PATH);
+  const char *ready_marker =
+      boot_mode == ONION_5XX_BOOT_MODE_BYPERVISOR
+          ? ONION_READY_HYPERVISOR_5XX
+          : ONION_READY_KSTUFF;
+  if (!onion_ready_wait(ready_marker, /*timeout_ms=*/5000,
                         /*poll_ms=*/200))
     sleep(1);
 }
@@ -174,10 +390,12 @@ void toolbox_notify_outcome(const onion::ToolboxInjectionOutcome &outcome) {
 }
 
 bool toolbox_inject_immediate(pid_t expected_pid = 0) {
+  std::lock_guard<std::mutex> flow_lock(g_toolbox_flow_mutex);
   const pid_t observed_pid = expected_pid > 1 ? expected_pid : toolbox_live_pid();
   LOG_DEBUG("rest: cmd_enable_toolbox shellui_pid=%d",
             static_cast<int>(observed_pid));
-  if (toolbox_already_ready(observed_pid)) {
+  if (toolbox_already_ready(observed_pid) &&
+      observed_pid == toolbox_live_pid()) {
     toolbox_remember_pid(observed_pid);
     toolbox_notify_outcome({onion::ToolboxInjectionResult::AlreadyReady,
                             observed_pid});
@@ -185,6 +403,25 @@ bool toolbox_inject_immediate(pid_t expected_pid = 0) {
   }
 
   toolbox_wait_kstuff();
+  pid_t target_pid = 0;
+  if (!toolbox_wait_cold_target(expected_pid, &target_pid)) {
+    const pid_t current_pid = toolbox_live_pid();
+    const onion::ToolboxInjectionResult result =
+        observed_pid > 1 && current_pid > 1 && current_pid != observed_pid
+            ? onion::ToolboxInjectionResult::TargetChanged
+            : onion::ToolboxInjectionResult::TargetNotFound;
+    toolbox_notify_outcome({result, observed_pid});
+    return false;
+  }
+  if (toolbox_already_ready(target_pid)) {
+    toolbox_remember_pid(target_pid);
+    toolbox_notify_outcome({onion::ToolboxInjectionResult::AlreadyReady,
+                            target_pid});
+    return true;
+  }
+  const uint32_t generation = g_rest_gen.load(std::memory_order_acquire);
+  if (!toolbox_wait_webkit_exit(target_pid, generation))
+    return false;
   LOG_INFO("Activating toolbox...");
 
   const onion::ToolboxInjectionOutcome outcome = g_toolbox_inject.inject(
@@ -192,9 +429,10 @@ bool toolbox_inject_immediate(pid_t expected_pid = 0) {
       [](pid_t pid) -> bool {
         LOG_DEBUG("Injecting toolbox into SceShellUI pid=%d",
                   static_cast<int>(pid));
-        return Inject_Toolbox(static_cast<int>(pid), shellui_elf_start);
+        return Inject_Toolbox_Guarded(static_cast<int>(pid), shellui_elf_start,
+                                     toolbox_webkit_pre_attach);
       },
-      /*timeout_ms=*/45 * 1000, /*poll_ms=*/250, expected_pid);
+      /*timeout_ms=*/45 * 1000, /*poll_ms=*/250, target_pid);
 
   toolbox_remember_pid(outcome.pid);
   toolbox_notify_outcome(outcome);
@@ -238,6 +476,12 @@ void *toolbox_rest_worker(void *arg) {
       break;
     }
     pid_t target = job.exec_pid;
+    if (target > 1 &&
+        (!isProcessAlive(target) || toolbox_live_pid() != target)) {
+      LOG_DEBUG("rest: observed ShellUI pid changed from %d",
+                static_cast<int>(target));
+      target = 0;
+    }
     if (target <= 1) {
       for (int resolve_try = 0; resolve_try < 30 && target <= 1;
            ++resolve_try) {

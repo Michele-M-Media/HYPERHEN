@@ -29,6 +29,8 @@ bool sm_image_index_visit_ready_titles(
     sm_image_index_title_visitor_t visitor, const void *visitor_ctx);
 // Return true when a title is mapped to an existing backing image.
 bool sm_image_index_has_source_for_title(const char *title_id);
+// Validate a title against a complete index with an unchanged regular source.
+bool sm_image_index_source_has_title(const char *path, const char *title_id);
 // Start a new fingerprint generation before mounting an image.
 void sm_image_index_begin_scan(const char *path, const struct stat *st);
 // Associate a discovered mounted game with its outer backing image. Returns

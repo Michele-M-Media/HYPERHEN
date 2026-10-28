@@ -52,6 +52,7 @@ BITS 64
 %define GAME_MOUNT_ENTRY_MARKER          0x314D47454B504746
 %define GAME_UNMOUNT_ENTRY_MARKER        0x315547454B504746
 %define PPR_UNMOUNT_ENTRY_MARKER         0x315550504B504746
+%define GAME_SCOPE_BLOB_START_MARKER     0x3154524154534746
 
 %macro CALL_ABS_PLACEHOLDER 1
     mov r11, %1
@@ -324,6 +325,7 @@ ppr_mount_940_hook:
 
 ; Inputs follow the registers captured by kekcall:
 ; RSI=operation, RDX=arg0, R8=arg2, R9=arg3. R10/arg1 is not captured.
+    dq GAME_SCOPE_BLOB_START_MARKER
 ppr_control:
     ; SysV requires a 16-byte aligned RSP at a nested call site. All wrapper
     ; callers enter here with RSP mod 16 = 8 after their CALL instruction.

@@ -14,24 +14,39 @@ set(HYPERHEN_CORE_SOURCE_DIR "${HYPERHEN_THIRD_PARTY_DIR}/kstuff-a53"
 	CACHE PATH "Vendored kstuff+A53/PPR+BackPork source directory")
 set(HYPERHEN_CORE_ELF "${CMAKE_BINARY_DIR}/vendor/hypercore/kstuff.elf"
 	CACHE FILEPATH "Locally built HyperCore ELF embedded by the bootstrapper")
+set(HYPERHEN_CORE_940_ELF "${HYPERHEN_CORE_ELF}"
+	CACHE FILEPATH "Dedicated HyperCore ELF for firmware 9.40")
+set(HYPERHEN_CORE_1270_ELF "${HYPERHEN_CORE_ELF}"
+	CACHE FILEPATH "Dedicated source-built HyperCore ELF for firmware 12.70")
 set(HYPERHEN_AUTOMOUNT_SOURCE_DIR
 	"${HYPERHEN_THIRD_PARTY_DIR}/shadowmountplus"
 	CACHE PATH "Vendored ShadowMountPlus source directory")
 set(HYPERHEN_AUTOMOUNT_ELF
 	"${CMAKE_BINARY_DIR}/vendor/automount/hyperhen_automount.elf"
 	CACHE FILEPATH "Locally built HyperHEN Automount ELF embedded by the bootstrapper")
+set(HYPERHEN_RELEASE_COMPONENT_DIR "" CACHE PATH
+	"Optional directory of byte-exact stable release ELFs for existing firmware routes")
+option(HYPERHEN_SOURCE_PLUGIN_RUNTIME
+  "Embed source-built daemon/private loader with the updated plugin runtime" OFF)
+set(HYPERHEN_STABLE_HYPERDECK_ELF "" CACHE FILEPATH
+  "Optional byte-exact HyperDeck ELF retained while updating the plugin runtime")
 set(HYPERHEN_HYPERVISOR_SOURCE_DIR
 	"${HYPERHEN_THIRD_PARTY_DIR}/byepervisor-reborn"
 	CACHE PATH "Vendored Byepervisor Reborn source directory")
 set(HYPERHEN_HYPERVISOR_ELF
 	"${CMAKE_BINARY_DIR}/vendor/hypervisor/hyperhen_hypervisor.elf"
 	CACHE FILEPATH "Locally built hypervisor stage embedded by the bootstrapper")
+set(HYPERHEN_HYPERVISOR_1270_ELF "${HYPERHEN_HYPERVISOR_ELF}"
+	CACHE FILEPATH "Source-built Byepervisor stage containing the exact firmware 12.70 profile")
 set(HYPERHEN_HYPERVISOR_5XX_SOURCE_DIR
 	"${HYPERHEN_THIRD_PARTY_DIR}/bypervisor-5xx"
 	CACHE PATH "Vendored 5.xx Byepervisor source directory")
 set(HYPERHEN_HYPERVISOR_5XX_ELF
 	"${CMAKE_BINARY_DIR}/vendor/hypervisor-5xx/hyperhen_hypervisor_5xx.elf"
 	CACHE FILEPATH "Locally built 5.xx hypervisor stage embedded by the bootstrapper")
+set(HYPERHEN_HYPERVISOR_940_ELF
+	"${HYPERHEN_THIRD_PARTY_DIR}/byepervisor-940/byepervisor-940.elf"
+	CACHE FILEPATH "Pinned prebuilt Byepervisor stage for firmware 9.40")
 set(HYPERHEN_LEGACY_HEN_SOURCE_DIR
 	"${HYPERHEN_THIRD_PARTY_DIR}/ps5-hen-dev"
 	CACHE PATH "Vendored legacy PS5 HEN source directory")
@@ -53,9 +68,20 @@ set(HYPERHEN_LINUX_SOURCE_DIR
 set(HYPERHEN_LINUX_ELF
 	"${CMAKE_BINARY_DIR}/vendor/hyperlinux/hyperlinux.elf"
 	CACHE FILEPATH "Source-built HyperLinux ELF embedded by the bootstrapper")
+set(HYPERHEN_LINUX_1360_ELF
+	"${HYPERHEN_THIRD_PARTY_DIR}/hyperlinux-1360/1360linux.elf"
+	CACHE FILEPATH "Dedicated prebuilt HyperLinux ELF for firmware 13.60")
+set(HYPERHEN_GARLIC_SOURCE_DIR
+	"${HYPERHEN_THIRD_PARTY_DIR}/garlic-savemgr"
+	CACHE PATH "Vendored Garlic SaveMgr source directory")
+set(HYPERHEN_GARLIC_ELF
+	"${CMAKE_BINARY_DIR}/bin/garlic-savemgr.elf"
+	CACHE FILEPATH "Source-built Garlic SaveMgr ELF embedded by the bootstrapper")
 set(HYPERHEN_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated/include")
 set(HYPERHEN_VERSION_HEADER
 	"${HYPERHEN_GENERATED_INCLUDE_DIR}/onion/version.h")
+option(HYPERHEN_EXPERIMENTAL_HYPERSHELL
+	"Build the isolated HyperShell dashboard and on-demand LiveShell engine" OFF)
 
 # HyperCore is always built from the vendored source.  No release ELF is
 # downloaded and no runtime override is accepted by the bootstrapper.
@@ -242,9 +268,17 @@ add_subdirectory(libonion_plugin_manager)
 add_subdirectory(libonion_elfldr)
 add_subdirectory(libonion_sprx)
 add_subdirectory(onion_elfldr_server)
+add_subdirectory(garlic)
 add_subdirectory(libNineS)
+if(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
+	add_subdirectory(
+		"${HYPERHEN_THIRD_PARTY_DIR}/hyperdeck-tools/liveshell/src"
+		"${CMAKE_BINARY_DIR}/vendor/hypershell"
+		EXCLUDE_FROM_ALL)
+endif()
 add_subdirectory(shellui)
 add_subdirectory(util)
 add_subdirectory(daemon)
+add_subdirectory(hyperdeck)
 add_subdirectory(bootstrapper)
 add_subdirectory(unpacker)

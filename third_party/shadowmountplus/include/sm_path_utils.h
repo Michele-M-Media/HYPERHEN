@@ -23,5 +23,7 @@ bool is_usb_storage_path(const char *path);
 bool usb_storage_root_mounted(const char *path);
 // Build "<scan_path>/backports" for a managed scan root.
 bool build_backports_root_path(const char *scan_path, char out[MAX_PATH]);
+// Match a single backport directory name beginning with the full title ID.
+bool backport_name_matches_title(const char *title_id, const char *name);
 
 #endif

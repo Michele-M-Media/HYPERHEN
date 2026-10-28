@@ -1,11 +1,11 @@
 static const char *const g_ja_jp[SM_L10N_COUNT] = {
     /* English: Go to Debug Settings */
     [SM_L10N_ACTION_DEBUG_SETTINGS] = "デバッグ設定へ移動",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA */
-    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u */
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community */
+    [SM_L10N_STARTUP] = "HyperHEN Automount v%s\n© Drakmor とコミュニティ",
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community\nControl: http://%s:%u */
     [SM_L10N_STARTUP_WEB] =
-        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+        "HyperHEN Automount v%s\n© Drakmor とコミュニティ\n管理: http://%s:%u",
     /* English: HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2. */
     [SM_L10N_RECURSIVE_SCAN_DEPRECATED] = "HyperHEN Automount: recursive_scan=1 は非推奨です。scan_depth=2 を使用します。",
     /* English: HyperHEN Automount: scan depth %u enabled. */
@@ -14,10 +14,10 @@ static const char *const g_ja_jp[SM_L10N_COUNT] = {
     [SM_L10N_BACKPORT_OVERLAY_FAILED] = "バックポートオーバーレイのマウントに失敗しました: %s\n%s\n0x%08X",
     /* English: Emulators applied to game: %s */
     [SM_L10N_GAME_EMULATORS_APPLIED] = "ゲーム %s にエミュレーターを適用しました",
-    /* English: Backport applied to game: %s */
-    [SM_L10N_GAME_BACKPORTED] = "ゲームにバックポートを適用しました: %s",
-    /* English: Backport applied to game: %s\nEmulators updated */
-    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "ゲームにバックポートを適用しました: %s\n複数のエミュレーターを更新しました",
+    /* English: Backport applied: %s */
+    [SM_L10N_GAME_BACKPORTED] = "バックポートを適用しました: %s",
+    /* English: Backport applied: %s\nEmulators updated */
+    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "バックポートを適用しました: %s\n複数のエミュレーターを更新しました",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nSaved image_sector override: %u.\nTry mounting again. */
     [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] = "イメージのマウントが拒否されました:\n%s\nクラスタサイズが小さすぎます (%llu < %u)。\nimage_sector override を保存しました: %u。\nもう一度マウントしてください。",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nUse a larger cluster size in the image or lower sector size in config. */
@@ -50,8 +50,8 @@ static const char *const g_ja_jp[SM_L10N_COUNT] = {
     [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... 他 %d 件",
     /* English: Batch install failed for %d app(s).\ncode=0x%08X */
     [SM_L10N_BATCH_INSTALL_FAILED] = "%d 個のアプリの一括インストールに失敗しました。\nコード=0x%08X",
-    /* English: Missing/invalid param.json:\n%s */
-    [SM_L10N_MISSING_PARAM] = "param.json が見つからないか無効です:\n%s",
+    /* English: Missing/invalid param.json/param.sfo:\n%s */
+    [SM_L10N_MISSING_PARAM] = "param.json/param.sfo が見つからないか無効です:\n%s",
     /* English: Found %d new games. Processing... */
     [SM_L10N_FOUND_NEW_GAMES] = "%d 本の新しいゲームを検出しました。処理中...",
     /* English: Library synchronized.\nFound %d games. */
@@ -64,6 +64,8 @@ static const char *const g_ja_jp[SM_L10N_COUNT] = {
     [SM_L10N_AMPR_EMULATOR_UPDATED] = "AMPRエミュレーターを更新しました",
     /* English: HyperHEN Automount: failed to install ShellCore hooks */
     [SM_L10N_SHELLCORE_HOOKS_FAILED] = "HyperHEN Automount: ShellCoreフックのインストールに失敗しました",
+    /* English: HyperHEN Automount: kstuff not found; waiting for it to start. */
+    [SM_L10N_KSTUFF_WAITING] = "HyperHEN Automount: kstuff が見つかりません。起動を待機しています",
     /* English: Target temperature %u °C → %u °C */
     [SM_L10N_TEMPERATURE_TRANSITION] = "目標温度 %u °C → %u °C",
     /* English: External drive %s connected\nFree %llu.%llu GB of %llu.%llu (Block size %llu KB)\nGames on drive: %d%s */

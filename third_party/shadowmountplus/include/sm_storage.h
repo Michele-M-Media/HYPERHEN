@@ -25,6 +25,13 @@ int sm_storage_copy_path(const char *source, const char *destination);
 int sm_storage_copy_path_progress(const char *source, const char *destination,
                                   sm_storage_progress_fn progress,
                                   sm_storage_cancel_fn cancel, void *ctx);
+// Stage a directory copy beside the destination, then replace it after closing
+// cancellation. Failed/cancelled copies leave the installed directory intact.
+int sm_storage_replace_directory_progress(const char *source, const char *destination,
+                                          sm_storage_progress_fn progress,
+                                          sm_storage_cancel_fn cancel,
+                                          sm_storage_finalize_fn begin_finalize,
+                                          void *ctx);
 // Move a file or directory, falling back to copy+delete across filesystems.
 int sm_storage_move_path(const char *source, const char *destination);
 // Move while reporting progress for a cross-filesystem copy. begin_finalize

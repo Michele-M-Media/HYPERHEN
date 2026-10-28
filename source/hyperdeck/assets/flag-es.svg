@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">
+  <path fill="#aa151b" d="M0 0h30v20H0z"/>
+  <path fill="#f1bf00" d="M0 5h30v10H0z"/>
+  <g transform="translate(9.2 8.2)">
+    <path fill="#aa151b" d="M0 0h3.2v4.4H0z"/>
+    <path fill="#f1bf00" d="M.55.65h2.1v2.55H.55z"/>
+    <path fill="#aa151b" d="M-.45 4.15h4.1v.55h-4.1z"/>
+  </g>
+</svg>

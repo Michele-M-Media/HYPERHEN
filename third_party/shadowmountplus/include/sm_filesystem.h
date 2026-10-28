@@ -17,8 +17,10 @@ int sm_mount_table_snapshot(struct statfs **mounts_out);
 
 // Check whether a title is present in the installed app set.
 bool is_installed(const char *title_id);
-// Check whether /user/appmeta/<TITLE_ID>/param.json exists.
+// Check whether /user/appmeta/<TITLE_ID>/param.json or param.sfo exists.
 bool has_appmeta_data(const char *title_id);
+// Check for a regular eboot.bin or eboot2.bin in a game directory.
+bool directory_has_game_executable(const char *dir_path);
 // Check whether a title currently has mounted data.
 bool is_data_mounted(const char *title_id);
 // Read the mount.lnk source path for a title tracked under /user/app.

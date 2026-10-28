@@ -32,6 +32,16 @@ int elfldr_exec(pid_t pid, int stdio, uint8_t *elf);
 pid_t elfldr_spawn(int stdio, char *const argv[], uint8_t *elf,
                    size_t elf_size);
 
+/** Spawn a fixed embedded service image with the websrv-compatible loader
+ * ordering required by the platform package installer. */
+pid_t elfldr_spawn_service(int stdio, char *const argv[], uint8_t *elf,
+                           size_t elf_size);
+
+/** Standalone plugin route: bounded TacHen image mapper and SDK v0.43 ABI.
+ * Existing internal payload launches retain the original loader path. */
+pid_t elfldr_spawn_plugin(int stdio, char *const argv[], uint8_t *elf,
+                          size_t elf_size);
+
 /** Set process/thread name through the tracee. */
 int elfldr_set_procname(pid_t pid, const char *name);
 

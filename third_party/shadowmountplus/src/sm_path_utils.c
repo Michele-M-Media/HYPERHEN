@@ -78,3 +78,9 @@ bool build_backports_root_path(const char *scan_path, char out[MAX_PATH]) {
                          DEFAULT_BACKPORTS_DIR_NAME);
   return written >= 0 && (size_t)written < MAX_PATH;
 }
+
+bool backport_name_matches_title(const char *title_id, const char *name) {
+  return title_id && title_id[0] != '\0' && name &&
+         strncmp(name, title_id, strlen(title_id)) == 0 &&
+         strchr(name, '/') == NULL;
+}

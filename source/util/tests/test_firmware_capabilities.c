@@ -17,16 +17,16 @@ static int test_exact_routes(void) {
       0x06000000U, 0x06020000U, 0x06500000U, 0x07000000U, 0x07010000U,
       0x07200000U, 0x07400000U, 0x07600000U, 0x07610000U, 0x08000000U,
       0x08200000U, 0x08400000U, 0x08600000U, 0x09000000U, 0x09050000U,
-      0x09200000U, 0x09400000U, 0x09600000U, 0x10000000U, 0x10010000U,
+      0x09200000U, 0x09600000U, 0x10000000U, 0x10010000U,
       0x10200000U, 0x10400000U, 0x10600000U, 0x11000000U, 0x11200000U,
       0x11400000U,
   };
   static const uint32_t degraded[] = {
       0x11600000U, 0x12000000U, 0x12020000U, 0x12200000U,
-      0x12400000U, 0x12600000U, 0x12700000U,
+      0x12400000U, 0x12600000U,
   };
   static const uint32_t hypervisor_13xx[] = {
-      0x13000000U, 0x13200000U, 0x13600000U,
+      0x12700000U, 0x13000000U, 0x13200000U, 0x13600000U,
   };
 
   for (size_t i = 0; i < sizeof(legacy) / sizeof(legacy[0]); ++i) {
@@ -53,21 +53,34 @@ static int test_exact_routes(void) {
        i < sizeof(hypervisor_13xx) / sizeof(hypervisor_13xx[0]); ++i) {
     TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_HYPERVISOR_13XX,
                        onion_firmware_route(hypervisor_13xx[i]));
+    TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_HYPERVISOR_13XX,
+                       onion_firmware_route(hypervisor_13xx[i] | 0x23U));
   }
 
-  TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_USERLAND_ONLY,
+  TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_KSTUFF_LITE,
                      onion_firmware_route(0x13400000U));
-  TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_USERLAND_ONLY,
+  TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_KSTUFF_LITE,
                      onion_firmware_route(0x13420000U));
+  TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_HYPERVISOR_940,
+                     onion_firmware_route(0x09400000U));
+  TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_HYPERVISOR_940,
+                     onion_firmware_route(0x0940002aU));
+  TEST_ASSERT_TRUE(onion_firmware_uses_dedicated_hypercore(0x09400000U));
+  TEST_ASSERT_TRUE(onion_firmware_uses_dedicated_hypercore(0x12700023U));
+  TEST_ASSERT_TRUE(!onion_firmware_uses_dedicated_hypercore(0x12600000U));
+  TEST_ASSERT_TRUE(!onion_firmware_uses_dedicated_hypercore(0x13000000U));
   return 0;
 }
 
 static int test_capabilities_fail_closed(void) {
   const uint32_t legacy_caps =
       onion_firmware_capabilities(ONION_FIRMWARE_ROUTE_LEGACY_HEN);
+  TEST_ASSERT_TRUE((legacy_caps & ONION_FIRMWARE_CAP_UTIL) != 0);
   TEST_ASSERT_TRUE((legacy_caps & ONION_FIRMWARE_CAP_LEGACY_HEN) != 0);
   TEST_ASSERT_TRUE((legacy_caps & ONION_FIRMWARE_CAP_AUTOMOUNT) != 0);
   TEST_ASSERT_TRUE((legacy_caps & ONION_FIRMWARE_CAP_BACKPORT) != 0);
+  TEST_ASSERT_TRUE((legacy_caps & ONION_FIRMWARE_CAP_DAEMON) != 0);
+  TEST_ASSERT_TRUE((legacy_caps & ONION_FIRMWARE_CAP_TOOLBOX) != 0);
   TEST_ASSERT_TRUE((legacy_caps & ONION_FIRMWARE_CAP_HYPERCORE) == 0);
 
   const uint32_t ppr_caps =
@@ -84,6 +97,24 @@ static int test_capabilities_fail_closed(void) {
   TEST_ASSERT_TRUE((hypervisor_caps & ONION_FIRMWARE_CAP_PPR) == 0);
   TEST_ASSERT_TRUE((hypervisor_caps & ONION_FIRMWARE_CAP_AUTOMOUNT) != 0);
   TEST_ASSERT_TRUE((hypervisor_caps & ONION_FIRMWARE_CAP_BACKPORT) != 0);
+  TEST_ASSERT_TRUE(onion_firmware_has_capability(
+      0x12700000U, ONION_FIRMWARE_CAP_HYPERVISOR));
+  TEST_ASSERT_TRUE(onion_firmware_has_capability(
+      0x12700000U, ONION_FIRMWARE_CAP_HYPERCORE));
+  TEST_ASSERT_TRUE(onion_firmware_has_capability(
+      0x12700000U, ONION_FIRMWARE_CAP_AUTOMOUNT));
+  TEST_ASSERT_TRUE(onion_firmware_has_capability(
+      0x12700000U, ONION_FIRMWARE_CAP_BACKPORT));
+  TEST_ASSERT_TRUE(!onion_firmware_has_capability(
+      0x12700000U, ONION_FIRMWARE_CAP_PPR));
+
+  const uint32_t hypervisor_940_caps = onion_firmware_capabilities(
+      ONION_FIRMWARE_ROUTE_HYPERVISOR_940);
+  TEST_ASSERT_TRUE((hypervisor_940_caps & ONION_FIRMWARE_CAP_HYPERCORE) != 0);
+  TEST_ASSERT_TRUE((hypervisor_940_caps & ONION_FIRMWARE_CAP_HYPERVISOR) != 0);
+  TEST_ASSERT_TRUE((hypervisor_940_caps & ONION_FIRMWARE_CAP_PPR) == 0);
+  TEST_ASSERT_TRUE((hypervisor_940_caps & ONION_FIRMWARE_CAP_AUTOMOUNT) != 0);
+  TEST_ASSERT_TRUE((hypervisor_940_caps & ONION_FIRMWARE_CAP_BACKPORT) != 0);
 
   const uint32_t degraded_caps = onion_firmware_capabilities(
       ONION_FIRMWARE_ROUTE_HYPERCORE_NO_PPR);
@@ -94,11 +125,17 @@ static int test_capabilities_fail_closed(void) {
   TEST_ASSERT_TRUE((degraded_caps & ONION_FIRMWARE_CAP_PPR) == 0);
   TEST_ASSERT_TRUE((degraded_caps & ONION_FIRMWARE_CAP_HYPERVISOR) == 0);
 
-  const uint32_t userland_caps = onion_firmware_capabilities(
-      ONION_FIRMWARE_ROUTE_USERLAND_ONLY);
-  TEST_ASSERT_EQ_U64(ONION_FIRMWARE_CAP_UTIL, userland_caps);
-  TEST_ASSERT_TRUE((userland_caps & ONION_FIRMWARE_CAP_AUTOMOUNT) == 0);
-  TEST_ASSERT_TRUE((userland_caps & ONION_FIRMWARE_CAP_BACKPORT) == 0);
+  const uint32_t lite_caps = onion_firmware_capabilities(
+      ONION_FIRMWARE_ROUTE_KSTUFF_LITE);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_HYPERCORE) != 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_AUTOMOUNT) != 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_DAEMON) != 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_TOOLBOX) != 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_UTIL) == 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_BACKPORT) == 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_PPR) == 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_HYPERVISOR) == 0);
+  TEST_ASSERT_TRUE((lite_caps & ONION_FIRMWARE_CAP_HYPERDPI) == 0);
 
   TEST_ASSERT_EQ_U64(ONION_FIRMWARE_ROUTE_UNSUPPORTED,
                      onion_firmware_route(0x11500000U));

@@ -40,6 +40,7 @@ struct LoadOptions {
   uint32_t poll_ms = 10;
   uint32_t max_attempts = 3;
   uint32_t retry_delay_ms = 100;
+  std::string game_version;
 };
 
 struct LoadRequest {

@@ -19,7 +19,7 @@ void prune_path_state(void);
 void prune_path_state_for_root(const char *root);
 // Return whether scans for a path are temporarily suppressed after failures.
 bool is_missing_param_scan_limited(const char *path);
-// Record a missing param.json failure for scan backoff.
+// Record a missing param.json/param.sfo failure for scan backoff.
 void record_missing_param_failure(const char *path);
 // Clear missing-param backoff state for a path.
 void clear_missing_param_entry(const char *path);

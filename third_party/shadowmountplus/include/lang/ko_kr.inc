@@ -1,11 +1,11 @@
 static const char *const g_ko_kr[SM_L10N_COUNT] = {
     /* English: Go to Debug Settings */
     [SM_L10N_ACTION_DEBUG_SETTINGS] = "디버그 설정으로 이동",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA */
-    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u */
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community */
+    [SM_L10N_STARTUP] = "HyperHEN Automount v%s\n© Drakmor 및 커뮤니티",
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community\nControl: http://%s:%u */
     [SM_L10N_STARTUP_WEB] =
-        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+        "HyperHEN Automount v%s\n© Drakmor 및 커뮤니티\n관리: http://%s:%u",
     /* English: HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2. */
     [SM_L10N_RECURSIVE_SCAN_DEPRECATED] = "HyperHEN Automount: recursive_scan=1은 더 이상 권장되지 않으며 scan_depth=2를 사용합니다.",
     /* English: HyperHEN Automount: scan depth %u enabled. */
@@ -14,10 +14,10 @@ static const char *const g_ko_kr[SM_L10N_COUNT] = {
     [SM_L10N_BACKPORT_OVERLAY_FAILED] = "백포트 오버레이 마운트 실패: %s\n%s\n0x%08X",
     /* English: Emulators applied to game: %s */
     [SM_L10N_GAME_EMULATORS_APPLIED] = "게임 %s에 에뮬레이터가 적용되었습니다",
-    /* English: Backport applied to game: %s */
-    [SM_L10N_GAME_BACKPORTED] = "게임에 백포트 적용됨: %s",
-    /* English: Backport applied to game: %s\nEmulators updated */
-    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "게임에 백포트 적용됨: %s\n에뮬레이터들이 업데이트됨",
+    /* English: Backport applied: %s */
+    [SM_L10N_GAME_BACKPORTED] = "백포트 적용됨: %s",
+    /* English: Backport applied: %s\nEmulators updated */
+    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "백포트 적용됨: %s\n에뮬레이터들이 업데이트됨",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nSaved image_sector override: %u.\nTry mounting again. */
     [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] = "이미지 마운트 거부됨:\n%s\n클러스터 크기가 너무 작습니다 (%llu < %u).\nimage_sector override 저장됨: %u.\n다시 마운트해 보세요.",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nUse a larger cluster size in the image or lower sector size in config. */
@@ -50,8 +50,8 @@ static const char *const g_ko_kr[SM_L10N_COUNT] = {
     [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... 외 %d개",
     /* English: Batch install failed for %d app(s).\ncode=0x%08X */
     [SM_L10N_BATCH_INSTALL_FAILED] = "%d개 앱 일괄 설치 실패.\n코드=0x%08X",
-    /* English: Missing/invalid param.json:\n%s */
-    [SM_L10N_MISSING_PARAM] = "param.json 누락 또는 잘못됨:\n%s",
+    /* English: Missing/invalid param.json/param.sfo:\n%s */
+    [SM_L10N_MISSING_PARAM] = "param.json/param.sfo 누락 또는 잘못됨:\n%s",
     /* English: Found %d new games. Processing... */
     [SM_L10N_FOUND_NEW_GAMES] = "새 게임 %d개를 찾았습니다. 처리 중...",
     /* English: Library synchronized.\nFound %d games. */
@@ -64,6 +64,8 @@ static const char *const g_ko_kr[SM_L10N_COUNT] = {
     [SM_L10N_AMPR_EMULATOR_UPDATED] = "AMPR 에뮬레이터가 업데이트되었습니다",
     /* English: HyperHEN Automount: failed to install ShellCore hooks */
     [SM_L10N_SHELLCORE_HOOKS_FAILED] = "HyperHEN Automount: ShellCore 후크 설치에 실패했습니다",
+    /* English: HyperHEN Automount: kstuff not found; waiting for it to start. */
+    [SM_L10N_KSTUFF_WAITING] = "HyperHEN Automount: kstuff를 찾을 수 없습니다. 시작을 기다리는 중입니다",
     /* English: Target temperature %u °C → %u °C */
     [SM_L10N_TEMPERATURE_TRANSITION] = "목표 온도 %u °C → %u °C",
     /* English: External drive %s connected\nFree %llu.%llu GB of %llu.%llu (Block size %llu KB)\nGames on drive: %d%s */

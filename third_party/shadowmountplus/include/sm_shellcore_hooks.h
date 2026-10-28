@@ -7,11 +7,6 @@
 bool sm_shellcore_hooks_start(void);
 void sm_shellcore_hooks_stop(void);
 
-// Return true only while the verified lifecycle bridge is installed and
-// ready. Offset-free lifecycle fallbacks use this to avoid racing the
-// firmware-specific pre-launch path.
-bool sm_shellcore_hooks_active(void);
-
 // Check/repair previously installed hooks; disabled hooks remain disabled.
 bool sm_shellcore_hooks_refresh(void);
 

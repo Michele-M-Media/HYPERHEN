@@ -12,6 +12,7 @@
 
 #define SHELLCORE_FLAG_WAITMODE_OR 2u
 #define SHELLCORE_FLAG_ALL_BITS UINT64_MAX
+#define SHELLCORE_FLAG_ERROR_EBUSY ((int)0x80020010u)
 #define SYSTEM_STATE_MGR_STATUS_SHELLUI_SHUTDOWN_IN_PROGRESS 0x0000000000200000ULL
 
 typedef intptr_t sm_kernel_event_flag_t;
@@ -630,7 +631,16 @@ static void poll_shellcore_flag(shellcore_flag_monitor_t *flag) {
 
   rc = sceKernelPollEventFlag(flag->handle, SHELLCORE_FLAG_ALL_BITS,
                               SHELLCORE_FLAG_WAITMODE_OR, &result_pattern);
+  bool is_app_focus = strcmp(flag->name, "SceShellCoreUtilAppFocus") == 0;
+  // With OR over all bits, EBUSY proves that the flag is zero. Poll does not
+  // promise to fill result_pattern on this return, so supply it explicitly.
+  if (is_app_focus && rc == SHELLCORE_FLAG_ERROR_EBUSY) {
+    result_pattern = 0;
+    rc = 0;
+  }
   if (rc < 0) {
+    if (is_app_focus)
+      sm_game_lifecycle_invalidate_app_focus();
     if (!flag->has_last_rc || flag->last_rc != rc) {
       log_debug("  [SHELLFLAG] %s poll rc=0x%08X", flag->name,
                 (unsigned)rc);
@@ -678,8 +688,8 @@ static void poll_shellcore_flag(shellcore_flag_monitor_t *flag) {
   }
 
   publish_app_focus =
-      strcmp(flag->name, "SceShellCoreUtilAppFocus") == 0 &&
-      (!flag->has_last_pattern || changed);
+      is_app_focus &&
+      (!flag->has_last_pattern || flag->last_rc != 0 || changed);
   flag->last_pattern = result_pattern;
   flag->has_last_pattern = true;
   flag->last_rc = 0;

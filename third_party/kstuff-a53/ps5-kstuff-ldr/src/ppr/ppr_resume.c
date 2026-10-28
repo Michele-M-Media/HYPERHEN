@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <sys/user.h>
 #include <ps5/klog.h>
+#include <ps5/kernel.h>
+#include <onion/firmware_capabilities.h>
 
 #define POWER_STATE_WORKING 1000u
 #define POWER_STATE_POWER_SAVING 200u
@@ -37,6 +39,11 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 
 /* Only the monitor thread uses this handle, including the transport guard. */
 static power_event_t power_event = -1;
+
+static int ppr_resume_disabled_for_route(void) {
+    return onion_firmware_route(kernel_get_fw_version()) ==
+           ONION_FIRMWARE_ROUTE_HYPERVISOR_940;
+}
 
 static int read_power_state(unsigned *state) {
     uint64_t result = 0;
@@ -105,6 +112,7 @@ static int no_game_processes(void) {
 
 static void *power_monitor(void *unused) {
     (void)unused;
+    const int ppr_disabled = ppr_resume_disabled_for_route();
     unsigned previous = 0;
     unsigned saw_working = 0;
     unsigned saw_sleep = 0;
@@ -140,11 +148,14 @@ static void *power_monitor(void *unused) {
             if (!saw_working)
                 saw_working = 1;
             if (saw_sleep && previous != POWER_STATE_WORKING) {
-                pending = 1;
+                pending = !ppr_disabled;
                 stable = idle = 0;
                 saw_sleep = 0;
-                klog_printf("[PPR] resume: WORKING observed; waiting for idle\n");
                 backpork_request_resume_rearm();
+                if (ppr_disabled)
+                    klog_printf("[PPR] resume: disabled for Byepervisor 9.40; BackPork rearmed\n");
+                else
+                    klog_printf("[PPR] resume: WORKING observed; waiting for idle\n");
             }
             if (pending) {
                 if (stable < STABLE_WORKING_POLLS)
@@ -180,9 +191,71 @@ static void *power_monitor(void *unused) {
     return NULL;
 }
 
+/* The 9.40 Byepervisor route still needs the BackPork SysCore watcher to be
+ * rebuilt after rest mode, but must have no path to the PPR reinstall call. */
+static void *backpork_power_monitor(void *unused) {
+    (void)unused;
+    unsigned previous = 0;
+    unsigned saw_working = 0;
+    unsigned saw_sleep = 0;
+
+    for (;;) {
+        if (power_event < 0) {
+            if (sceKernelOpenEventFlag(&power_event,
+                                       "SceSystemStateMgrInfo") < 0) {
+                power_event = -1;
+                sleep(1);
+                continue;
+            }
+            klog_printf("[BP] resume monitor: event opened\n");
+        }
+
+        unsigned state = 0;
+        if (read_power_state(&state) != 0) {
+            klog_printf("[BP] resume monitor: poll failed; reopening\n");
+            sceKernelCloseEventFlag(power_event);
+            power_event = -1;
+            sleep(1);
+            continue;
+        }
+
+        if (state == POWER_STATE_WORKING) {
+            saw_working = 1;
+            if (saw_sleep && previous != POWER_STATE_WORKING) {
+                saw_sleep = 0;
+                backpork_request_resume_rearm();
+                klog_printf("[BP] resume monitor: SysCore watch rearm requested\n");
+            }
+        } else if (saw_working &&
+                   (state == POWER_STATE_POWER_SAVING ||
+                    state == POWER_STATE_SUSPENDING ||
+                    state == POWER_STATE_STANDBY)) {
+            saw_sleep = 1;
+        }
+
+        previous = state;
+        usleep(POWER_POLL_US);
+    }
+    return NULL;
+}
+
 int ppr_resume_start(void) {
     pthread_t thread;
+    if (ppr_resume_disabled_for_route()) {
+        klog_printf("[PPR] resume: monitor disabled for Byepervisor 9.40\n");
+        return 0;
+    }
     if (pthread_create(&thread, NULL, power_monitor, NULL) != 0)
+        return -1;
+    pthread_detach(thread);
+    return 0;
+}
+
+int backpork_resume_start(void) {
+    pthread_t thread;
+    if (!ppr_resume_disabled_for_route())
+        return -1;
+    if (pthread_create(&thread, NULL, backpork_power_monitor, NULL) != 0)
         return -1;
     pthread_detach(thread);
     return 0;

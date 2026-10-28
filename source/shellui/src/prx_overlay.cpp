@@ -9,6 +9,7 @@
 #include <onion/net.h>
 #include <onion/settings.hpp>
 #include "plugin_progress.hpp"
+#include "hypershell.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
@@ -621,6 +622,7 @@ void OnRender_Hook(MonoObject* instance) {
     }
     if (!inited) {
       OnRender_orig(instance);
+      hypershell_frame(instance);
       return;
     }
   }
@@ -667,4 +669,5 @@ void OnRender_Hook(MonoObject* instance) {
    */
   shellui_poll_cheat_progress();
   shellui_poll_plugin_progress();
+  hypershell_frame(instance);
 }

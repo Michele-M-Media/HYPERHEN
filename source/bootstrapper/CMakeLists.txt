@@ -89,6 +89,47 @@ set(CMAKE_C_FLAGS_RELEASE "-Os -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "-Os -DNDEBUG")
 
 target_sources(${PROJECT_NAME} PRIVATE ${SrcFiles})
+set(_hyperdeck_server_elf "${HYPERHEN_OUT_BIN}/hyperdeck-websrv.elf")
+set(HYPERHEN_STABLE_HYPERSHELL_ELF "" CACHE FILEPATH
+  "Optional byte-exact HyperShell engine retained during a component-only update")
+if(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
+  set(_hypershell_engine_elf "${HYPERHEN_OUT_BIN}/liveshell.elf")
+  if(HYPERHEN_STABLE_HYPERSHELL_ELF)
+    if(NOT EXISTS "${HYPERHEN_STABLE_HYPERSHELL_ELF}")
+      message(FATAL_ERROR "Missing pinned HyperShell ELF: ${HYPERHEN_STABLE_HYPERSHELL_ELF}")
+    endif()
+    set(_hypershell_engine_elf "${HYPERHEN_STABLE_HYPERSHELL_ELF}")
+  endif()
+endif()
+if(HYPERHEN_STABLE_HYPERDECK_ELF)
+  if(NOT EXISTS "${HYPERHEN_STABLE_HYPERDECK_ELF}")
+    message(FATAL_ERROR "Missing pinned HyperDeck ELF: ${HYPERHEN_STABLE_HYPERDECK_ELF}")
+  endif()
+  set(_hyperdeck_server_elf "${HYPERHEN_STABLE_HYPERDECK_ELF}")
+endif()
+set_source_files_properties(${D_SRC}/bootstrap_hyperdeck.c PROPERTIES
+  OBJECT_DEPENDS "${_hyperdeck_server_elf}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  HYPERHEN_WEBDECK_ELF="${_hyperdeck_server_elf}")
+option(HYPERHEN_HYPERDECK_MEDIA_LAUNCHER "Install the HyperDeck Media title" ON)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  HYPERHEN_HYPERDECK_MEDIA_LAUNCHER=$<BOOL:${HYPERHEN_HYPERDECK_MEDIA_LAUNCHER}>)
+if(NOT HYPERHEN_STABLE_HYPERDECK_ELF)
+  add_dependencies(${PROJECT_NAME} hyperdeck_websrv)
+endif()
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(_hyperdeck_launcher_assets "${CMAKE_CURRENT_BINARY_DIR}/hyperdeck_launcher_assets.c")
+add_custom_command(OUTPUT "${_hyperdeck_launcher_assets}"
+  COMMAND "${Python3_EXECUTABLE}" "${HYPERHEN_ROOT}/scripts/embed_hyperdeck.py"
+    --assets "${PROJECT_ROOT}/hyperdeck/assets" --logo "${HYPERHEN_ROOT}/assets/logo.png"
+    --output "${_hyperdeck_launcher_assets}" --launcher-only
+  DEPENDS "${HYPERHEN_ROOT}/scripts/embed_hyperdeck.py"
+    "${PROJECT_ROOT}/hyperdeck/assets/param.json"
+    "${PROJECT_ROOT}/hyperdeck/assets/icon0.png" "${HYPERHEN_ROOT}/assets/logo.png"
+  VERBATIM)
+target_sources(${PROJECT_NAME} PRIVATE "${PROJECT_ROOT}/hyperdeck/launcher_ps5.cpp"
+  "${_hyperdeck_launcher_assets}")
+target_include_directories(${PROJECT_NAME} PRIVATE "${PROJECT_ROOT}/hyperdeck/include")
 # .incbin in daemon.c is invisible to the compiler dependency scanner.
 # Without OBJECT_DEPENDS, embedded payload rebuilds do not re-embed into bootstrapper.
 if(DEFINED HYPERHEN_OUT_BIN)
@@ -97,10 +138,12 @@ if(DEFINED HYPERHEN_OUT_BIN)
 	set(_hyperhen_elfldr_elf "${HYPERHEN_OUT_BIN}/hyperhen_elfldr.elf")
 	set(_hyperhen_automount_elf "${HYPERHEN_AUTOMOUNT_ELF}")
 	set(_hyperhen_hypervisor_elf "${HYPERHEN_HYPERVISOR_ELF}")
+	set(_hyperhen_hypervisor_1270_elf "${HYPERHEN_HYPERVISOR_1270_ELF}")
 	set(_hyperhen_hypervisor_5xx_elf "${HYPERHEN_HYPERVISOR_5XX_ELF}")
 	set(_hyperhen_legacy_hen_elf "${HYPERHEN_LEGACY_HEN_ELF}")
 	set(_hyperhen_hyperdpi_elf "${HYPERHEN_HYPERDPI_ELF}")
 	set(_hyperhen_linux_elf "${HYPERHEN_LINUX_ELF}")
+	set(_hyperhen_linux_1360_elf "${HYPERHEN_LINUX_1360_ELF}")
 	set(_hyperhen_debug_elfldr_elf
 		"${HYPERHEN_OUT_BIN}/hyperhen_debug_elfldr.elf")
 else()
@@ -109,10 +152,12 @@ else()
 	set(_hyperhen_elfldr_elf "${PROJECT_ROOT}/bin/hyperhen_elfldr.elf")
 	set(_hyperhen_automount_elf "${PROJECT_ROOT}/../vendor/automount/hyperhen_automount.elf")
 	set(_hyperhen_hypervisor_elf "${PROJECT_ROOT}/../vendor/hypervisor/hyperhen_hypervisor.elf")
+	set(_hyperhen_hypervisor_1270_elf "${HYPERHEN_HYPERVISOR_1270_ELF}")
 	set(_hyperhen_hypervisor_5xx_elf "${PROJECT_ROOT}/../vendor/hypervisor-5xx/hyperhen_hypervisor_5xx.elf")
 	set(_hyperhen_legacy_hen_elf "${PROJECT_ROOT}/../vendor/legacy-hen/hyperhen_legacy_hen.elf")
 	set(_hyperhen_hyperdpi_elf "${PROJECT_ROOT}/bin/hyperdpi.elf")
 	set(_hyperhen_linux_elf "${PROJECT_ROOT}/../vendor/hyperlinux/hyperlinux.elf")
+	set(_hyperhen_linux_1360_elf "${HYPERHEN_LINUX_1360_ELF}")
 	set(_hyperhen_debug_elfldr_elf
 		"${PROJECT_ROOT}/bin/hyperhen_debug_elfldr.elf")
 endif()
@@ -120,15 +165,188 @@ set(_hyperhen_klogsrv_elf
 	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/klogsrv-ps5.elf")
 set(_hyperhen_ftpsrv_elf
 	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/ftpsrv-ps5.elf")
-foreach(_debug_tool IN ITEMS "${_hyperhen_klogsrv_elf}" "${_hyperhen_ftpsrv_elf}")
+set(_hyperhen_fw_spoof_elf
+	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/ps5-fw-spoof.elf")
+set(_hyperhen_np_fake_signin_elf
+	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/np-fake-signin-ps5.elf")
+set(_hyperhen_nanodns_elf
+	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/nanodns.elf")
+set(_hyperhen_chukei_elf
+	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/chukei-ps5.elf")
+set(_hyperhen_zftpd_elf
+	"${HYPERHEN_THIRD_PARTY_DIR}/debug-tools/zftpd-ps5-zhttp-v1.6.0.elf")
+set(_hyperhen_garlic_elf "${HYPERHEN_GARLIC_ELF}")
+set(_hyperhen_hypervisor_940_elf "${HYPERHEN_HYPERVISOR_940_ELF}")
+set(_hyperhen_core_elf "${HYPERHEN_CORE_ELF}")
+set(_hyperhen_core_lite_elf "${HYPERHEN_CORE_ELF}")
+set(_hyperhen_core_940_elf "${HYPERHEN_CORE_940_ELF}")
+set(_hyperhen_core_1270_elf "${HYPERHEN_CORE_1270_ELF}")
+set(_hyperhen_automount_lite_elf "${HYPERHEN_AUTOMOUNT_ELF}")
+
+# A compatibility build may embed the already hardware-tested release ELFs for
+# every established route while retaining separately built 13.40/13.42 lite
+# engines, the stable 9.40 core, and the new 12.70 core. Hyperdeck remains a
+# new post-pipeline process.
+if(HYPERHEN_RELEASE_COMPONENT_DIR)
+	set(_release_components
+		daemon util hyperhen_elfldr hypercore lite_core automount lite_automount hypervisor
+		hypervisor_5xx legacy_hen hyperdpi hyperlinux klogsrv ftpsrv
+		debug_elfldr garlic)
+	foreach(_component IN LISTS _release_components)
+		if(NOT EXISTS "${HYPERHEN_RELEASE_COMPONENT_DIR}/${_component}.elf")
+			message(FATAL_ERROR
+				"Missing stable release component: ${HYPERHEN_RELEASE_COMPONENT_DIR}/${_component}.elf")
+		endif()
+	endforeach()
+	set(_hyperhen_daemon_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/daemon.elf")
+	set(_hyperhen_util_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/util.elf")
+	set(_hyperhen_elfldr_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/hyperhen_elfldr.elf")
+	set(_hyperhen_core_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/hypercore.elf")
+	set(_hyperhen_core_lite_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/lite_core.elf")
+	if("${HYPERHEN_CORE_940_ELF}" STREQUAL "${HYPERHEN_CORE_ELF}")
+		set(_release_core_940
+			"${HYPERHEN_RELEASE_COMPONENT_DIR}/hypercore_940.elf")
+		if(NOT EXISTS "${_release_core_940}")
+			message(FATAL_ERROR
+				"Stable release component is missing: ${_release_core_940}")
+		endif()
+		set(_hyperhen_core_940_elf "${_release_core_940}")
+	endif()
+	set(_hyperhen_automount_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/automount.elf")
+	set(_hyperhen_automount_lite_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/lite_automount.elf")
+	set(_hyperhen_hypervisor_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/hypervisor.elf")
+	set(_hyperhen_hypervisor_5xx_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/hypervisor_5xx.elf")
+	set(_hyperhen_legacy_hen_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/legacy_hen.elf")
+	set(_hyperhen_hyperdpi_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/hyperdpi.elf")
+	set(_hyperhen_linux_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/hyperlinux.elf")
+	if(EXISTS "${HYPERHEN_RELEASE_COMPONENT_DIR}/hyperlinux_1360.elf")
+		set(_hyperhen_linux_1360_elf
+			"${HYPERHEN_RELEASE_COMPONENT_DIR}/hyperlinux_1360.elf")
+	endif()
+	set(_hyperhen_klogsrv_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/klogsrv.elf")
+	set(_hyperhen_ftpsrv_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/ftpsrv.elf")
+	set(_hyperhen_debug_elfldr_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/debug_elfldr.elf")
+	set(_hyperhen_garlic_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/garlic.elf")
+	if("${_hyperhen_core_940_elf}" STREQUAL "${_hyperhen_core_elf}")
+		message(FATAL_ERROR
+			"Firmware 9.40 requires a dedicated no-PPR HyperCore ELF; refusing the stable shared core")
+	endif()
+	# Default dedicated paths are produced by hypercore_payload later in the
+	# build. Explicit overrides must already exist at configure time.
+	if(NOT "${_hyperhen_core_940_elf}" STREQUAL "${HYPERHEN_CORE_ELF}" AND
+	   NOT EXISTS "${_hyperhen_core_940_elf}")
+		message(FATAL_ERROR
+			"Missing dedicated firmware 9.40 no-PPR HyperCore ELF: ${_hyperhen_core_940_elf}")
+	endif()
+	if(NOT "${_hyperhen_core_1270_elf}" STREQUAL "${HYPERHEN_CORE_ELF}" AND
+	   NOT EXISTS "${_hyperhen_core_1270_elf}")
+		message(FATAL_ERROR
+			"Missing dedicated firmware 12.70 HyperCore ELF: ${_hyperhen_core_1270_elf}")
+	endif()
+endif()
+if(HYPERHEN_SOURCE_PLUGIN_RUNTIME)
+  set(_hyperhen_daemon_elf "${HYPERHEN_OUT_BIN}/daemon.elf")
+  set(_hyperhen_elfldr_elf "${HYPERHEN_OUT_BIN}/hyperhen_elfldr.elf")
+endif()
+set(HYPERHEN_P5_STABLE_COMPONENT_DIR "" CACHE PATH
+  "Byte-exact R20 private loader and LiveShell for the isolated P5 package")
+if(HYPERHEN_P5_STABLE_COMPONENT_DIR)
+  foreach(_stable_component IN ITEMS hyperhen_elfldr liveshell)
+    if(NOT EXISTS "${HYPERHEN_P5_STABLE_COMPONENT_DIR}/${_stable_component}.elf")
+      message(FATAL_ERROR "Missing stable R20 component: ${_stable_component}.elf")
+    endif()
+  endforeach()
+  set(_hyperhen_elfldr_elf
+    "${HYPERHEN_P5_STABLE_COMPONENT_DIR}/hyperhen_elfldr.elf")
+  if(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
+    set(_hypershell_engine_elf
+      "${HYPERHEN_P5_STABLE_COMPONENT_DIR}/liveshell.elf")
+  endif()
+endif()
+foreach(_debug_tool IN ITEMS
+		"${_hyperhen_klogsrv_elf}" "${_hyperhen_ftpsrv_elf}"
+		"${_hyperhen_fw_spoof_elf}" "${_hyperhen_np_fake_signin_elf}"
+		"${_hyperhen_nanodns_elf}" "${_hyperhen_chukei_elf}"
+		"${_hyperhen_zftpd_elf}")
 	if(NOT EXISTS "${_debug_tool}")
 		message(FATAL_ERROR "Missing embedded debug tool: ${_debug_tool}")
 	endif()
 endforeach()
+if(NOT EXISTS "${_hyperhen_hypervisor_940_elf}")
+	message(FATAL_ERROR
+		"Missing pinned firmware 9.40 Byepervisor ELF: ${_hyperhen_hypervisor_940_elf}")
+endif()
+if(NOT "${_hyperhen_hypervisor_1270_elf}" STREQUAL
+       "${HYPERHEN_HYPERVISOR_ELF}" AND
+   NOT EXISTS "${_hyperhen_hypervisor_1270_elf}")
+	message(FATAL_ERROR
+		"Missing source-built firmware 12.70 Byepervisor ELF: ${_hyperhen_hypervisor_1270_elf}")
+endif()
+set(_payload_validator "${HYPERHEN_ROOT}/scripts/verify_payload_elf.py")
+set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY LINK_DEPENDS "${_payload_validator}")
+set(_payload_inputs
+	"${_hyperhen_daemon_elf}" "${_hyperhen_util_elf}"
+	"${_hyperhen_elfldr_elf}" "${_hyperhen_core_elf}"
+	"${_hyperhen_core_lite_elf}" "${_hyperhen_core_940_elf}"
+	"${_hyperhen_core_1270_elf}"
+	"${_hyperhen_automount_elf}"
+	"${_hyperhen_automount_lite_elf}" "${_hyperhen_hypervisor_elf}"
+	"${_hyperhen_hypervisor_1270_elf}"
+	"${_hyperhen_hypervisor_5xx_elf}" "${_hyperhen_hypervisor_940_elf}"
+	"${_hyperhen_legacy_hen_elf}"
+	"${_hyperhen_hyperdpi_elf}" "${_hyperhen_linux_elf}"
+	"${_hyperhen_linux_1360_elf}"
+	"${_hyperhen_klogsrv_elf}" "${_hyperhen_ftpsrv_elf}"
+	"${_hyperhen_debug_elfldr_elf}" "${_hyperhen_garlic_elf}"
+	"${_hyperhen_fw_spoof_elf}" "${_hyperhen_np_fake_signin_elf}"
+	"${_hyperhen_nanodns_elf}" "${_hyperhen_chukei_elf}"
+	"${_hyperhen_zftpd_elf}"
+	"${_hyperdeck_server_elf}")
+if(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
+	list(APPEND _payload_inputs "${_hypershell_engine_elf}")
+	set_property(SOURCE ${D_SRC}/daemon.c APPEND PROPERTY OBJECT_DEPENDS
+		"${_hypershell_engine_elf}")
+	target_compile_definitions(${PROJECT_NAME} PRIVATE
+		HYPERHEN_EXPERIMENTAL_HYPERSHELL=1
+		HYPERHEN_HYPERSHELL_ENGINE_ELF="${_hypershell_engine_elf}")
+endif()
+# A matching SHA of an incorrectly extracted slice does not prove it is an
+# intact ELF. Check every file-backed segment and table before linking it in.
+add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+	COMMAND "${Python3_EXECUTABLE}" "${_payload_validator}" check ${_payload_inputs}
+	COMMENT "Validating complete embedded ELF segments and tables"
+	VERBATIM)
+add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+	COMMAND "${Python3_EXECUTABLE}" "${_payload_validator}" check --embedded
+		"${_hyperdeck_server_elf}"
+	COMMENT "Validating complete native engines embedded inside HyperDeck"
+	VERBATIM)
+if(HYPERHEN_RELEASE_COMPONENT_DIR)
+	add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+		COMMAND "${Python3_EXECUTABLE}" "${_payload_validator}" distinct
+			"${_hyperhen_core_elf}" "${_hyperhen_core_940_elf}"
+		COMMENT "Rejecting a PPR core reused as the dedicated 9.40 core"
+		VERBATIM)
+	add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+		COMMAND "${Python3_EXECUTABLE}" "${_payload_validator}" distinct
+			"${_hyperhen_core_940_elf}" "${_hyperhen_core_1270_elf}"
+		COMMENT "Keeping the stable 9.40 core isolated from the 12.70 core"
+		VERBATIM)
+	add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+		COMMAND "${Python3_EXECUTABLE}" "${_payload_validator}" distinct
+			"${_hyperhen_core_elf}" "${_hyperhen_core_1270_elf}"
+		COMMENT "Rejecting the stable common core as the dedicated 12.70 core"
+		VERBATIM)
+	add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+		COMMAND "${Python3_EXECUTABLE}" "${_payload_validator}" distinct
+			"${_hyperhen_hypervisor_elf}" "${_hyperhen_hypervisor_1270_elf}"
+		COMMENT "Rejecting the stable 13.xx hypervisor as the dedicated 12.70 stage"
+		VERBATIM)
+endif()
 set_source_files_properties(
 	${D_SRC}/daemon.c
 	PROPERTIES OBJECT_DEPENDS
-		"${_hyperhen_daemon_elf};${_hyperhen_util_elf};${_hyperhen_elfldr_elf};${HYPERHEN_CORE_ELF};${_hyperhen_automount_elf};${_hyperhen_hypervisor_elf};${_hyperhen_hypervisor_5xx_elf};${_hyperhen_legacy_hen_elf};${_hyperhen_hyperdpi_elf};${_hyperhen_linux_elf};${_hyperhen_klogsrv_elf};${_hyperhen_ftpsrv_elf};${_hyperhen_debug_elfldr_elf};${D_CWD}/assets/hyperhen_sicon.png;${_generated_icon_files}"
+		"${_hyperhen_daemon_elf};${_hyperhen_util_elf};${_hyperhen_elfldr_elf};${_hyperhen_core_elf};${_hyperhen_core_lite_elf};${_hyperhen_core_940_elf};${_hyperhen_core_1270_elf};${_hyperhen_automount_elf};${_hyperhen_automount_lite_elf};${_hyperhen_hypervisor_elf};${_hyperhen_hypervisor_1270_elf};${_hyperhen_hypervisor_5xx_elf};${_hyperhen_hypervisor_940_elf};${_hyperhen_legacy_hen_elf};${_hyperhen_hyperdpi_elf};${_hyperhen_linux_elf};${_hyperhen_linux_1360_elf};${_hyperhen_klogsrv_elf};${_hyperhen_ftpsrv_elf};${_hyperhen_debug_elfldr_elf};${_hyperhen_garlic_elf};${_hyperhen_fw_spoof_elf};${_hyperhen_np_fake_signin_elf};${_hyperhen_nanodns_elf};${_hyperhen_chukei_elf};${_hyperhen_zftpd_elf};${D_CWD}/assets/hyperhen_sicon.png;${_generated_icon_files}"
 )
 set_source_files_properties(
 	${D_SRC}/bootstrap_audio_asset.c
@@ -138,20 +356,34 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 	HYPERHEN_DAEMON_ELF="${_hyperhen_daemon_elf}"
 	HYPERHEN_UTIL_ELF="${_hyperhen_util_elf}"
 	HYPERHEN_ELFLDR_ELF="${_hyperhen_elfldr_elf}"
-	HYPERHEN_CORE_ELF="${HYPERHEN_CORE_ELF}"
+	HYPERHEN_CORE_ELF="${_hyperhen_core_elf}"
+	HYPERHEN_CORE_LITE_ELF="${_hyperhen_core_lite_elf}"
+	HYPERHEN_CORE_940_ELF="${_hyperhen_core_940_elf}"
+	HYPERHEN_CORE_1270_ELF="${_hyperhen_core_1270_elf}"
 	HYPERHEN_AUTOMOUNT_ELF="${_hyperhen_automount_elf}"
+	HYPERHEN_AUTOMOUNT_LITE_ELF="${_hyperhen_automount_lite_elf}"
 	HYPERHEN_HYPERVISOR_ELF="${_hyperhen_hypervisor_elf}"
+	HYPERHEN_HYPERVISOR_1270_ELF="${_hyperhen_hypervisor_1270_elf}"
 	HYPERHEN_HYPERVISOR_5XX_ELF="${_hyperhen_hypervisor_5xx_elf}"
+	HYPERHEN_HYPERVISOR_940_ELF="${_hyperhen_hypervisor_940_elf}"
 	HYPERHEN_LEGACY_HEN_ELF="${_hyperhen_legacy_hen_elf}"
 	HYPERHEN_HYPERDPI_ELF="${_hyperhen_hyperdpi_elf}"
 	HYPERHEN_LINUX_ELF="${_hyperhen_linux_elf}"
+	HYPERHEN_LINUX_1360_ELF="${_hyperhen_linux_1360_elf}"
 	HYPERHEN_KLOGSRV_ELF="${_hyperhen_klogsrv_elf}"
 	HYPERHEN_FTPSRV_ELF="${_hyperhen_ftpsrv_elf}"
 	HYPERHEN_DEBUG_ELFLDR_ELF="${_hyperhen_debug_elfldr_elf}"
+	HYPERHEN_GARLIC_ELF="${_hyperhen_garlic_elf}"
+	HYPERHEN_FW_SPOOF_ELF="${_hyperhen_fw_spoof_elf}"
+	HYPERHEN_NP_FAKE_SIGNIN_ELF="${_hyperhen_np_fake_signin_elf}"
+	HYPERHEN_NANODNS_ELF="${_hyperhen_nanodns_elf}"
+	HYPERHEN_CHUKEI_ELF="${_hyperhen_chukei_elf}"
+	HYPERHEN_ZFTPD_ELF="${_hyperhen_zftpd_elf}"
 	HYPERHEN_ICON_ASSET_DIR="${_icon_output_dir}"
 	HYPERHEN_HYPE_VOICE_PCM="${_hype_voice_pcm}"
 )
-# elfldr_raise_privileges from libonion_elfldr; launches go via elfldr_remote.c.
+# Core stages use elfldr_remote.c. The optional HyperDeck stage uses the local
+# embedded spawner with a real PID and log FD after the pipeline is ready.
 onion_target_debug_define(${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"${D_CWD}/include"
@@ -174,7 +406,34 @@ target_link_libraries	(${PROJECT_NAME} PUBLIC onion_proc onion_platform onion_se
 add_custom_target(${PROJECT_NAME}_assets
 	DEPENDS ${_generated_icon_files} "${_icon_asm}" "${_icon_manifest}")
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_assets)
-add_dependencies(${PROJECT_NAME} hypercore_payload automount_payload hypervisor_payload hypervisor_5xx_payload legacy_hen_payload hyperlinux_payload hyperdpi daemon util shellui hyperhen_elfldr_server hyperhen_debug_elfldr_server onion_proc onion_platform onion_settings onion_payload onion_conflict onion_ready onion_elfldr)
+if(HYPERHEN_EXPERIMENTAL_HYPERSHELL AND NOT HYPERHEN_STABLE_HYPERSHELL_ELF)
+	add_dependencies(${PROJECT_NAME} liveshell)
+endif()
+if(HYPERHEN_RELEASE_COMPONENT_DIR)
+	if(NOT HYPERHEN_STABLE_HYPERDECK_ELF)
+		add_dependencies(${PROJECT_NAME} hyperdeck_websrv)
+	endif()
+	if("${_hyperhen_garlic_elf}" STREQUAL "${HYPERHEN_GARLIC_ELF}")
+		add_dependencies(${PROJECT_NAME} garlic_savemgr)
+	endif()
+	if("${_hyperhen_core_940_elf}" STREQUAL "${HYPERHEN_CORE_ELF}")
+		add_dependencies(${PROJECT_NAME} hypercore_payload)
+	endif()
+	if("${_hyperhen_core_1270_elf}" STREQUAL "${HYPERHEN_CORE_ELF}")
+		add_dependencies(${PROJECT_NAME} hypercore_payload)
+	endif()
+	# The compatibility build normally embeds release components.  When the
+	# plugin runtime is explicitly source-built, the bootstrapper instead embeds
+	# the freshly linked daemon/private loader, so make that relationship real.
+	if(HYPERHEN_SOURCE_PLUGIN_RUNTIME)
+		add_dependencies(${PROJECT_NAME} daemon)
+		if(NOT HYPERHEN_P5_STABLE_COMPONENT_DIR)
+			add_dependencies(${PROJECT_NAME} hyperhen_elfldr_server)
+		endif()
+	endif()
+else()
+	add_dependencies(${PROJECT_NAME} hypercore_payload automount_payload hypervisor_payload hypervisor_5xx_payload legacy_hen_payload hyperlinux_payload hyperdpi garlic_savemgr daemon util shellui hyperhen_elfldr_server hyperhen_debug_elfldr_server onion_proc onion_platform onion_settings onion_payload onion_conflict onion_ready onion_elfldr)
+endif()
 
 # Copy bootstrapper.elf as test.elf before processing
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

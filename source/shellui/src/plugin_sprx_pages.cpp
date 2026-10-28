@@ -19,7 +19,7 @@ std::string sprx_list_status(const SprxInventoryItem &entry) {
   if (entry.loaded_for_current_target)
     return toolbox_i18n::tr("sprx.status.loaded");
   if (entry.matches_current_target)
-    return toolbox_i18n::tr("sprx.status.matches");
+    return toolbox_i18n::tr("sprx.manual.matches");
   return toolbox_i18n::tr("sprx.status.inactive");
 }
 
@@ -35,8 +35,9 @@ void fill_plugin_config(ps5ui::Page &page, const PluginInventoryItem &plugin,
                         const dynamic_ui::PluginSettingsLink *settings) {
   page.toggle(std::string(kPluginRunPrefix) + plugin.plugin_id,
               toolbox_i18n::tr("plugins.external.run"), plugin.running,
-              toolbox_i18n::tr("plugins.external.run.sub"))
-      .toggle(std::string(kPluginAutoStartPrefix) + plugin.plugin_id,
+              toolbox_i18n::tr(plugin.manual_only ? "plugins.external.manual_only" : "plugins.external.run.sub"));
+  if (!plugin.manual_only)
+    page.toggle(std::string(kPluginAutoStartPrefix) + plugin.plugin_id,
               toolbox_i18n::tr("plugins.external.autostart"), plugin.auto_start,
               toolbox_i18n::tr("plugins.external.autostart.sub"));
   if (settings)
@@ -63,8 +64,8 @@ void fill_sprx_config(ps5ui::Page &page, const SprxInventoryItem &entry) {
   page.label("id_external_sprx_status_" + entry.id, sprx_list_status(entry))
       .label("id_external_sprx_path_" + entry.id, entry.path)
       .toggle(std::string(kSprxEnabledPrefix) + entry.id,
-              toolbox_i18n::tr("sprx.enabled"), entry.enabled,
-              toolbox_i18n::tr("sprx.enabled.sub"))
+              toolbox_i18n::tr("sprx.manual.label"), entry.loaded_for_current_target,
+              toolbox_i18n::tr("sprx.manual.sub"))
       .button(std::string(kSprxDeletePrefix) + entry.id,
               toolbox_i18n::tr("sprx.delete"), std::nullopt,
               toolbox_i18n::tr("sprx.delete.sub"), std::nullopt,

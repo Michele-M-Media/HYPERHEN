@@ -1,9 +1,8 @@
-# Build HyperHEN on every push to dev and publish a rolling nightly-build.
-name: nightly-build
+# Legacy full-component pipeline. Run manually only: it rebuilds more than the
+# release-compatible snapshot and publishes a separate rolling nightly.
+name: legacy-nightly-full-source
 
 on:
-  push:
-    branches: [dev]
   workflow_dispatch:
 
 concurrency:

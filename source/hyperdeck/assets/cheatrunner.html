@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>CheatRunner</title>
+  <link rel="icon" type="image/png" href="/CheatRunner.png">
+  <link rel="apple-touch-icon" href="/CheatRunner.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3B82F6">
+  <link rel="stylesheet" href="/dashboard.css">
+  <script>try{var t=localStorage.getItem("cr_theme");document.documentElement.setAttribute("data-theme",t||"midnight");var e=localStorage.getItem("cr_effects");if(e==="reduced"||(e!=="full"&&/PlayStation/i.test(navigator.userAgent)))document.documentElement.classList.add("lite");if(localStorage.getItem("cr_rail")==="min")document.documentElement.setAttribute("data-rail","min");var l=localStorage.getItem("cr_lang")||navigator.language||"en";if(l.slice(0,2)!=="en"){document.documentElement.classList.add("i18n-wait");setTimeout(function(){document.documentElement.classList.remove("i18n-wait")},3000)}if(/^(ar|fa)/.test(l))document.documentElement.dir="rtl"}catch(e){}</script>
+  <script>
+  // Retry if the dashboard stylesheet never loads its design tokens.
+  (function () {
+    var n = 0;
+    function styled() { return getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() !== ''; }
+    function retry() {
+      if (styled() || n >= 3) return;
+      n++;
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = '/dashboard.css?r=' + n + '&t=' + Date.now();
+      document.head.appendChild(l);
+      setTimeout(retry, 2500);
+    }
+    retry();
+  })();
+  </script>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-games" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-sources" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+    <symbol id="i-system" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.4-7 10-7 10z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></symbol>
+    <symbol id="i-cheat" viewBox="0 0 24 24"><path fill="currentColor" d="M13.2 2 4.6 13.4h6.1L9.8 22l9.6-11.6h-6.3L13.2 2z"/></symbol>
+    <symbol id="i-patch" viewBox="0 0 24 24"><g transform="rotate(-45 12 12)"><rect x="1.5" y="7" width="21" height="10" rx="5" fill="currentColor" fill-opacity=".22"/><rect x="8.5" y="7" width="7" height="10" fill="currentColor" fill-opacity=".6" stroke="none"/><path d="M4.6 10.5h.01M4.6 13.5h.01M19.4 10.5h.01M19.4 13.5h.01" stroke-width="2"/></g></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M4 6l6 6-6 6M12 18h8"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-therm" viewBox="0 0 24 24"><path d="M10 14V5a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></symbol>
+    <symbol id="i-discord" viewBox="0 0 24 24"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.078.078 0 0 0 .03.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03ZM8.7 14c-.8 0-1.4-.7-1.4-1.6 0-.9.6-1.6 1.4-1.6.8 0 1.4.7 1.4 1.6 0 .9-.6 1.6-1.4 1.6Zm6.6 0c-.8 0-1.4-.7-1.4-1.6 0-.9.6-1.6 1.4-1.6.8 0 1.4.7 1.4 1.6 0 .9-.6 1.6-1.4 1.6Z"/></symbol>
+    <symbol id="i-x-logo" viewBox="0 0 24 24"><path d="M18.244 2H21.5l-7.11 8.13L22.75 22h-6.55l-5.13-6.7L5.2 22H1.94l7.6-8.69L1.5 2h6.72l4.64 6.14L18.244 2Zm-1.14 17.91h1.8L7.24 3.99H5.31l11.793 15.92Z"/></symbol>
+    <symbol id="i-bluesky" viewBox="0 0 24 24"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.06-.138.022-.276.04-.415.06-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.06c.14.02.279.04.415.06 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.203-.659-.299-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/></symbol>
+    <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M5 9h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V9Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M8 6c0-1 1-1 1-2M12 6c0-1 1-1 1-2"/></symbol>
+    <symbol id="i-bitcoin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 8h4a2 2 0 0 1 0 4h-4M9.5 12h4.5a2 2 0 0 1 0 4h-4.5M10.5 8V6M13 8V6M10.5 18v-2M13 18v-2"/></symbol>
+    <symbol id="i-pix" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 2.9-.39c.98 0 1.97.13 2.9.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.11 3.06.74.8 1.19 1.83 1.19 3.09 0 4.43-2.69 5.41-5.25 5.7.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12c0-6.27-5.23-11.5-11.5-11.5Z"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h13l-3 4.5L18 13H5"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 12l5-5"/><path d="M12 3v2M21 12h-2M5.6 5.6l1.4 1.4"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></symbol>
+    <symbol id="i-pad" viewBox="0 0 24 24"><path d="M6 7h12a4 4 0 0 1 4 4v3.2a3.3 3.3 0 0 1-5.9 2L14.8 15H9.2l-1.3 1.2a3.3 3.3 0 0 1-5.9-2V11a4 4 0 0 1 4-4Z"/><path d="M7 9.5v5M4.5 12h5"/><path d="M16 10.5h.01M18.5 13h.01"/></symbol>
+  </svg>
+
+  <div class="app">
+    <nav class="rail" id="rail" aria-label="Main">
+      <a class="rail-brand" href="#/games">
+        <img src="/CheatRunner.png" alt="" width="42" height="42">
+        <span class="rail-brand-text"><b>CheatRunner</b><small class="ver-text">v0.18</small></span>
+      </a>
+      <a class="rail-item" data-nav="games" href="#/games" title="Games"><svg class="ic"><use href="#i-games" xlink:href="#i-games"/></svg><span>Games</span><i class="rail-dot live" id="dotGames" hidden></i></a>
+      <a class="rail-item" data-nav="sources" href="#/sources" title="Sources"><svg class="ic"><use href="#i-sources" xlink:href="#i-sources"/></svg><span>Sources</span><i class="rail-dot" id="dotSources" hidden></i></a>
+      <a class="rail-item" data-nav="system" href="#/system" title="System"><svg class="ic"><use href="#i-system" xlink:href="#i-system"/></svg><span>System</span></a>
+      <a class="rail-item" data-nav="settings" href="#/settings" title="Settings"><svg class="ic"><use href="#i-settings" xlink:href="#i-settings"/></svg><span>Settings</span></a>
+      <a class="rail-item rail-update" id="updLink" href="https://github.com/notmaj0r/CheatRunner/releases/latest" target="_blank" rel="noopener noreferrer" title="Update available" hidden><svg class="ic"><use href="#i-sources" xlink:href="#i-sources"/></svg><span>Update available</span></a>
+      <button class="rail-item rail-collapse" id="railBtn" type="button" data-act="railToggle" title="Collapse menu" aria-label="Collapse menu"><svg class="ic"><use href="#i-back" xlink:href="#i-back"/></svg><span>Collapse</span></button>
+      <div class="rail-credit">Made with <span aria-hidden="true">&#10084;&#65039;</span> by maj0r</div>
+    </nav>
+
+    <div class="col">
+      <header class="topbar">
+        <a class="top-brand" href="#/games"><img src="/CheatRunner.png" alt="" width="32" height="32"><b>CheatRunner</b><small class="ver-text">v0.18</small></a>
+        <button class="cmdk" id="cmdBtn" type="button" data-act="cmdk" title="Search games, pages and actions" aria-label="Search"><svg class="ic sm"><use href="#i-search" xlink:href="#i-search"/></svg><span>Search games, pages and actions</span><kbd id="cmdKbd">Ctrl K</kbd></button>
+        <div class="topbar-right">
+          <button class="dl-chip" id="dlChip" type="button" data-act="goSources" hidden><svg class="ic sm"><use href="#i-sources" xlink:href="#i-sources"/></svg><span id="dlChipTxt">Downloading</span><i class="dl-chip-bar"><b id="dlChipBar"></b></i></button>
+          <button class="status-chip" id="statusChip" type="button" data-act="statusGo"><i class="dot" id="stDot"></i><span id="stEngine">Engine</span><i class="sep"></i><span id="stGame">No game</span></button>
+          <button class="icon-btn" id="qrBtn" type="button" data-act="qr" title="Open on your phone (QR code)" aria-label="Show QR code"><svg class="ic"><use href="#i-qr" xlink:href="#i-qr"/></svg></button>
+          <button class="icon-btn" id="langBtn" type="button" data-act="langPick" title="Language" aria-label="Language"><img class="flag" id="langFlag" alt="" width="20" height="14"></button>
+          <nav class="socials" aria-label="Community">
+            <a class="social social-discord" href="https://discord.gg/E4g6fEqp46" target="_blank" rel="noopener noreferrer" title="Join the Discord" aria-label="Join the Discord"><svg class="ic fill"><use href="#i-discord" xlink:href="#i-discord"/></svg><span>Discord</span></a>
+            <a class="social social-x" href="https://x.com/callmemaj0r" target="_blank" rel="noopener noreferrer" title="Follow maj0r on X" aria-label="Follow maj0r on X"><svg class="ic fill"><use href="#i-x-logo" xlink:href="#i-x-logo"/></svg><span>X</span></a>
+            <a class="social social-bluesky" href="https://bsky.app/profile/notmaj0r.bsky.social" target="_blank" rel="noopener noreferrer" title="Follow maj0r on Bluesky" aria-label="Follow maj0r on Bluesky"><svg class="ic fill"><use href="#i-bluesky" xlink:href="#i-bluesky"/></svg><span>Bluesky</span></a>
+          </nav>
+          <button class="cta-support" id="supportBtn" type="button" title="Support this project"><svg class="ic fill"><use href="#i-heart" xlink:href="#i-heart"/></svg><span>Support this project</span></button>
+        </div>
+      </header>
+      <main id="view" class="view" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" id="modalCard"></div>
+  </div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="/dashboard.js" defer></script>
+</body>
+</html>

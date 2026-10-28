@@ -886,6 +886,8 @@ void append_toolbox_debug_group(ps5ui::Group& g) {
   size_t tool_count = 0;
   const auto* tools = onion::shellui::debug_tools::all(&tool_count);
   for (size_t i = 0; i < tool_count; ++i) {
+    if (!onion::shellui::debug_tools::supported_on_current_firmware(tools[i]))
+      continue;
     g.toggle(tools[i].control_id, toolbox_i18n::tr(tools[i].title_key),
              toolbox_on(tools[i].control_id),
              toolbox_i18n::tr(tools[i].description_key));

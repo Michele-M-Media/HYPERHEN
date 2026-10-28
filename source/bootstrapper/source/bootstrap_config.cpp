@@ -45,8 +45,7 @@ bool bootstrap_config_load(BootstrapConfig *config) {
   (void)onion::apply_log_settings(settings);
 
   int system_language = 1;
-  if (settings.ui_lang == onion::kUiLanguageSystem)
-    (void)sceSystemServiceParamGetInt(1, &system_language);
+  (void)sceSystemServiceParamGetInt(1, &system_language);
   onion_notify_apply_ui_language(settings.ui_lang, system_language);
 
   OrbisKernelSwVersion version{};

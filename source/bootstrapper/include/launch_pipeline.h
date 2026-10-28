@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <onion/boot_mode_5xx.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,6 +12,7 @@ extern "C" {
 typedef enum BootstrapLaunchResult {
   BOOTSTRAP_LAUNCH_FULL = 0,
   BOOTSTRAP_LAUNCH_USERLAND_ONLY = 1,
+  BOOTSTRAP_LAUNCH_CORE_ONLY = 2,
 } BootstrapLaunchResult;
 
 /**
@@ -18,7 +20,8 @@ typedef enum BootstrapLaunchResult {
  * failures; non-negative BootstrapLaunchResult values describe the active
  * capability level.
  */
-int bootstrap_launch_services(uint32_t firmware_version, bool kstuff_autoload);
+int bootstrap_launch_services(uint32_t firmware_version, bool kstuff_autoload,
+                              Onion5xxBootMode boot_mode_5xx);
 
 /**
  * Consume the clean-boot Linux marker and launch the embedded HyperLinux ELF

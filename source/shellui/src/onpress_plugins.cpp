@@ -5,7 +5,6 @@
 #include "external_plugin_ui.hpp"
 #include "plugin_progress.hpp"
 #include "plugin_sprx_pages.hpp"
-#include "toolbox_i18n.hpp"
 
 namespace {
 
@@ -17,7 +16,7 @@ OnPressResult external_plugin_control(OnPressContext &ctx) {
     const bool start = ctx.value == "1" || ctx.value == "true";
     plugin_progress_show(plugin_id, start);
     if (!plugin_progress_open_page()) {
-      notify("plugins.external.operation_failed_fmt", plugin_id.c_str());
+      notify("notify.plugins.external.operation_failed_fmt", plugin_id.c_str());
     }
     return OnPressResult::Consumed;
   }
@@ -31,18 +30,18 @@ OnPressResult external_plugin_control(OnPressContext &ctx) {
       result.success)
     return OnPressResult::Consumed;
 
-  const char *key = "plugins.external.operation_failed_fmt";
+  const char *key = "notify.plugins.external.operation_failed_fmt";
   if (result.success) {
     using onion::shellui::external_plugins::Action;
     switch (result.action) {
     case Action::Started:
-      key = "plugins.external.started_fmt";
+      key = "notify.plugins.external.started_fmt";
       break;
     case Action::Stopped:
-      key = "plugins.external.stopped_fmt";
+      key = "notify.plugins.external.stopped_fmt";
       break;
     case Action::Deleted:
-      key = "plugins.external.deleted_fmt";
+      key = "notify.plugins.external.deleted_fmt";
       break;
     case Action::AutoStartChanged:
       break;
@@ -50,8 +49,7 @@ OnPressResult external_plugin_control(OnPressContext &ctx) {
       break;
     }
   }
-  const std::string message = toolbox_i18n::format(key, result.plugin_id.c_str());
-  notify("%s", message.c_str());
+  notify(key, result.plugin_id.c_str());
   return OnPressResult::Consumed;
 }
 

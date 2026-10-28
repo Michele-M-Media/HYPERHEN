@@ -1,0 +1,258 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PS5 Web File Manager</title>
+  <link rel="icon" type="image/png" href="/icon0.png">
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #111316; color: #edf0f2; }
+    .init-loading {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 20000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #111316;
+      color: #aab4be;
+      font: 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+  </style>
+  <link rel="stylesheet" href="/main.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="top-left">
+        <div id="path" class="path">/</div>
+      </div>
+      <div class="top-right">
+        <button id="manageSmbBtn" class="space-add" type="button" data-i18n="manageSmb"></button>
+        <div id="spaceInfo" class="space-info"></div>
+      </div>
+      <button id="exitBtn" class="icon-button power-button" type="button" aria-label="Exit"></button>
+    </header>
+
+    <section class="toolbar">
+      <div class="tool-left">
+        <button id="copyBtn" data-i18n="copy"></button>
+        <button id="moveBtn" data-i18n="move"></button>
+        <button id="renameBtn" class="narrow-only" data-i18n="rename"></button>
+        <button id="downloadBtn" class="remote-only" data-i18n="download"></button>
+        <button id="deleteBtn" class="danger" data-i18n="delete"></button>
+        <button id="installPkgBtn" class="install-action" data-i18n="install" hidden></button>
+        <button id="extractBtn" class="install-action" data-i18n="extract" hidden></button>
+        <button id="pasteBtn" class="paste-action" hidden>
+          <span id="pasteVerb" data-i18n="paste"></span>
+          <span id="pasteName" class="paste-name"></span><span id="pasteCount" class="paste-count"></span>
+          <span id="pasteTargetText" data-i18n="pasteToCurrent"></span>
+        </button>
+        <button id="clearClipboardBtn" data-i18n="cancel" hidden></button>
+      </div>
+      <div class="tool-right">
+        <button id="refreshBtn" data-i18n="refresh"></button>
+        <div id="uploadMenu" class="split-button remote-only">
+          <button id="uploadBtn" class="split-main" data-i18n="upload"></button>
+          <button id="uploadMenuBtn" class="split-arrow" type="button" aria-label="Upload menu"></button>
+          <div class="split-menu">
+            <button id="uploadFolderBtn" type="button" data-i18n="uploadFolder"></button>
+          </div>
+        </div>
+        <button id="newTextBtn" data-i18n="newText"></button>
+        <button id="mkdirBtn" data-i18n="mkdir"></button>
+      </div>
+    </section>
+    <input id="uploadFiles" type="file" multiple hidden>
+    <input id="uploadFolder" type="file" multiple webkitdirectory hidden>
+
+    <section id="content" class="content">
+      <table>
+        <thead>
+          <tr>
+            <th class="select-col"><label class="select-hit"><input id="selectAll" type="checkbox"></label></th>
+            <th class="name-col sortable" data-sort="name">
+              <div class="name-head">
+                <button id="parentBtn" class="parent-nav-button" type="button" aria-label="Parent directory" disabled>
+                  <img src="/icon-back.png" alt="">
+                </button>
+                <span class="name-heading" data-i18n="name"></span>
+                <button id="nameFilterBtn" class="name-filter" type="button" aria-label="Filter by name">
+                  <span id="nameFilterText" class="name-filter-text" hidden></span>
+                  <svg class="name-filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="filter-search" cx="10.5" cy="10.5" r="6.5"></circle>
+                    <path class="filter-search" d="m15.5 15.5 5 5"></path>
+                    <path class="filter-clear" d="M5 5l14 14M19 5L5 19"></path>
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th class="type-col sortable" data-sort="type" data-i18n="type"></th>
+            <th class="size-col sortable" data-sort="size" data-i18n="size"></th>
+            <th class="time-col sortable" data-sort="mtime" data-i18n="mtime"></th>
+            <th class="mode-col sortable" data-sort="mode" data-i18n="mode"></th>
+          </tr>
+        </thead>
+        <tbody id="files"></tbody>
+      </table>
+      <div id="empty" class="empty" data-i18n="empty" hidden></div>
+      <div id="contentLoading" class="content-loading" hidden>
+        <div class="content-loading-text" data-i18n="readDir"></div>
+      </div>
+    </section>
+
+    <footer class="status">
+      <div id="statusText" class="status-text" data-i18n="ready"></div>
+      <button id="versionText" class="version-text" type="button" aria-label="About PS5 Web File Manager"></button>
+    </footer>
+  </main>
+
+  <div id="textEditorOverlay" class="text-editor-overlay" hidden>
+    <section class="text-editor-panel">
+      <div id="textEditorPath" class="text-editor-path"></div>
+      <textarea id="textEditor" class="text-editor" wrap="off" spellcheck="false"
+                autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+      <div id="textEditorStatus" class="text-editor-status"></div>
+      <div class="text-editor-actions">
+        <button id="textEditorCloseBtn" class="secondary" data-i18n="close"></button>
+        <button id="textEditorSaveBtn" class="primary" data-i18n="save"></button>
+      </div>
+    </section>
+  </div>
+
+  <div id="imagePreviewOverlay" class="text-editor-overlay" hidden>
+    <section class="text-editor-panel image-preview-panel">
+      <div id="imagePreviewName" class="text-editor-path"></div>
+      <div class="image-preview-stage">
+        <img id="imagePreview" class="image-preview" alt="">
+      </div>
+      <button id="imagePreviewCloseBtn" class="secondary" data-i18n="close"></button>
+    </section>
+  </div>
+
+  <div id="pkgInfoOverlay" class="text-editor-overlay" hidden>
+    <section class="text-editor-panel pkg-info-panel" role="dialog" aria-modal="true" aria-labelledby="pkgInfoTitle">
+      <h2 id="pkgInfoTitle" class="pkg-info-title" data-i18n="pkgInfoTitle"></h2>
+      <div class="pkg-info-content">
+        <div class="pkg-info-image-stage">
+          <img id="pkgInfoImage" class="pkg-info-image" src="/icon-pkg.png" alt="">
+        </div>
+        <div id="pkgInfoFields" class="pkg-info-fields"></div>
+      </div>
+      <div class="text-editor-actions">
+        <button id="pkgInfoCloseBtn" class="secondary" data-i18n="close"></button>
+        <button id="pkgInfoInstallBtn" class="primary" data-i18n="install"></button>
+      </div>
+    </section>
+  </div>
+
+  <div id="smbManagerOverlay" class="permission-overlay" hidden>
+    <section class="permission-panel smb-manager-panel" role="dialog" aria-modal="true" aria-labelledby="smbManagerTitle">
+      <h2 id="smbManagerTitle" class="permission-title" data-i18n="manageSmb"></h2>
+      <div id="smbConnectionList" class="smb-connection-list"></div>
+      <div id="smbSharePicker" hidden>
+        <label for="smbShareSelect" data-i18n="smbChooseShare"></label>
+        <select id="smbShareSelect"></select>
+        <p class="smb-connections-empty" data-i18n="smbShareHint"></p>
+        <div class="permission-actions">
+          <button id="smbShareConnectBtn" class="primary" type="button" data-i18n="smbConnect"></button>
+          <button id="smbShareCancelBtn" type="button" data-i18n="cancel"></button>
+        </div>
+      </div>
+      <div id="smbManagerActions" class="permission-actions">
+        <button id="smbManagerAddBtn" class="primary" type="button" data-i18n="addSmb"></button>
+        <button id="smbManagerCloseBtn" type="button" data-i18n="close"></button>
+      </div>
+    </section>
+  </div>
+
+  <div id="permissionOverlay" class="permission-overlay" hidden>
+    <section class="permission-panel" role="dialog" aria-modal="true" aria-labelledby="permissionTitle">
+      <h2 id="permissionTitle" class="permission-title" data-i18n="permissionsTitle"></h2>
+      <div id="permissionPath" class="permission-path"></div>
+      <div class="permission-grid">
+        <div class="permission-row permission-head" aria-hidden="true">
+          <span class="permission-scope"></span>
+          <span>R</span><span>W</span><span>X</span>
+        </div>
+        <div class="permission-row">
+          <span class="permission-scope" data-i18n="permissionOwner"></span>
+          <label><input id="permissionOwnerRead" type="checkbox"><span>R</span></label>
+          <label><input id="permissionOwnerWrite" type="checkbox"><span>W</span></label>
+          <label><input id="permissionOwnerExecute" type="checkbox"><span>X</span></label>
+        </div>
+        <div class="permission-row">
+          <span class="permission-scope" data-i18n="permissionGroup"></span>
+          <label><input id="permissionGroupRead" type="checkbox"><span>R</span></label>
+          <label><input id="permissionGroupWrite" type="checkbox"><span>W</span></label>
+          <label><input id="permissionGroupExecute" type="checkbox"><span>X</span></label>
+        </div>
+        <div class="permission-row">
+          <span class="permission-scope" data-i18n="permissionOther"></span>
+          <label><input id="permissionOtherRead" type="checkbox"><span>R</span></label>
+          <label><input id="permissionOtherWrite" type="checkbox"><span>W</span></label>
+          <label><input id="permissionOtherExecute" type="checkbox"><span>X</span></label>
+        </div>
+      </div>
+      <label class="permission-octal">
+        <span data-i18n="permissionOctal"></span>
+        <input id="permissionMode" type="text" inputmode="numeric" pattern="0[0-7]{3}"
+               minlength="4" maxlength="4" autocomplete="off" spellcheck="false">
+      </label>
+      <label id="permissionRecursiveOption" class="permission-recursive" hidden>
+        <input id="permissionRecursive" type="checkbox" checked>
+        <span data-i18n="permissionRecursive"></span>
+      </label>
+      <div class="permission-actions">
+        <button id="permissionCancelBtn" class="secondary" data-i18n="close"></button>
+        <button id="permissionApplyBtn" class="primary" data-i18n="apply"></button>
+      </div>
+    </section>
+  </div>
+
+  <div id="extractOverlay" class="permission-overlay" hidden>
+    <section class="permission-panel extract-panel" role="dialog" aria-modal="true" aria-labelledby="extractTitle">
+      <h2 id="extractTitle" class="permission-title" data-i18n="extractTitle"></h2>
+      <div id="extractPath" class="permission-path"></div>
+      <div class="extract-options" role="radiogroup" aria-labelledby="extractTitle">
+        <label class="extract-option">
+          <input id="extractSeparate" name="extractDestination" type="radio" value="separate" checked>
+          <span id="extractSeparateText"></span>
+        </label>
+        <label class="extract-option">
+          <input id="extractCurrent" name="extractDestination" type="radio" value="current">
+          <span data-i18n="extractToCurrent"></span>
+        </label>
+        <div class="extract-option extract-custom-option">
+          <label class="extract-custom-choice">
+            <input id="extractCustom" name="extractDestination" type="radio" value="custom">
+            <span id="extractCustomText"></span>
+          </label>
+          <input id="extractCustomPath" class="extract-custom-path" type="text" autocomplete="off" spellcheck="false" disabled>
+        </div>
+      </div>
+      <div class="permission-actions">
+        <button id="extractCancelBtn" class="secondary" data-i18n="close"></button>
+        <button id="extractApplyBtn" class="primary" data-i18n="extract"></button>
+      </div>
+    </section>
+  </div>
+
+  <div id="dropUploadOverlay" class="drop-upload-overlay remote-only" hidden>
+    <div class="drop-upload-message" data-i18n="dropUpload"></div>
+  </div>
+
+  <div id="taskOverlay" class="task-overlay" hidden>
+    <div class="task-panel">
+      <div id="tasks" class="tasks"></div>
+    </div>
+  </div>
+
+  <div id="initLoading" class="init-loading" aria-hidden="true">Loading...</div>
+
+  <script src="/main.js"></script>
+</body>
+</html>

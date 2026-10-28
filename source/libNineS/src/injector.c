@@ -36,11 +36,12 @@ static int write_self_authid(uint64_t authid)
 int __attribute__((section(".stager_shellcode$1")))  stager(SCEFunctions* functions)
 {
     pthread_t thread;
-    functions->pthread_create_ptr(&thread, 0, (void *(*)(void *)) functions->elf_main, functions->payload_args);
+    functions->thread_result = functions->pthread_create_ptr(
+        &thread, 0, (void *(*)(void *)) functions->elf_main, functions->payload_args);
 
-    asm("int3");
+    asm volatile("int3" ::: "memory");
 
-    return 0;
+    return functions->thread_result;
 }
 
 //
@@ -95,7 +96,7 @@ void init_remote_function_pointers(pid_t pid)
 }
 
 
-int inject_elf(struct proc* proc, void* elf)
+int inject_elf_guarded(struct proc* proc, void* elf, bool (*pre_attach)(int))
 {
     int status = true;
     uint64_t original_authid = 0;
@@ -126,6 +127,15 @@ int inject_elf(struct proc* proc, void* elf)
     }
     set_ucred_to_ptrace();
 
+    /* Recheck browser/target at the last boundary before PT_ATTACH. The
+     * caller's preceding quiet window may have been invalidated meanwhile. */
+    if (pre_attach && !pre_attach(proc->pid))
+    {
+        LOG_WARN("Toolbox R29 stage=pre_attach_cancelled pid=%d", proc->pid);
+        status = false;
+        goto exit;
+    }
+    LOG_INFO("Toolbox R29 stage=attach pid=%d", proc->pid);
     if (pt_attach(proc->pid) < 0)
     {
         LOG_ERROR("Error attaching into PID: %d errno=%d", proc->pid, errno);
@@ -137,8 +147,15 @@ int inject_elf(struct proc* proc, void* elf)
     attached = true;
 
     init_remote_function_pointers(proc->pid);
+    if (!remote_pthread_create || !shellcode_size || shellcode_size > 4096)
+    {
+        LOG_ERROR("Toolbox R29 invalid stager prerequisites pid=%d", proc->pid);
+        status = false;
+        goto detach;
+    }
 
     LOG_DEBUG("[+] Loading ELF on %d...[+]", proc->pid);
+    LOG_INFO("Toolbox R29 stage=load pid=%d", proc->pid);
     /* Crash window: remote mmap/mprotect via pt_syscall while ShellUI is stopped. */
     intptr_t entry = elfldr_load(proc->pid, (uint8_t*) elf);
 
@@ -149,8 +166,10 @@ int inject_elf(struct proc* proc, void* elf)
         goto detach;
     }
     LOG_DEBUG("[+] elfldr_load ok entry=%#lx", (unsigned long)entry);
+    LOG_INFO("Toolbox R29 stage=load_complete pid=%d", proc->pid);
 
     LOG_DEBUG("[+] Allocating payload args on %d...[+]", proc->pid);
+    LOG_INFO("Toolbox R29 stage=args pid=%d", proc->pid);
     intptr_t args = elfldr_payload_args(proc->pid);
     LOG_DEBUG("[+] ELF entrypoint: %#02lx [+]\n[+] Payload Args: %#02lx [+]", entry, args);
     if (args <= 0)
@@ -165,6 +184,7 @@ int inject_elf(struct proc* proc, void* elf)
     //
     sce_functions.elf_main = (void*) entry;
     sce_functions.payload_args = (void*) args;
+    sce_functions.thread_result = -1;
 
     uint64_t bootstrap = pt_mmap(proc->pid, 0, shellcode_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
@@ -213,6 +233,7 @@ int inject_elf(struct proc* proc, void* elf)
     }
 
     LOG_DEBUG("[+] Triggering entrypoint... [+]");
+    LOG_INFO("Toolbox R29 stage=stager pid=%d", proc->pid);
     //
     // Call until hit a breakpoint (stager ends with int3; pt_call2 waits)
     //
@@ -222,6 +243,19 @@ int inject_elf(struct proc* proc, void* elf)
         status = false;
         goto detach;
     }
+    /* pt_call2 synchronizes at INT3 but does not return the final tracee RAX.
+     * Read an explicit remote result rather than treating that RAX as the
+     * pthread_create status. */
+    SCEFunctions completed = {0};
+    if (pt_copyout(proc->pid, sce_ptr_mem, &completed, sizeof(completed)) != 0 ||
+        completed.thread_result != 0)
+    {
+        LOG_ERROR("Toolbox R29 stage=stager_failed pid=%d pthread_result=%d",
+                  proc->pid, completed.thread_result);
+        status = false;
+        goto detach;
+    }
+    LOG_INFO("Toolbox R29 stage=stager_complete pid=%d", proc->pid);
 
 detach:
     if (pt_detach(proc->pid, 0) == 0)
@@ -231,6 +265,7 @@ detach:
     else
     {
         LOG_ERROR("[-] pt_detach failed pid=%d errno=%d", proc->pid, errno);
+        status = false;
     }
 
     LOG_DEBUG("[+] ELF injection finished! [+]");
@@ -249,7 +284,14 @@ exit:
                         (unsigned long)original_authid);
         }
     }
+    LOG_INFO("Toolbox R29 stage=finish pid=%d success=%d",
+             proc ? proc->pid : -1, status);
     return status;
+}
+
+int inject_elf(struct proc* proc, void* elf)
+{
+    return inject_elf_guarded(proc, elf, NULL);
 }
 
 //

@@ -1,17 +1,17 @@
 static const char *const g_en_us[SM_L10N_COUNT] = {
     [SM_L10N_ACTION_DEBUG_SETTINGS] = "Go to Debug Settings",
-    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
+    [SM_L10N_STARTUP] = "HyperHEN Automount v%s\n© Drakmor and Community",
     [SM_L10N_STARTUP_WEB] =
-        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+        "HyperHEN Automount v%s\n© Drakmor and Community\nControl: http://%s:%u",
     [SM_L10N_RECURSIVE_SCAN_DEPRECATED] =
         "HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2.",
     [SM_L10N_SCAN_DEPTH_ENABLED] = "HyperHEN Automount: scan depth %u enabled.",
     [SM_L10N_BACKPORT_OVERLAY_FAILED] =
         "Backport overlay failed: %s\n%s\n0x%08X",
-    [SM_L10N_GAME_BACKPORTED] = "Backport applied to game: %s",
+    [SM_L10N_GAME_BACKPORTED] = "Backport applied: %s",
     [SM_L10N_GAME_EMULATORS_APPLIED] = "Emulators applied to game: %s",
     [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] =
-        "Backport applied to game: %s\nEmulators updated",
+        "Backport applied: %s\nEmulators updated",
     [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] =
         "Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\n"
         "Saved image_sector override: %u.\nTry mounting again.",
@@ -40,7 +40,7 @@ static const char *const g_en_us[SM_L10N_COUNT] = {
     [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... and %d more",
     [SM_L10N_BATCH_INSTALL_FAILED] =
         "Batch install failed for %d app(s).\ncode=0x%08X",
-    [SM_L10N_MISSING_PARAM] = "Missing/invalid param.json:\n%s",
+    [SM_L10N_MISSING_PARAM] = "Missing/invalid param.json/param.sfo:\n%s",
     [SM_L10N_FOUND_NEW_GAMES] = "Found %d new games. Processing...",
     [SM_L10N_LIBRARY_SYNCED] = "Library synchronized.\nFound %d games.",
     [SM_L10N_CONFIG_RELOADED] = "HyperHEN Automount: config reloaded.",
@@ -49,6 +49,8 @@ static const char *const g_en_us[SM_L10N_COUNT] = {
     [SM_L10N_AMPR_EMULATOR_UPDATED] = "AMPR emulator updated",
     [SM_L10N_SHELLCORE_HOOKS_FAILED] =
         "HyperHEN Automount: failed to install ShellCore hooks",
+    [SM_L10N_KSTUFF_WAITING] =
+        "HyperHEN Automount: kstuff not found; waiting for it to start.",
     [SM_L10N_TEMPERATURE_TRANSITION] =
         "Target temperature %u °C → %u °C",
     [SM_L10N_USB_CONNECTED_SCANNING] =

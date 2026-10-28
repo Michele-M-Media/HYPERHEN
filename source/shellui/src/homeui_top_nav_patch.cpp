@@ -1189,7 +1189,8 @@ void patch_homeui_top_nav(unsigned char *buffer, int *size_ptr,
    * Object table still retargets:
    *   iconId string → /system_ex/vsh_asset/hyperhen.png
    *   title id      → empty
-   *   Trigger AppError string slot → HyperHEN?NavUI=1 (hook_boot → toolbox)
+   *   Trigger AppError string slot → HyperHEN?NavUI=1
+   *     (hook_boot → Toolbox/Debug menu)
    *
    * Accept prior in-memory shapes (Fps-in-array + Fps body rewrite, factory
    * alias) and repair them toward this layout.

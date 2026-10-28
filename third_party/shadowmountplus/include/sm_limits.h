@@ -29,13 +29,17 @@
 #define LVD_RELEASE_WAIT_POLL_US 500000u
 #define GAME_LIFECYCLE_POLL_INTERVAL_US 250000u
 #define GAME_APPINFO_LOOKUP_TIMEOUT_US 1000000u
-// Keep a dead game PID eligible for ExitSpawn/LoadExec replacement while the
-// title sandbox still exists. Once the sandbox disappears, retain a short
-// grace window so a transient sandbox transition cannot tear down the runtime
-// before the replacement NOTE_EXEC is resolved.
+// Retain a short grace window for ExitSpawn/LoadExec replacement. A lingering
+// sandbox extends that window only up to GAME_EXIT_SANDBOX_LINGER_US.
 #define GAME_PROCESS_HANDOFF_GRACE_US 1000000u
 // Keep a slow fallback in case the /mnt/sandbox vnode watch is revoked.
 #define GAME_PROCESS_HANDOFF_FALLBACK_POLL_US 5000000u
+// Recovery bounds; sandbox directory existence is only a lifecycle hint.
+#define GAME_EXIT_SANDBOX_LINGER_US 10000000u
+// A confirmed launch can wait for the old owner and bounded runtime teardown.
+#define GAME_RUNTIME_PREPARE_TIMEOUT_US \
+  (GAME_EXIT_SANDBOX_LINGER_US + GAME_PROCESS_HANDOFF_GRACE_US)
+#define GAME_SANDBOX_CLEANUP_TIMEOUT_US 10000000u
 #define GAME_SLEEP_EXIT_TIMEOUT_US 5000000u
 #define RUNTIME_RESUME_GRACE_US 10000000u
 #define RUNTIME_RESUME_POLL_US 100000u

@@ -1,11 +1,11 @@
 static const char *const g_id_id[SM_L10N_COUNT] = {
     /* English: Go to Debug Settings */
     [SM_L10N_ACTION_DEBUG_SETTINGS] = "Buka pengaturan debug",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA */
-    [SM_L10N_STARTUP] = "HyperHEN Automount\nCoded by MICHELE MEDIA",
-    /* English: HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u */
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community */
+    [SM_L10N_STARTUP] = "HyperHEN Automount v%s\n© Drakmor dan Komunitas",
+    /* English: HyperHEN Automount v%s\n© Drakmor and Community\nControl: http://%s:%u */
     [SM_L10N_STARTUP_WEB] =
-        "HyperHEN Automount\nCoded by MICHELE MEDIA\nControl: http://%s:%u",
+        "HyperHEN Automount v%s\n© Drakmor dan Komunitas\nKontrol: http://%s:%u",
     /* English: HyperHEN Automount: recursive_scan=1 is deprecated, using scan_depth=2. */
     [SM_L10N_RECURSIVE_SCAN_DEPRECATED] = "HyperHEN Automount: recursive_scan=1 sudah usang, memakai scan_depth=2.",
     /* English: HyperHEN Automount: scan depth %u enabled. */
@@ -14,10 +14,10 @@ static const char *const g_id_id[SM_L10N_COUNT] = {
     [SM_L10N_BACKPORT_OVERLAY_FAILED] = "Backport overlay gagal: %s\n%s\n0x%08X",
     /* English: Emulators applied to game: %s */
     [SM_L10N_GAME_EMULATORS_APPLIED] = "Emulator diterapkan pada game: %s",
-    /* English: Backport applied to game: %s */
-    [SM_L10N_GAME_BACKPORTED] = "Backport game diterapkan: %s",
-    /* English: Backport applied to game: %s\nEmulators updated */
-    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "Backport game diterapkan: %s\nSemua emulator diperbarui",
+    /* English: Backport applied: %s */
+    [SM_L10N_GAME_BACKPORTED] = "Backport diterapkan: %s",
+    /* English: Backport applied: %s\nEmulators updated */
+    [SM_L10N_GAME_BACKPORTED_EMULATORS_UPDATED] = "Backport diterapkan: %s\nSemua emulator diperbarui",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nSaved image_sector override: %u.\nTry mounting again. */
     [SM_L10N_IMAGE_REJECTED_CLUSTER_AUTOTUNED] = "Pemasangan image ditolak:\n%s\nUkuran cluster terlalu kecil (%llu < %u).\nNilai image_sector disimpan: %u.\nCoba pasang lagi.",
     /* English: Image mount rejected:\n%s\nCluster size is too small (%llu < %u).\nUse a larger cluster size in the image or lower sector size in config. */
@@ -50,8 +50,8 @@ static const char *const g_id_id[SM_L10N_COUNT] = {
     [SM_L10N_BATCH_INSTALL_AND_MORE] = "\n... dan %d lagi",
     /* English: Batch install failed for %d app(s).\ncode=0x%08X */
     [SM_L10N_BATCH_INSTALL_FAILED] = "Instalasi batch gagal untuk %d aplikasi.\nkode=0x%08X",
-    /* English: Missing/invalid param.json:\n%s */
-    [SM_L10N_MISSING_PARAM] = "param.json hilang atau tidak valid:\n%s",
+    /* English: Missing/invalid param.json/param.sfo:\n%s */
+    [SM_L10N_MISSING_PARAM] = "param.json/param.sfo hilang atau tidak valid:\n%s",
     /* English: Found %d new games. Processing... */
     [SM_L10N_FOUND_NEW_GAMES] = "Menemukan %d game baru. Memproses...",
     /* English: Library synchronized.\nFound %d games. */
@@ -64,6 +64,8 @@ static const char *const g_id_id[SM_L10N_COUNT] = {
     [SM_L10N_AMPR_EMULATOR_UPDATED] = "Emulator AMPR diperbarui",
     /* English: HyperHEN Automount: failed to install ShellCore hooks */
     [SM_L10N_SHELLCORE_HOOKS_FAILED] = "HyperHEN Automount: gagal memasang hook ShellCore",
+    /* English: HyperHEN Automount: kstuff not found; waiting for it to start. */
+    [SM_L10N_KSTUFF_WAITING] = "HyperHEN Automount: kstuff tidak ditemukan; menunggu hingga dimulai",
     /* English: Target temperature %u °C → %u °C */
     [SM_L10N_TEMPERATURE_TRANSITION] = "Suhu target %u °C → %u °C",
     /* English: External drive %s connected\nFree %llu.%llu GB of %llu.%llu (Block size %llu KB)\nGames on drive: %d%s */

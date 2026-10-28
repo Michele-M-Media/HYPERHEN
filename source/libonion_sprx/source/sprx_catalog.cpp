@@ -289,6 +289,18 @@ bool SprxCatalog::parse(std::string_view text,
             add_issue(issues, line_number, current_id, "invalid title_id_prefixes");
             ok = false;
           }
+        } else if (key == "game_version") {
+          current.game_version = std::string(value);
+          if (value.size() != 5 && value.size() != 10) {
+            add_issue(issues, line_number, current_id, "invalid game_version"); ok = false;
+          } else {
+            for (size_t i = 0; i < value.size(); ++i) {
+              const bool dot = i == 2 || (value.size() == 10 && i == 6);
+              if (dot ? value[i] != '.' : (value[i] < '0' || value[i] > '9')) {
+                add_issue(issues, line_number, current_id, "invalid game_version"); ok = false; break;
+              }
+            }
+          }
         } else if (key == "enabled") {
           if (!parse_bool(value, &current.enabled)) {
             add_issue(issues, line_number, current_id,
@@ -386,6 +398,15 @@ bool SprxCatalog::set_enabled(std::string_view id, bool enabled) noexcept {
   return true;
 }
 
+bool SprxCatalog::bind_game(std::string_view id, std::string_view title, std::string_view version) {
+  for (auto &entry : entries_) if (entry.id == id) {
+    entry.exact_title_ids = {std::string(title)};
+    entry.title_id_prefixes.clear(); entry.game_version = version;
+    entry.auto_start = false; return true;
+  }
+  return false;
+}
+
 bool SprxCatalog::remove(std::string_view id) noexcept {
   const auto found = std::find_if(entries_.begin(), entries_.end(),
                                   [&](const SprxManifestEntry &entry) {
@@ -404,6 +425,7 @@ std::string SprxCatalog::serialize() const {
       result.push_back('\n');
     result += "[plugin." + entry.id + "]\n";
     result += "path=" + entry.path + "\n";
+    if (!entry.game_version.empty()) result += "game_version=" + entry.game_version + "\n";
     if (!entry.exact_title_ids.empty())
       result += "exact_title_ids=" + join_csv(entry.exact_title_ids) + "\n";
     if (!entry.title_id_prefixes.empty())
@@ -430,6 +452,22 @@ bool SprxCatalog::matches(const SprxManifestEntry &entry,
                        return title_id.size() >= prefix.size() &&
                               title_id.compare(0, prefix.size(), prefix) == 0;
                      });
+}
+
+std::vector<const SprxManifestEntry *>
+SprxCatalog::manual_order(std::string_view id, std::string_view title_id,
+                          std::vector<SprxCatalogIssue> *issues) const {
+  SprxCatalog selected = *this;
+  bool found = false;
+  for (auto &entry : selected.entries_) {
+    entry.auto_start = entry.id == id;
+    if (entry.auto_start) { entry.enabled = true; found = true; }
+  }
+  if (!found) return {};
+  const auto order = selected.startup_order(title_id, issues);
+  std::vector<const SprxManifestEntry *> result;
+  for (const auto *entry : order) result.push_back(find(entry->id));
+  return result;
 }
 
 std::vector<const SprxManifestEntry *>
@@ -626,6 +664,17 @@ SprxOperationResult SprxCatalogStore::set_enabled(std::string_view id,
     return persisted;
   (void)catalog_.set_enabled(id, !enabled);
   return persisted;
+}
+
+SprxOperationResult SprxCatalogStore::bind_game(std::string_view id, std::string_view title,
+                                               std::string_view version) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!loaded_ || !valid_title_id(title) || version.empty()) return {false,"invalid game binding"};
+  SprxCatalog previous=catalog_;
+  if (!catalog_.bind_game(id,title,version)) return {false,"SPRX plugin is not declared"};
+  auto result=persist_locked();
+  if (!result) catalog_=std::move(previous);
+  return result;
 }
 
 SprxOperationResult SprxCatalogStore::remove(std::string_view id) {

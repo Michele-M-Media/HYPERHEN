@@ -4,8 +4,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/** Exact firmware profiles present in the embedded HyperLinux offset table. */
-static inline bool onion_hyperlinux_firmware_supported(uint32_t version) {
+typedef enum OnionHyperLinuxProfile {
+  ONION_HYPERLINUX_PROFILE_NONE = 0,
+  ONION_HYPERLINUX_PROFILE_STANDARD = 1,
+  ONION_HYPERLINUX_PROFILE_1360 = 2,
+} OnionHyperLinuxProfile;
+
+/** Select the exact embedded Linux loader profile for a firmware version. */
+static inline OnionHyperLinuxProfile
+onion_hyperlinux_profile(uint32_t version) {
   switch (version & 0xffff0000U) {
   case 0x03000000U:
   case 0x03100000U:
@@ -30,8 +37,14 @@ static inline bool onion_hyperlinux_firmware_supported(uint32_t version) {
   case 0x07600000U:
   case 0x07610000U:
   case 0x13200000U:
-    return true;
+    return ONION_HYPERLINUX_PROFILE_STANDARD;
+  case 0x13600000U:
+    return ONION_HYPERLINUX_PROFILE_1360;
   default:
-    return false;
+    return ONION_HYPERLINUX_PROFILE_NONE;
   }
+}
+
+static inline bool onion_hyperlinux_firmware_supported(uint32_t version) {
+  return onion_hyperlinux_profile(version) != ONION_HYPERLINUX_PROFILE_NONE;
 }

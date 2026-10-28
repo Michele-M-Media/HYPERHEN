@@ -47,11 +47,14 @@ struct FakeAccess final : onion::sprx::ITargetAccessPolicy {
 };
 
 struct FakeTarget final : onion::sprx::ISprxTargetProvider {
+  std::string version = "01.00";
+  bool available = true;
   bool current(onion::sprx::SprxTarget *out) noexcept override {
-    if (!out)
+    if (!out || !available)
       return false;
     out->pid = 123;
     out->title_id = "CUSA12345";
+    out->version = version;
     return true;
   }
 };
@@ -80,8 +83,6 @@ int test_dependency_failure_isolated() {
                             ".ini", manifest.c_str(), path, sizeof(path)));
   FakeRuntime runtime;
   runtime.responses = {onion::sprx::LoadStatus::Timeout,
-                       onion::sprx::LoadStatus::Timeout,
-                       onion::sprx::LoadStatus::Timeout,
                        onion::sprx::LoadStatus::Loaded};
   FakeAccess access;
   FakeTarget target;
@@ -89,11 +90,14 @@ int test_dependency_failure_isolated() {
   std::vector<onion::sprx::SprxCatalogIssue> issues;
   TEST_ASSERT_TRUE(manager.load_catalog(path, &issues));
   const auto report = manager.start();
-  TEST_ASSERT_EQ_INT(3, static_cast<int>(report.results.size()));
-  TEST_ASSERT_EQ_INT(4, runtime.calls);
-  TEST_ASSERT_TRUE(!report.results[0].load.succeeded());
-  TEST_ASSERT_TRUE(report.results[1].skipped_dependency);
-  TEST_ASSERT_TRUE(report.results[2].load.succeeded());
+  TEST_ASSERT_EQ_INT(0, static_cast<int>(report.results.size()));
+  TEST_ASSERT_EQ_INT(0, runtime.calls);
+  TEST_ASSERT_TRUE(manager.reconcile().results.empty());
+  TEST_ASSERT_EQ_INT(0, runtime.calls);
+  TEST_ASSERT_TRUE(!manager.set_enabled("child", true));
+  TEST_ASSERT_EQ_INT(1, runtime.calls); // failed dependency; no retry or child
+  TEST_ASSERT_TRUE(manager.set_enabled("independent", true));
+  TEST_ASSERT_EQ_INT(2, runtime.calls);
   unlink(path);
   unlink(base_path);
   unlink(child_path);
@@ -125,9 +129,22 @@ int test_inventory_enable_and_remove_lifecycle() {
   TEST_ASSERT_TRUE(manager.set_enabled("overlay", false));
   const auto disabled_report = manager.start();
   TEST_ASSERT_EQ_INT(0, static_cast<int>(disabled_report.results.size()));
+  TEST_ASSERT_EQ_INT(0, runtime.calls);
+  TEST_ASSERT_TRUE(manager.set_enabled("overlay", true));
+  TEST_ASSERT_EQ_INT(1, runtime.calls);
+  TEST_ASSERT_STREQ("01.00", manager.catalog().find("overlay")->game_version.c_str());
+  target.version = "01.01";
+  TEST_ASSERT_TRUE(!manager.set_enabled("overlay", true));
+  TEST_ASSERT_EQ_INT(1, runtime.calls);
+  target.version = "01.00";
+  target.available = false;
+  TEST_ASSERT_TRUE(!manager.set_enabled("overlay", true));
+  TEST_ASSERT_EQ_INT(1, runtime.calls);
+  target.available = true;
 
   const size_t slash = std::string(module_path).find_last_of('/');
   runtime.loaded_module = std::string(module_path).substr(slash + 1);
+  TEST_ASSERT_TRUE(!manager.set_enabled("overlay", false));
   TEST_ASSERT_TRUE(!manager.remove("overlay"));
   runtime.loaded_module.clear();
   TEST_ASSERT_TRUE(manager.remove("overlay"));

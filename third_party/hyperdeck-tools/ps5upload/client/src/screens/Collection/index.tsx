@@ -1,0 +1,875 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FolderPlus,
+  FolderSearch,
+  LayoutGrid,
+  Library,
+  List,
+  RefreshCw,
+  Search,
+  Square,
+} from "lucide-react";
+
+import {
+  Button,
+  EmptyState,
+  ErrorCard,
+  Input,
+  OverflowMenu,
+  PageHeader,
+  ProgressBar,
+  SegmentedControl,
+  Select,
+  Spinner,
+} from "../../components";
+import { pickPath } from "../../lib/pickPath";
+import {
+  COLLECTION_FILTERS,
+  COLLECTION_SORTS,
+  filterCounts,
+  formatCollectionBytes,
+  viewGames,
+  type CollectionFilter,
+  type CollectionPlatform,
+  type CollectionSort,
+} from "../../lib/collectionView";
+import {
+  addCollectionRoot,
+  cancelCollectionScan,
+  collectionGames,
+  loadCollection,
+  loadConsoleStates,
+  startCollectionScan,
+  useCollectionStore,
+} from "../../state/collection";
+import { useConnectionStore } from "../../state/connection";
+import { pushNotification } from "../../state/notifications";
+import { useNavigate } from "react-router";
+import { useConfirm } from "../../components/ConfirmDialog";
+import type { GameConsoleState } from "../../api/collection";
+import { consoleCounts, type ConsoleFilter } from "../../lib/collectionView";
+import { installOffers } from "../GameHub/collectionInstall";
+import { useTr } from "../../state/lang";
+import { useResponsiveTier } from "../../lib/platform";
+import { CollectionCard } from "./CollectionCard";
+import { CollectionTable } from "./CollectionTable";
+import { CleanupModal } from "./CleanupModal";
+import { FoldersModal } from "./FoldersModal";
+import { elapsedLabel, scanView } from "./scanProgress";
+import { useFormatDate } from "../../lib/formatDate";
+import { OrganizeModal } from "./OrganizeModal";
+import { ServingLinks } from "./ServingLinks";
+import { gamePath } from "../../lib/gamePage";
+import { exportCollection } from "./exportCollection";
+import { useActiveCopies } from "../../state/copyActivity";
+import { useShallow } from "zustand/react/shallow";
+
+/** The games kept on this computer's drives: PS Game Library, inside ps5upload. */
+export default function CollectionScreen() {
+  const tr = useTr();
+  // Everything but the scan's progress counters: those change every second
+  // while a scan runs, and only the progress line (ScanProgress) needs them.
+  const s = useCollectionStore(
+    useShallow((st) => ({
+      library: st.library,
+      settings: st.settings,
+      loading: st.loading,
+      error: st.error,
+      search: st.search,
+      filter: st.filter,
+      platform: st.platform,
+      sort: st.sort,
+      view: st.view,
+      consoleByHost: st.consoleByHost,
+      consoleFilter: st.consoleFilter,
+      set: st.set,
+      scanning: !!st.scan?.running,
+      scanError: st.scan?.error ?? null,
+    })),
+  );
+  const [foldersOpen, setFoldersOpen] = useState(false);
+  const [organizeOpen, setOrganizeOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  const { confirm, dialog } = useConfirm();
+  const navigate = useNavigate();
+  const host = useConnectionStore((c) => c.host?.trim() ?? "");
+  const helperUp = useConnectionStore((c) => c.payloadStatus === "up");
+
+  useEffect(() => {
+    void loadCollection();
+  }, []);
+
+  // Cmd/Ctrl+R scans, as in PS Game Library. Capture phase: the desktop app's reload guard
+  // swallows the keystroke on the way down, and in a browser it would reload the page.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      if (e.key.toLowerCase() !== "r") return;
+      e.preventDefault();
+      const st = useCollectionStore.getState();
+      if ((st.settings?.roots.length ?? 0) > 0 && !st.scan?.running) {
+        void startCollectionScan(false);
+      }
+    };
+    document.addEventListener("keydown", onKey, { capture: true });
+    return () =>
+      document.removeEventListener("keydown", onKey, { capture: true });
+  }, []);
+
+  // What the selected console has: read when it connects and after every scan.
+  const generatedAt = s.library?.generated_at;
+  useEffect(() => {
+    if (host && helperUp && generatedAt) void loadConsoleStates(host);
+  }, [host, helperUp, generatedAt]);
+  const consoleEntry = host ? s.consoleByHost[host] : undefined;
+  const consoleStates = useMemo(
+    () =>
+      helperUp && consoleEntry
+        ? new Map<string, GameConsoleState>(Object.entries(consoleEntry.states))
+        : undefined,
+    [helperUp, consoleEntry],
+  );
+
+  const games = useMemo(() => collectionGames(s.library), [s.library]);
+  const shown = useMemo(
+    () =>
+      viewGames(games, {
+        search: s.search,
+        filter: s.filter,
+        platform: s.platform,
+        sort: s.sort,
+        console: s.consoleFilter,
+        consoleStates,
+      }),
+    [
+      games,
+      s.search,
+      s.filter,
+      s.platform,
+      s.sort,
+      s.consoleFilter,
+      consoleStates,
+    ],
+  );
+  const counts = useMemo(() => filterCounts(games), [games]);
+  const cCounts = useMemo(
+    () => consoleCounts(games, consoleStates),
+    [games, consoleStates],
+  );
+  // What is being sent or installed right now, by copy: one lookup for the whole grid.
+  const active = useActiveCopies(host);
+  const openGame = useCallback((id: string) => navigate(gamePath(id)), [navigate]);
+  const activityOf = (g: (typeof games)[number]) => {
+    for (const l of g.locations) {
+      const a = active.get(l.absolute_path);
+      if (a) return a;
+    }
+    return null;
+  };
+
+  /** Every newer update and missing DLC for installed games, for one queue run. */
+  async function bringUpToDate() {
+    if (!consoleStates) return;
+    const items = games.flatMap((g) => {
+      const st = consoleStates.get(g.game_id);
+      if (!st?.installed) return [];
+      return [...(st.update ? [st.update] : []), ...st.dlc_missing].map(
+        (offer) => ({ game: g, offer }),
+      );
+    });
+    if (items.length === 0) return;
+    const ok = await confirm({
+      title: tr(
+        "collection.update_all_title",
+        undefined,
+        "Bring this PS5 up to date?",
+      ),
+      message: tr(
+        "collection.update_all_body",
+        { n: items.length },
+        "{n} packages from the collection go into the install queue: every newer update and every missing DLC for the games this PS5 has. They stream from this computer, which stays awake until they are done.",
+      ),
+      confirmLabel: tr("collection.update_all_go", undefined, "Queue them"),
+    });
+    if (!ok) return;
+    const n = installOffers(host, items);
+    pushNotification(
+      "info",
+      tr("collection.queued", { n }, "{n} packages queued for install"),
+      { link: "/install-package" },
+    );
+  }
+  const roots = s.settings?.roots ?? [];
+  const phone = useResponsiveTier() === "xs";
+  const scanning = s.scanning;
+  const summary = s.library?.summary;
+
+  async function addFolder() {
+    const path = await pickPath({
+      mode: "folder",
+      title: tr(
+        "collection.pick_folder",
+        undefined,
+        "Choose the folder that holds your games",
+      ),
+    });
+    if (path) await addCollectionRoot(path);
+  }
+
+  const filterLabel: Record<CollectionFilter, string> = {
+    all: tr("collection.filter.all", undefined, "All"),
+    duplicates: tr("collection.filter.duplicates", undefined, "Duplicates"),
+    pkg: tr("collection.filter.pkg", undefined, "Packages"),
+    mount: tr("collection.filter.mount", undefined, "Images"),
+    folder: tr("collection.filter.folder", undefined, "Folders"),
+    rar: "RAR",
+    "7z": "7z",
+    zip: "ZIP",
+  };
+  const sortLabel: Record<CollectionSort, string> = {
+    "title-asc": tr("collection.sort.title_asc", undefined, "Title (A → Z)"),
+    "title-desc": tr("collection.sort.title_desc", undefined, "Title (Z → A)"),
+    "id-asc": tr("collection.sort.id_asc", undefined, "Game ID (A → Z)"),
+    "id-desc": tr("collection.sort.id_desc", undefined, "Game ID (Z → A)"),
+    "added-desc": tr(
+      "collection.sort.added_desc",
+      undefined,
+      "Added (newest first)",
+    ),
+    "added-asc": tr(
+      "collection.sort.added_asc",
+      undefined,
+      "Added (oldest first)",
+    ),
+    "size-desc": tr(
+      "collection.sort.size_desc",
+      undefined,
+      "Size (largest first)",
+    ),
+    "size-asc": tr(
+      "collection.sort.size_asc",
+      undefined,
+      "Size (smallest first)",
+    ),
+    "locations-desc": tr(
+      "collection.sort.locations_desc",
+      undefined,
+      "Most copies",
+    ),
+  };
+
+  const header = (
+    <PageHeader
+      icon={Library}
+      title={tr("collection.title", undefined, "Collection")}
+      count={summary?.total_games}
+      description={tr(
+        "collection.description",
+        undefined,
+        "Every game you keep on this computer's drives, grouped by game: its copies, updates and DLC, duplicates and the space they take. Each item is read from the file itself, wherever it sits.",
+      )}
+      right={
+        roots.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <ServingLinks />
+            {scanning ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<Square size={12} />}
+                onClick={() => void cancelCollectionScan()}
+              >
+                {tr("collection.stop_scan", undefined, "Stop scan")}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                leftIcon={<RefreshCw size={12} />}
+                onClick={() => void startCollectionScan(false)}
+              >
+                {tr("collection.scan", undefined, "Scan")}
+              </Button>
+            )}
+            {/* On a phone three buttons fill the row and the "…" menu was left
+                alone on a line of its own: Folders goes into the menu there. */}
+            {!phone && (
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<FolderSearch size={12} />}
+                onClick={() => setFoldersOpen(true)}
+              >
+                {tr("collection.folders", undefined, "Folders")}
+              </Button>
+            )}
+            <OverflowMenu
+              items={[
+                ...(phone
+                  ? [
+                      {
+                        label: tr("collection.folders", undefined, "Folders"),
+                        icon: <FolderSearch size={12} />,
+                        onSelect: () => setFoldersOpen(true),
+                      },
+                    ]
+                  : []),
+                {
+                  label: tr(
+                    "collection.rescan_all",
+                    undefined,
+                    "Rescan everything",
+                  ),
+                  title: tr(
+                    "collection.rescan_all_hint",
+                    undefined,
+                    "Read every folder size and every item again, ignoring what was cached.",
+                  ),
+                  disabled: scanning,
+                  onSelect: () => void startCollectionScan(true),
+                },
+                {
+                  label: tr(
+                    "collection.org_menu",
+                    undefined,
+                    "Organize packages…",
+                  ),
+                  disabled: scanning,
+                  onSelect: () => setOrganizeOpen(true),
+                },
+                {
+                  label: tr(
+                    "collection.junk_menu",
+                    undefined,
+                    "Clean up junk files…",
+                  ),
+                  onSelect: () => setCleanupOpen(true),
+                },
+                {
+                  label: tr(
+                    "collection.export_csv",
+                    undefined,
+                    "Export as CSV",
+                  ),
+                  onSelect: () => void exportCollection("csv"),
+                },
+                {
+                  label: tr(
+                    "collection.export_md",
+                    undefined,
+                    "Export as Markdown",
+                  ),
+                  onSelect: () => void exportCollection("md"),
+                },
+                {
+                  label: tr(
+                    "collection.export_json",
+                    undefined,
+                    "Export as JSON",
+                  ),
+                  onSelect: () => void exportCollection("json"),
+                },
+                ...(consoleStates && cCounts.update + cCounts.dlc > 0
+                  ? [
+                      {
+                        label: tr(
+                          "collection.update_all",
+                          undefined,
+                          "Bring this PS5 up to date",
+                        ),
+                        onSelect: () => void bringUpToDate(),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </div>
+        ) : undefined
+      }
+    />
+  );
+
+  if (!s.settings && s.loading) {
+    return (
+      <div className="app-page">
+        {header}
+        <div className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
+          <Spinner size={14} />{" "}
+          {tr("collection.loading", undefined, "Loading the collection…")}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-page">
+      {header}
+      {s.error && (
+        <div className="mb-4">
+          <ErrorCard
+            title={tr(
+              "collection.error",
+              undefined,
+              "The collection could not be read",
+            )}
+            detail={s.error}
+            // Nothing loaded at all: the way out is to read it again.
+            onRetry={s.settings ? undefined : () => void loadCollection()}
+            retrying={s.loading}
+          />
+        </div>
+      )}
+
+      {/* A folder the last scan could not open was skipped (#461): its games are missing
+          until it is back, so say which and where to remove it. */}
+      {(s.library?.missing_roots?.length ?? 0) > 0 && (
+        <p className="mb-4 rounded-2xl border border-[var(--color-bad)]/30 bg-[var(--color-bad)]/10 px-3 py-2 text-xs">
+          {tr(
+            "collection.missing_roots",
+            { paths: (s.library?.missing_roots ?? []).join(", ") },
+            "The last scan skipped what it could not find: {paths}. If a folder was deleted, remove it in Folders; if it is on a drive or server, reconnect it and scan again.",
+          )}{" "}
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setFoldersOpen(true)}
+          >
+            {tr("collection.folders", undefined, "Folders")}
+          </button>
+        </p>
+      )}
+
+      {/* Not loaded (the read failed): an unread collection is not an empty
+          one, so no "add the folder that holds your games" under the error. */}
+      {!s.settings ? null : roots.length === 0 ? (
+        <EmptyState
+          fill
+          icon={Library}
+          headingTag="h2"
+          title={tr(
+            "collection.empty_title",
+            undefined,
+            "Add the folder that holds your games",
+          )}
+          body={
+            <span>
+              {tr(
+                "collection.empty_body",
+                undefined,
+                "Packages, game folders, game images and archives anywhere under it are found and grouped by game. Nothing in the folder is changed. A drive, an external disk or a mounted network share all work.",
+              )}
+            </span>
+          }
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button
+                variant="primary"
+                leftIcon={<FolderPlus size={14} />}
+                onClick={() => void addFolder()}
+              >
+                {tr("collection.add_folder", undefined, "Add a folder")}
+              </Button>
+            </div>
+          }
+        />
+      ) : (
+        <>
+          {scanning ? <ScanProgress /> : <LastScan />}
+          {!scanning && s.scanError && (
+            <div className="mb-3">
+              <ErrorCard
+                title={tr(
+                  "collection.scan_failed",
+                  undefined,
+                  "The last scan stopped",
+                )}
+                detail={s.scanError}
+              />
+            </div>
+          )}
+
+          {summary && (
+            <div
+              // Five tiles: two a row on a phone, 3 + 2 (as sixths) up to `xl`,
+              // one row only where each tile is wide enough for its number.
+              // Five across from `sm` broke "DUPLICAT/ES" and "195.58/GB".
+              className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-6 xl:grid-cols-5"
+              data-testid="collection-summary"
+            >
+              <Stat
+                label={tr("collection.stat.games", undefined, "Games")}
+                value={String(summary.total_games)}
+              />
+              <Stat
+                label={tr("collection.stat.copies", undefined, "Items")}
+                value={String(summary.total_locations)}
+              />
+              <Stat
+                label={tr("collection.stat.size", undefined, "Size")}
+                value={formatCollectionBytes(summary.total_size_bytes)}
+              />
+              <Stat
+                row="two"
+                label={tr(
+                  "collection.stat.duplicates",
+                  undefined,
+                  "Duplicates",
+                )}
+                value={String(summary.duplicates_count)}
+              />
+              <Stat
+                wide
+                row="two"
+                label={tr(
+                  "collection.stat.reclaimable",
+                  undefined,
+                  "Reclaimable",
+                )}
+                value={formatCollectionBytes(summary.reclaimable_bytes)}
+                hint={tr(
+                  "collection.stat.reclaimable_hint",
+                  undefined,
+                  "Space held by every full copy of a game but its largest. Updates and DLC never count.",
+                )}
+              />
+            </div>
+          )}
+
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1">
+              <Input
+                block
+                leftIcon={<Search size={14} />}
+                value={s.search}
+                onChange={(e) => s.set({ search: e.target.value })}
+                placeholder={tr(
+                  "collection.search",
+                  undefined,
+                  "Search by title, game ID, content ID or path",
+                )}
+                aria-label={tr(
+                  "collection.search_label",
+                  undefined,
+                  "Search the collection",
+                )}
+              />
+            </div>
+            <SegmentedControl
+              ariaLabel={tr("collection.platform", undefined, "Platform")}
+              value={s.platform}
+              onChange={(v) => s.set({ platform: v as CollectionPlatform })}
+              segments={[
+                {
+                  value: "all",
+                  label: tr("collection.platform_all", undefined, "All"),
+                },
+                { value: "PS5", label: "PS5" },
+                { value: "PS4", label: "PS4" },
+                { value: "PS3", label: "PS3" },
+                {
+                  value: "other",
+                  label: tr("collection.platform_other", undefined, "Other"),
+                },
+              ]}
+            />
+            <Select
+              block={false}
+              aria-label={tr("collection.sort", undefined, "Sort")}
+              value={s.sort}
+              onChange={(e) =>
+                s.set({ sort: e.target.value as CollectionSort })
+              }
+              options={COLLECTION_SORTS.map((v) => ({
+                value: v,
+                label: sortLabel[v],
+              }))}
+            />
+            <SegmentedControl
+              ariaLabel={tr("collection.view", undefined, "View")}
+              value={s.view}
+              onChange={(v) => s.set({ view: v as "grid" | "table" })}
+              segments={[
+                {
+                  value: "grid",
+                  label: tr("collection.view_grid", undefined, "Grid"),
+                  icon: LayoutGrid,
+                },
+                {
+                  value: "table",
+                  label: tr("collection.view_table", undefined, "Table"),
+                  icon: List,
+                },
+              ]}
+            />
+          </div>
+
+          <div
+            className="mb-4 flex flex-wrap gap-2"
+            role="group"
+            aria-label={tr("collection.filters", undefined, "Filters")}
+          >
+            {COLLECTION_FILTERS.filter((f) => f === "all" || counts[f] > 0).map(
+              (f) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={s.filter === f}
+                  onClick={() => s.set({ filter: f })}
+                  className="chip min-h-9 gap-1.5 px-4 text-xs font-medium"
+                >
+                  {filterLabel[f]}
+                  <span className="tabular-nums text-[var(--color-muted)]">{counts[f]}</span>
+                </button>
+              ),
+            )}
+          </div>
+
+          {consoleStates && (
+            <div
+              className="mb-5 flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label={tr(
+                "collection.console_filters",
+                undefined,
+                "On this PS5",
+              )}
+            >
+              <span className="mr-1 text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">
+                {consoleEntry?.loading
+                  ? tr(
+                      "collection.console_reading",
+                      undefined,
+                      "Reading this PS5…",
+                    )
+                  : tr("collection.console_on", undefined, "On this PS5:")}
+              </span>
+              {(
+                [
+                  [
+                    "any",
+                    tr("collection.console_any", undefined, "Everything"),
+                    games.length,
+                  ],
+                  [
+                    "missing",
+                    tr(
+                      "collection.console_missing",
+                      undefined,
+                      "Not installed",
+                    ),
+                    cCounts.missing,
+                  ],
+                  [
+                    "update",
+                    tr(
+                      "collection.console_update",
+                      undefined,
+                      "Update available",
+                    ),
+                    cCounts.update,
+                  ],
+                  [
+                    "dlc",
+                    tr("collection.console_dlc", undefined, "DLC missing"),
+                    cCounts.dlc,
+                  ],
+                ] as [ConsoleFilter, string, number][]
+              ).map(([f, label, n]) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={s.consoleFilter === f}
+                  onClick={() => s.set({ consoleFilter: f })}
+                  className="chip min-h-9 gap-1.5 px-4 text-xs font-medium"
+                >
+                  {label}
+                  <span className="tabular-nums text-[var(--color-muted)]">{n}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {consoleStates && cCounts.update + cCounts.dlc > 0 && (
+            // The one-click catch-up, where it can be seen rather than in the ⋯ menu.
+            <div className="surface-panel mb-5 flex flex-wrap items-center gap-3 !rounded-[var(--radius-card)] px-5 py-3 text-sm">
+              <span className="min-w-0 flex-1">
+                {tr(
+                  "collection.uptodate_banner",
+                  { u: cCounts.update, d: cCounts.dlc },
+                  "This PS5 can take {u} update(s) and DLC for {d} game(s) from your collection.",
+                )}
+              </span>
+              <Button size="sm" variant="primary" onClick={() => void bringUpToDate()}>
+                {tr("collection.update_all", undefined, "Bring this PS5 up to date")}
+              </Button>
+            </div>
+          )}
+          {consoleEntry?.error && helperUp && (
+            <p className="mb-3 text-xs text-[var(--color-warn)]">
+              {tr(
+                "collection.console_error",
+                { error: consoleEntry.error },
+                "This PS5 could not be read: {error}",
+              )}
+            </p>
+          )}
+
+          {shown.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title={
+                games.length === 0
+                  ? scanning
+                    ? tr("collection.none_yet", undefined, "Nothing found yet")
+                    : tr(
+                        "collection.none",
+                        undefined,
+                        "No games found in these folders",
+                      )
+                  : tr("collection.no_match", undefined, "No games match")
+              }
+            />
+          ) : s.view === "grid" ? (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] sm:gap-x-5 sm:gap-y-7">
+              {shown.map((g) => (
+                <CollectionCard
+                  key={g.game_id}
+                  game={g}
+                  activity={activityOf(g)}
+                  consoleState={consoleStates?.get(g.game_id)}
+                  onOpen={openGame}
+                />
+              ))}
+            </div>
+          ) : (
+            <CollectionTable
+              games={shown}
+              onOpen={(id) => navigate(gamePath(id))}
+            />
+          )}
+        </>
+      )}
+
+      {dialog}
+      <OrganizeModal
+        open={organizeOpen}
+        onClose={() => setOrganizeOpen(false)}
+      />
+      <CleanupModal open={cleanupOpen} onClose={() => setCleanupOpen(false)} />
+      <FoldersModal
+        open={foldersOpen}
+        onClose={() => setFoldersOpen(false)}
+        onAdd={() => void addFolder()}
+      />
+    </div>
+  );
+}
+
+/** Re-renders every second while mounted: for the elapsed and "ago" times. */
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
+/** The running scan: what it is doing, how far it is, what it is reading, and how long it
+ *  has taken. The one part of the screen that follows the scan's counters. */
+function ScanProgress() {
+  const tr = useTr();
+  const scan = useCollectionStore((st) => st.scan);
+  const now = useNow();
+  if (!scan) return null;
+  const v = scanView(scan);
+  const title = {
+    finding: tr("collection.scan_phase_finding", undefined, "Looking for games in your folders"),
+    reading: tr("collection.scan_phase_reading", undefined, "Reading each item"),
+    naming: tr("collection.scan_phase_naming", undefined, "Finding names and covers"),
+    saving: tr("collection.scan_phase_saving", undefined, "Saving the collection"),
+  }[v.phase];
+  const detail = v.counts
+    ? v.phase === "naming"
+      ? tr("collection.scan_games_n", { done: v.counts.done, total: v.counts.total }, "{done} of {total} games")
+      : tr("collection.scan_items_n", { done: v.counts.done, total: v.counts.total }, "{done} of {total} items")
+    : v.folder
+      ? tr("collection.scan_folder_n", { n: v.folder.n, total: v.folder.total }, "Folder {n} of {total}")
+      : null;
+  return (
+    <section
+      aria-live="polite"
+      data-testid="collection-scan-progress"
+      className="surface-panel mb-4 !rounded-[var(--radius-card)] px-4 py-3"
+    >
+      <div className="flex items-center gap-2 text-sm">
+        <Spinner size={14} />
+        <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
+        {detail && <span className="shrink-0 text-xs tabular-nums text-[var(--color-muted)]">{detail}</span>}
+        {scan.started_ms > 0 && (
+          <span className="shrink-0 text-xs tabular-nums text-[var(--color-muted)]">
+            {elapsedLabel(scan.started_ms, now)}
+          </span>
+        )}
+      </div>
+      <ProgressBar
+        className="mt-2.5"
+        size="sm"
+        value={v.value}
+        label={title}
+      />
+      {v.current && (
+        <p className="mt-1.5 truncate text-xs text-[var(--color-muted)]" title={v.current}>
+          {v.current}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** When the last scan finished and how long it took, under the header while none runs. */
+function LastScan() {
+  const tr = useTr();
+  const fmt = useFormatDate();
+  const scan = useCollectionStore((st) => st.scan);
+  if (!scan || scan.running || scan.error || !scan.finished_ms || !scan.started_ms) return null;
+  const took = elapsedLabel(scan.started_ms, scan.finished_ms);
+  return (
+    <p className="mb-3 text-xs text-[var(--color-muted)]" data-testid="collection-last-scan">
+      {tr(
+        "collection.last_scan_took",
+        { when: fmt(scan.finished_ms), took },
+        "Last scanned {when} · took {took}",
+      )}
+    </p>
+  );
+}
+
+const SPAN = { three: "sm:col-span-2", two: "sm:col-span-3" } as const;
+
+function Stat({
+  label,
+  value,
+  hint,
+  wide,
+  row = "three",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  /** Spans both columns on a phone (the odd fifth tile). */
+  wide?: boolean;
+  /** Which row the tile is on between `sm` and `xl`: three a row, then two. */
+  row?: "three" | "two";
+}) {
+  return (
+    <div
+      className={`surface-panel !rounded-[var(--radius-card)] min-w-0 px-4 py-3 xl:col-span-1 ${SPAN[row]} ${wide ? "col-span-2" : ""}`}
+      title={hint}
+    >
+      <div className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">
+        {label}
+      </div>
+      <div className="mt-0.5 whitespace-nowrap text-lg font-semibold tracking-[-0.01em] tabular-nums">{value}</div>
+    </div>
+  );
+}

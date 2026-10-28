@@ -45,6 +45,13 @@ void onion_notify_set_language(onion_notify_language_t language);
 /** Return the currently selected notification language. */
 onion_notify_language_t onion_notify_get_language(void);
 
+/** Toolbox preference is independent from system-language notifications. */
+void onion_notify_set_ui_language(onion_notify_language_t language);
+onion_notify_language_t onion_notify_get_ui_language(void);
+
+/** BCP 47-compatible tag of the active notification/system locale. */
+const char *onion_notify_locale_id(void);
+
 /**
  * Resolve the shared toolbox language setting.
  * ui_language: 0=system, 1=zh-Hans, 2=en, 3=ar, 4=zh-Hant, 5=ja, 6=fr,
@@ -61,7 +68,8 @@ onion_notify_language_t onion_notify_get_language(void);
 onion_notify_language_t onion_notify_resolve_language(int ui_language,
                                                        int system_language);
 
-/** Select a language from the shared setting and PS5 system language. */
+/** Apply the Toolbox preference; notifications always follow system_language.
+ * A negative system_language preserves the last valid notification locale. */
 void onion_notify_apply_ui_language(int ui_language, int system_language);
 
 /** Translate a stable notification key; unknown keys are returned unchanged. */

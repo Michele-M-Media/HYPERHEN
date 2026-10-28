@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HyperHEN / HyperDeck — anteprima interattiva</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#050711;color:#edf5ff;font:14px system-ui,sans-serif}
+.wrap{max-width:1640px;margin:auto;padding:30px 40px}header{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:24px}.brand{font-size:19px;letter-spacing:3px}.tag{font-size:11px;color:#44dff7;border:1px solid #24404e;padding:7px 12px;border-radius:20px;letter-spacing:2px}.intro{color:#8597ad;font-size:13px;max-width:740px;line-height:1.6}.stage{position:relative;width:100%;aspect-ratio:16/9;background:radial-gradient(ellipse at 78% 72%,#30245a 0%,#101c35 36%,#080b16 73%);overflow:hidden;border:1px solid #263047;box-shadow:0 24px 100px #0008}.ambient{position:absolute;inset:0;background:linear-gradient(128deg,transparent 40%,#3c30751c 50%,transparent 72%)}.system{position:absolute;left:5%;top:5%;right:5%;display:flex;justify-content:space-between;color:#bac5d6;font-size:clamp(10px,1.3vw,20px);letter-spacing:1px}.deck-shell{position:absolute;inset:11.8% 9.4% 8.7%;display:flex;align-items:center;justify-content:center}.viewport{width:100%;aspect-ratio:1340/740;overflow:hidden;position:relative;box-shadow:0 32px 96px #0009}.canvas{width:1340px;height:740px;transform-origin:top left;position:absolute}.panel,.label{position:absolute}.label{line-height:1.12;white-space:nowrap;overflow:hidden;font-family:"DejaVu Sans",Arial,sans-serif;font-weight:400}.hit{position:absolute;cursor:pointer;background:none;border:0;color:transparent}.hit:focus-visible{outline:2px solid #44dff7;outline-offset:4px}.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:22px 0 12px}button,select{background:#121a2b;color:#dbe8ff;border:1px solid #303b54;border-radius:6px;padding:10px 14px;font:inherit}button{cursor:pointer}button:hover{border-color:#44dff7}label{color:#8597ad;display:flex;gap:8px;align-items:center}.notice{min-height:24px;color:#6ce4cb;font-size:13px}.fine{color:#718199;font-size:12px;line-height:1.7}kbd{background:#192338;padding:2px 6px;border-radius:3px;color:#c4d1e6}
+@media(max-width:700px){.wrap{padding:18px 12px}.tag{letter-spacing:0}.brand{font-size:15px}.deck-shell{inset:10% 2% 3%}.system{top:4%}.toolbar{gap:7px}button,select{padding:8px;font-size:12px}label{font-size:12px}.intro{font-size:12px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<div class="wrap">
+<header><div class="brand">HYPERHEN <span style="color:#5b6b84">/</span> HYPERDECK</div><span class="tag">INTERACTIVE PREVIEW</span></header>
+<p class="intro">Riferimento grafico HyperDeck: geometria, testi e colori sono generati dallo stesso layout C++ del server HTTP. I valori qui sono dimostrativi; questa pagina non controlla la console.</p>
+<div class="stage"><div class="ambient"></div><div class="system"><span>HyperHEN Tools</span><span>10:01</span></div><div class="deck-shell"><div class="viewport" id="viewport"><div class="canvas" id="canvas" aria-label="HyperDeck"></div></div></div></div>
+<div class="toolbar">
+<button data-tab="0">Overview</button><button data-tab="1">Reactor</button><button data-tab="2">Quick Controls</button><button data-tab="3">Appearance</button>
+<label>Firmware <select id="profile"><option value="0">10.01 — A53/PPR</option><option value="1">13.20 — Byepervisor</option><option value="2">12.70 — no PPR</option></select></label>
+<label>Stato <select id="scenario"><option value="0">Pronto</option><option value="1">Errore componente</option><option value="2">Dati non disponibili</option></select></label>
+</div><div class="notice" id="notice" role="status"></div>
+<p class="fine"><kbd>← ↑ ↓ →</kbd> selezione · <kbd>Invio</kbd> apri · <kbd>Q / E</kbd> sezioni · <kbd>Esc</kbd> indietro. Puoi anche toccare le schede.<br>Riferimento storico del design, non una cattura PS5. La nuova app HTTP non usa la cornice Settings e si apre da Media. Nessun comando viene inviato a una PS5.</p>
+</div>
+<script src="hyperdeck-frames.js"></script>
+<script>
+(()=>{'use strict';
+const data=window.HYPERDECK_PREVIEW,canvas=document.querySelector('#canvas'),viewport=document.querySelector('#viewport');
+let tab=0,theme=0,selected=0,profile=0,scenario=0,motion=false;
+const count=()=>tab===0||tab===2?6:tab===3?4:1;
+const message=t=>document.querySelector('#notice').textContent=t;
+function resize(){canvas.style.transform=`scale(${viewport.clientWidth/1340})`;viewport.style.height=`${viewport.clientWidth*740/1340}px`;}
+function pick(i){selected=i;render();}
+function change(t){tab=t;selected=0;message('');render();}
+function hit(x,y,w,h,fn,label){const b=document.createElement('button');b.className='hit';Object.assign(b.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});b.setAttribute('aria-label',label);b.onclick=fn;canvas.append(b);}
+function run(){if(tab===0){if(selected===3)change(2);else if(selected===4)change(1);else message(['Aprirebbe la libreria ELF','Aprirebbe la gestione plugin','Aprirebbe la libreria cheat','','','Tornerebbe al Toolbox classico'][selected]);}else if(tab===2){message(selected<4?'Dimostrazione: il comando sulla PS5 usa il controllo esistente e attende lo stato reale.':selected===4?'Aprirebbe le impostazioni Linux con la conferma del prossimo avvio.':'Tornerebbe al Toolbox classico.');}else if(tab===3){if(selected<3)theme=selected;else motion=!motion;message(selected<3?'Tema applicato all’anteprima.':'Movimento ridotto: '+(motion?'attivo':'disattivo'));render();}else message('Sulla PS5 richiede nuove osservazioni ai servizi.');}
+function render(){canvas.replaceChildren();const f=data.frames[[profile,scenario,tab,theme,selected].join(':')],palette=data.palettes[theme];
+const css=i=>{const c=palette[i];return `rgba(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)},${c[3]})`;};
+for(const r of f.rects){const e=document.createElement('div');e.className='panel';Object.assign(e.style,{left:r[0]+'px',top:r[1]+'px',width:r[2]+'px',height:r[3]+'px',background:css(r[4])});canvas.append(e);}
+for(const t of f.labels){const e=document.createElement('div');e.className='label';e.textContent=tab===3&&t[0]===1194&&t[1]===548?(motion?'ON':'OFF'):t[5];Object.assign(e.style,{left:t[0]+'px',top:t[1]+'px',width:t[2]+'px',fontSize:t[3]+'px',color:css(t[4]),whiteSpace:'pre'});canvas.append(e);}
+for(let i=0;i<4;i++)hit(34+i*317,124,300,51,()=>change(i),['Overview','Reactor','Quick controls','Appearance'][i]);
+for(let i=0;i<count();i++){const box=tab===0?[34+i%3*428,301+Math.floor(i/3)*143,412,127]:tab===2?[34,289+i*61,1268,53]:tab===3?(i<3?[34+i*428,301,412,190]:[34,522,1268,72]):[1083,618,219,44];hit(...box,()=>{if(selected===i)run();else pick(i);},'Seleziona voce '+(i+1));}
+resize();}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>change(+b.dataset.tab));
+document.querySelector('#profile').onchange=e=>{profile=+e.target.value;render();};document.querySelector('#scenario').onchange=e=>{scenario=+e.target.value;render();};
+window.addEventListener('resize',resize);window.addEventListener('keydown',e=>{if(e.target.tagName==='SELECT')return;let delta=0;if(['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Enter','Escape','q','e'].includes(e.key))e.preventDefault();if(e.key==='q'){change((tab+3)%4);return;}if(e.key==='e'){change((tab+1)%4);return;}if(e.key==='Escape'){change(0);return;}if(e.key==='Enter'){run();return;}if(tab===0){if(e.key==='ArrowLeft'&&selected%3)delta=-1;if(e.key==='ArrowRight'&&selected%3<2)delta=1;if(e.key==='ArrowUp'&&selected>=3)delta=-3;if(e.key==='ArrowDown'&&selected<3)delta=3;}else{if(e.key==='ArrowLeft'||e.key==='ArrowUp')delta=-1;if(e.key==='ArrowRight'||e.key==='ArrowDown')delta=1;}if(delta)pick(Math.max(0,Math.min(count()-1,selected+delta)));});render();
+})();
+</script>
+</html>

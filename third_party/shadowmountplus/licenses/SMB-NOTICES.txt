@@ -1,0 +1,20 @@
+ShadowMountPlus SMB integration
+
+SMB context setup is based on ps5-payload-dev/websrv/src/smb.c,
+Copyright (C) 2025 John Törnblom, GNU GPL version 3 or later.
+https://github.com/ps5-payload-dev/websrv
+
+The virtual filesystem adapter is derived from
+owendswang/ps5-web-file-manager/src/vfs.c and src/vfs.h,
+distributed under GNU GPL version 3 or later.
+https://github.com/owendswang/ps5-web-file-manager
+
+These adaptations are distributed under GNU GPL version 3 or later.
+The complete GPL text is available in the project LICENSE.
+
+SMB2/SMB3 protocol support uses libsmb2 (LGPL version 2.1 or later).
+https://github.com/sahlberg/libsmb2
+The upstream COPYING notice and full license are included as
+libsmb2-COPYING.txt and libsmb2-LGPL-2.1.txt in this directory.
+libsmb2 remains covered by its own license. Its source and license must
+accompany binary distributions or be made available under its license terms.

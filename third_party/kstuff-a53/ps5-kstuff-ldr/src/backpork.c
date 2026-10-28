@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <ps5/klog.h>
+#include <onion/ready.h>
 extern void notify(const char *fmt, ...);
 
 #include <sys/mount.h>
@@ -29,6 +30,44 @@ extern void notify(const char *fmt, ...);
 
 #define BP_LOG(...) klog_printf("[BP] " __VA_ARGS__)
 #define HYPERHEN_AUTOMOUNT_SENTINEL "/data/.kstuff_noautomount"
+
+/*
+ * The loader is linked independently from libonion_ready, so keep this tiny
+ * PID marker writer local.  BackPork runs as a thread in the resident
+ * kstuff.elf process; the PID therefore identifies both the loader and its
+ * singleton monitor instance.
+ */
+static int backpork_publish_state(int ready) {
+    const char *path = ready
+        ? ONION_READY_ROOT "/" ONION_READY_BACKPORK
+        : ONION_READY_ROOT "/" ONION_READY_BACKPORK_FAILED;
+    const char *stale = ready
+        ? ONION_READY_ROOT "/" ONION_READY_BACKPORK_FAILED
+        : ONION_READY_ROOT "/" ONION_READY_BACKPORK;
+    (void)mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
+    (void)mkdir(ONION_READY_ROOT, 0777);
+    (void)unlink(stale);
+
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return -1;
+    char value[32];
+    int length = snprintf(value, sizeof(value), "%d", (int)getpid());
+    ssize_t written = length > 0 && (size_t)length < sizeof(value)
+        ? write(fd, value, (size_t)length)
+        : -1;
+    int close_result = close(fd);
+    return written == (ssize_t)length && close_result == 0 ? 0 : -1;
+}
+
+void backpork_prepare_state(void) {
+    (void)unlink(ONION_READY_ROOT "/" ONION_READY_BACKPORK);
+    (void)unlink(ONION_READY_ROOT "/" ONION_READY_BACKPORK_FAILED);
+}
+
+void backpork_publish_failure(void) {
+    (void)backpork_publish_state(0);
+}
 
 static int hyperhen_automount_owns_mounts(void) {
     return access(HYPERHEN_AUTOMOUNT_SENTINEL, F_OK) == 0;
@@ -249,6 +288,14 @@ int backpork_main(void) {
         BP_LOG("monitor already active or lock unavailable pid=%d errno=%d\n",
                getpid(), errno);
         if (lock_fd >= 0) close(lock_fd);
+        backpork_publish_failure();
+        return -1;
+    }
+    if (backpork_publish_state(1) != 0) {
+        BP_LOG("monitor readiness publish failed pid=%d errno=%d\n",
+               getpid(), errno);
+        backpork_publish_failure();
+        close(lock_fd);
         return -1;
     }
     BP_LOG("native singleton monitor started pid=%d\n", getpid());
@@ -424,6 +471,7 @@ int backpork_main(void) {
 
 void *backpork_thread_entry(void *unused) {
     (void)unused;
-    backpork_main();
+    if (backpork_main() != 0)
+        backpork_publish_failure();
     return NULL;
 }

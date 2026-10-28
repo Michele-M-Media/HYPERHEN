@@ -4,9 +4,17 @@
 #include "util.h"
 #include "kdlsym.h"
 
+#include "offsets/12_70.h"
 #include "offsets/13_00.h"
 #include "offsets/13_20.h"
 #include "offsets/13_60.h"
+
+_Static_assert(sizeof(g_sym_map_1270) / sizeof(g_sym_map_1270[0]) ==
+                   KERNEL_SYM_MAX,
+               "12.70 symbol table is incomplete");
+_Static_assert(sizeof(g_gadget_map_1270) / sizeof(g_gadget_map_1270[0]) ==
+                   KERNEL_GADGET_MAX,
+               "12.70 gadget table is incomplete");
 
 uint64_t g_fw_version;
 uint64_t g_kernel_base = 0;
@@ -23,6 +31,8 @@ uint64_t kgadget(kgadget_t gadget)
     return 0;
 
   switch(kernel_get_fw_version() & 0xffff0000) {
+  case 0x12700000:
+    return ktext(g_gadget_map_1270[gadget]);
   case 0x13000000:
     return ktext(g_gadget_map_1300[gadget]);
   case 0x13200000:
@@ -41,6 +51,8 @@ uint64_t kdlsym(ksym_t sym)
     return 0;
 
   switch(kernel_get_fw_version() & 0xffff0000) {
+  case 0x12700000:
+    return ktext(g_sym_map_1270[sym]);
   case 0x13000000:
     return ktext(g_sym_map_1300[sym]);
   case 0x13200000:
@@ -59,6 +71,8 @@ uint64_t rawoff(ksym_t sym)
     return 0;
 
   switch(kernel_get_fw_version() & 0xffff0000) {
+  case 0x12700000:
+    return g_sym_map_1270[sym];
   case 0x13000000:
     return g_sym_map_1300[sym];
   case 0x13200000:

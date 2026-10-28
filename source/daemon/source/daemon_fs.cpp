@@ -337,6 +337,13 @@ static void shutdown_restart_shellui(void) {
   /* Let fifo_and_dumper_thread observe the flag before util vanishes. */
   usleep(100 * 1000);
 
+  pid_t deck_pid = -1;
+  if (onion_ready_read_pid(ONION_READY_HYPERDECK, &deck_pid) &&
+      deck_pid > 1 && onion_find_pid("hyperdeck.elf") == deck_pid) {
+    shutdown_owned_process("HyperDeck HTTP", deck_pid);
+    onion_ready_clear(ONION_READY_HYPERDECK);
+  }
+
   LOG_INFO("shutdown[1/4]: stop util");
   shutdown_owned_process("util", runtime_owned_util_pid());
   onion_ready_clear(ONION_READY_UTIL);

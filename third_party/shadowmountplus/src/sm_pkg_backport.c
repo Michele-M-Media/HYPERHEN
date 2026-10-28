@@ -3,10 +3,14 @@
 #include <pthread.h>
 
 #include "sm_gameinfo.h"
+#include "sm_filesystem.h"
+#include "sm_game_lifecycle.h"
 #include "sm_limits.h"
 #include "sm_log.h"
 #include "sm_pkg_backport.h"
 #include "sm_scan.h"
+#include "sm_runtime.h"
+#include "sm_time.h"
 
 #define NSFS_CONTROL_DEVICE "/dev/nsfsctl"
 #define NSFS_IOCTL_CREATE_REDIRECT 0xC0406E00UL
@@ -49,6 +53,8 @@ typedef struct {
   bool installed;
   bool ready;
   pid_t pid;
+  uint64_t cleanup_next_us;
+  uint64_t cleanup_deadline_us;
   char title_id[MAX_TITLE_ID];
   char root_source[MAX_PATH];
   char root_destination[MAX_PATH];
@@ -70,6 +76,10 @@ _Static_assert(PKG_BACKPORT_MAX_REDIRECTS * MAX_PATH <= UINT32_MAX,
 static pthread_mutex_t g_pkg_backport_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pkg_backport_session_t
     g_pkg_backport_sessions[PKG_BACKPORT_MAX_SESSIONS];
+
+static int session_namespace_status(const pkg_backport_session_t *session);
+static bool cleanup_session_locked(pkg_backport_session_t *session,
+                                   const char *reason);
 
 static void reset_session_locked(pkg_backport_session_t *session) {
   free(session->destination_storage);
@@ -123,7 +133,7 @@ static bool resolve_pkg_app0_path(
     return false;
 
   size_t title_length = strlen(title_id);
-  long best_index = -1;
+  bool found = false;
   int scan_errno = 0;
   for (;;) {
     errno = 0;
@@ -144,8 +154,8 @@ static bool resolve_pkg_app0_path(
     }
     errno = 0;
     char *end = NULL;
-    long index = strtol(suffix, &end, 10);
-    if (errno == ERANGE || !end || *end != '\0' || index < best_index)
+    (void)strtol(suffix, &end, 10);
+    if (errno == ERANGE || !end || *end != '\0')
       continue;
 
     char candidate[MAX_PATH];
@@ -155,13 +165,29 @@ static bool resolve_pkg_app0_path(
       continue;
     struct stat st;
     struct statfs fs;
-    if (stat(candidate, &st) != 0 || !S_ISDIR(st.st_mode) ||
-        statfs(candidate, &fs) != 0 ||
-        strcmp(fs.f_fstypename, "nsfs") != 0 ||
+    if (stat(candidate, &st) != 0) {
+      if (errno == ENOENT || errno == ENOTDIR)
+        continue;
+      scan_errno = errno != 0 ? errno : EIO;
+      break;
+    }
+    if (!S_ISDIR(st.st_mode))
+      continue;
+    if (statfs(candidate, &fs) != 0) {
+      if (errno == ENOENT || errno == ENOTDIR)
+        continue;
+      scan_errno = errno != 0 ? errno : EIO;
+      break;
+    }
+    if (strcmp(fs.f_fstypename, "nsfs") != 0 ||
         strcmp(fs.f_mntonname, candidate) != 0) {
       continue;
     }
-    best_index = index;
+    if (found) {
+      scan_errno = EBUSY;
+      break;
+    }
+    found = true;
     (void)strlcpy(app0_path, candidate, MAX_PATH);
     namespace_id->device = st.st_dev;
     memcpy(&namespace_id->fsid, &fs.f_fsid, sizeof(namespace_id->fsid));
@@ -170,24 +196,16 @@ static bool resolve_pkg_app0_path(
     scan_errno = errno;
   if (scan_errno != 0) {
     app0_path[0] = '\0';
+    memset(namespace_id, 0, sizeof(*namespace_id));
     errno = scan_errno;
     return false;
   }
-  if (best_index < 0) {
+  if (!found) {
     app0_path[0] = '\0';
+    errno = ENOENT; // No suitable NSFS app0 is a harmless precondition skip.
     return false;
   }
   return true;
-}
-
-static pkg_backport_session_t *
-find_session_by_title_locked(const char *title_id) {
-  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
-    pkg_backport_session_t *session = &g_pkg_backport_sessions[i];
-    if (session->installed && strcmp(session->title_id, title_id) == 0)
-      return session;
-  }
-  return NULL;
 }
 
 static pkg_backport_session_t *find_free_session_locked(void) {
@@ -209,13 +227,21 @@ static pkg_backport_session_t *prepare_session_locked(
     const pkg_backport_namespace_id_t *namespace_id, bool *already_ready) {
   *already_ready = false;
 
-  pkg_backport_session_t *session = find_session_by_title_locked(title_id);
-  if (session && !namespace_id_equal(&session->namespace_id, namespace_id)) {
-    log_debug("  [BKP][NSFS] stale package namespace released: title=%s "
-              "dst=%s",
-              session->title_id, session->root_destination);
-    reset_session_locked(session);
-    session = NULL;
+  pkg_backport_session_t *session = NULL;
+  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
+    pkg_backport_session_t *candidate = &g_pkg_backport_sessions[i];
+    if (!candidate->installed)
+      continue;
+    if (strcmp(candidate->title_id, title_id) == 0 &&
+        strcmp(candidate->root_destination, destination) == 0 &&
+        namespace_id_equal(&candidate->namespace_id, namespace_id)) {
+      session = candidate;
+      break;
+    }
+    // A new namespace does not prove the previous one was destroyed. Reclaim
+    // only namespaces verified gone; retain live/covered ones in existing slots.
+    if (session_namespace_status(candidate) > 0)
+      reset_session_locked(candidate);
   }
 
   if (session) {
@@ -252,31 +278,9 @@ static bool delete_redirect(int fd, const char *destination,
     return true;
   }
   *delete_errno = errno;
+  if (*delete_errno == 0)
+    *delete_errno = EIO;
   return *delete_errno == ENOENT || *delete_errno == EINVAL;
-}
-
-static bool rollback_redirects_locked(int fd,
-                                      pkg_backport_session_t *session) {
-  bool cleaned = true;
-  for (size_t i = session->redirect_count; i > 0; --i) {
-    pkg_backport_redirect_t *redirect = &session->redirects[i - 1u];
-    const char *destination = redirect_destination(session, redirect);
-    if (!destination)
-      continue;
-    int delete_errno = 0;
-    if (!delete_redirect(fd, destination, &delete_errno)) {
-      cleaned = false;
-      log_debug("  [BKP][NSFS] rollback failed: title=%s dst=%s "
-                "error=%d (%s)",
-                session->title_id, destination, delete_errno,
-                strerror(delete_errno));
-      continue;
-    }
-    redirect->destination_offset = UINT32_MAX;
-  }
-  if (cleaned)
-    session->redirect_count = 0;
-  return cleaned;
 }
 
 static bool create_redirect_locked(int fd, pkg_backport_session_t *session,
@@ -307,8 +311,11 @@ static bool create_redirect_locked(int fd, pkg_backport_session_t *session,
   request.type = type;
   request.scope = NSFS_SCOPE_UNCONDITIONAL;
   request.budget_id = NSFS_BUDGET_BIGAPP;
-  if (ioctl(fd, NSFS_IOCTL_CREATE_REDIRECT, &request) != 0)
+  if (ioctl(fd, NSFS_IOCTL_CREATE_REDIRECT, &request) != 0) {
+    if (errno == 0)
+      errno = EIO;
     return false;
+  }
 
   pkg_backport_redirect_t *redirect =
       &session->redirects[session->redirect_count++];
@@ -329,8 +336,11 @@ static bool create_child_redirects_locked(int fd,
     return false;
   }
   DIR *dir = opendir(source_directory);
-  if (!dir)
+  if (!dir) {
+    if (errno == 0)
+      errno = EIO;
     return false;
+  }
 
   int failure_errno = 0;
   for (;;) {
@@ -365,13 +375,13 @@ static bool create_child_redirects_locked(int fd,
 
     struct stat source_st;
     if (lstat(child_source, &source_st) != 0) {
-      failure_errno = errno;
+      failure_errno = errno != 0 ? errno : EIO;
       break;
     }
     if (S_ISREG(source_st.st_mode)) {
       if (!create_redirect_locked(fd, session, child_source,
                                   child_destination, NSFS_REDIRECT_PLAIN)) {
-        failure_errno = errno;
+        failure_errno = errno != 0 ? errno : EIO;
         break;
       }
       continue;
@@ -388,7 +398,7 @@ static bool create_child_redirects_locked(int fd,
       if (!create_child_redirects_locked(fd, session, child_source,
                                          child_destination, false,
                                          depth + 1u)) {
-        failure_errno = errno;
+        failure_errno = errno != 0 ? errno : EIO;
         break;
       }
       continue;
@@ -396,36 +406,60 @@ static bool create_child_redirects_locked(int fd,
     if (errno != ENOENT ||
         !create_redirect_locked(fd, session, child_source,
                                 child_destination, NSFS_REDIRECT_OVERLAY)) {
-      failure_errno = errno;
+      failure_errno = errno != 0 ? errno : EIO;
       break;
     }
   }
 
   if (closedir(dir) != 0 && failure_errno == 0)
-    failure_errno = errno;
+    failure_errno = errno != 0 ? errno : EIO;
   if (failure_errno == 0)
     return true;
   errno = failure_errno;
   return false;
 }
 
-static bool session_namespace_released(const pkg_backport_session_t *session) {
+// 0: the recorded namespace is accessible; 1: it is gone; -1: unavailable or
+// covered. Never issue path-based delete ioctls against an unverified namespace.
+static int session_namespace_status(const pkg_backport_session_t *session) {
   struct stat st;
   struct statfs fs;
-  if (stat(session->root_destination, &st) != 0)
-    return errno == ENOENT;
-  if (!S_ISDIR(st.st_mode))
-    return true;
-  if (statfs(session->root_destination, &fs) != 0)
-    return errno == ENOENT;
-  if (strcmp(fs.f_fstypename, "nsfs") != 0 ||
-      strcmp(fs.f_mntonname, session->root_destination) != 0) {
-    return true;
+  if (stat(session->root_destination, &st) == 0) {
+    if (S_ISDIR(st.st_mode)) {
+      if (statfs(session->root_destination, &fs) == 0) {
+        pkg_backport_namespace_id_t current = {.device = st.st_dev};
+        memcpy(&current.fsid, &fs.f_fsid, sizeof(current.fsid));
+        if (strcmp(fs.f_fstypename, "nsfs") == 0 &&
+            strcmp(fs.f_mntonname, session->root_destination) == 0 &&
+            namespace_id_equal(&session->namespace_id, &current))
+          return 0;
+      } else if (errno != ENOENT && errno != ENOTDIR) {
+        return -1;
+      }
+    }
+  } else if (errno != ENOENT && errno != ENOTDIR) {
+    return -1;
   }
 
-  pkg_backport_namespace_id_t current = {.device = st.st_dev};
-  memcpy(&current.fsid, &fs.f_fsid, sizeof(current.fsid));
-  return !namespace_id_equal(&session->namespace_id, &current);
+  struct statfs *mounts = NULL;
+  int count = sm_mount_table_snapshot(&mounts);
+  if (count < 0)
+    return -1;
+  bool present = false;
+  for (int i = 0; i < count; ++i) {
+    if (strcmp(mounts[i].f_fstypename, "nsfs") == 0 &&
+        memcmp(&mounts[i].f_fsid, &session->namespace_id.fsid,
+               sizeof(session->namespace_id.fsid)) == 0) {
+      present = true;
+      break;
+    }
+  }
+  free(mounts);
+  if (present) {
+    errno = EBUSY;
+    return -1;
+  }
+  return 1;
 }
 
 static bool cleanup_session_locked(pkg_backport_session_t *session,
@@ -433,8 +467,12 @@ static bool cleanup_session_locked(pkg_backport_session_t *session,
   if (!session->installed)
     return true;
 
+  session->ready = false;
   size_t redirect_count = session->redirect_count;
-  if (session_namespace_released(session)) {
+  int status = session_namespace_status(session);
+  if (status < 0)
+    return false;
+  if (status > 0) {
     log_debug("  [BKP][NSFS] redirects released with namespace: title=%s "
               "count=%zu reason=%s",
               session->title_id, redirect_count, reason);
@@ -445,7 +483,8 @@ static bool cleanup_session_locked(pkg_backport_session_t *session,
   int fd = open(NSFS_CONTROL_DEVICE, O_RDWR);
   if (fd < 0) {
     int open_errno = errno;
-    log_debug("  [BKP][NSFS] redirect cleanup unavailable: title=%s "
+    if (session->cleanup_deadline_us == 0)
+      log_debug("  [BKP][NSFS] redirect cleanup unavailable: title=%s "
               "reason=%s error=%d (%s)",
               session->title_id, reason, open_errno, strerror(open_errno));
     errno = open_errno;
@@ -457,14 +496,20 @@ static bool cleanup_session_locked(pkg_backport_session_t *session,
   for (size_t i = session->redirect_count; i > 0; --i) {
     pkg_backport_redirect_t *redirect = &session->redirects[i - 1u];
     const char *destination = redirect_destination(session, redirect);
-    if (!destination)
+    if (!destination) {
+      if (redirect->destination_offset != UINT32_MAX) {
+        first_errno = EIO;
+        cleaned = false;
+      }
       continue;
+    }
     int delete_errno = 0;
     if (!delete_redirect(fd, destination, &delete_errno)) {
-      if (first_errno == 0)
+      if (first_errno == 0 || first_errno == EBUSY)
         first_errno = delete_errno;
       cleaned = false;
-      log_debug("  [BKP][NSFS] redirect cleanup failed: title=%s dst=%s "
+      if (session->cleanup_deadline_us == 0)
+        log_debug("  [BKP][NSFS] redirect cleanup failed: title=%s dst=%s "
                 "reason=%s error=%d (%s)",
                 session->title_id, destination, reason, delete_errno,
                 strerror(delete_errno));
@@ -484,6 +529,68 @@ static bool cleanup_session_locked(pkg_backport_session_t *session,
   return true;
 }
 
+static void schedule_pkg_cleanup(pkg_backport_session_t *session) {
+  int cleanup_errno = errno != 0 ? errno : EIO;
+  if (runtime_sleep_mode_active() || should_stop_requested()) {
+    session->cleanup_next_us = 0;
+    return;
+  }
+  if (cleanup_errno != EBUSY) {
+    session->cleanup_next_us = 0;
+    log_debug("  [BKP][NSFS] cleanup retained: title=%s error=%d (%s)",
+              session->title_id, cleanup_errno, strerror(cleanup_errno));
+    return;
+  }
+  uint64_t now_us = monotonic_time_us();
+  if (session->cleanup_deadline_us == 0 && now_us != 0) {
+    session->cleanup_deadline_us = now_us + GAME_SANDBOX_CLEANUP_TIMEOUT_US;
+    log_debug("  [BKP][NSFS] busy redirect cleanup scheduled: %s",
+              session->title_id);
+  }
+  if (now_us == 0 || now_us >= session->cleanup_deadline_us) {
+    session->cleanup_next_us = 0;
+    log_debug("  [BKP][NSFS] cleanup wait ended; retaining redirects: %s",
+              session->title_id);
+    return;
+  }
+  bool needs_wake = session->cleanup_next_us == 0;
+  uint64_t next_us = now_us + GAME_LIFECYCLE_POLL_INTERVAL_US;
+  session->cleanup_next_us = next_us < session->cleanup_deadline_us
+                                 ? next_us : session->cleanup_deadline_us;
+  if (needs_wake)
+    wake_game_lifecycle_watcher();
+}
+
+uint64_t sm_pkg_backport_next_cleanup_us(void) {
+  uint64_t next_us = 0;
+  pthread_mutex_lock(&g_pkg_backport_mutex);
+  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
+    uint64_t due_us = g_pkg_backport_sessions[i].cleanup_next_us;
+    if (due_us != 0 && (next_us == 0 || due_us < next_us))
+      next_us = due_us;
+  }
+  pthread_mutex_unlock(&g_pkg_backport_mutex);
+  return next_us;
+}
+
+void sm_pkg_backport_poll_cleanup(void) {
+  pthread_mutex_lock(&g_pkg_backport_mutex);
+  uint64_t now_us = monotonic_time_us();
+  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
+    pkg_backport_session_t *session = &g_pkg_backport_sessions[i];
+    if (runtime_sleep_mode_active() || should_stop_requested()) {
+      session->cleanup_next_us = 0;
+      continue;
+    }
+    if (session->cleanup_next_us != 0 &&
+        (now_us == 0 || now_us >= session->cleanup_next_us)) {
+      if (!cleanup_session_locked(session, "exit retry"))
+        schedule_pkg_cleanup(session);
+    }
+  }
+  pthread_mutex_unlock(&g_pkg_backport_mutex);
+}
+
 bool sm_pkg_backport_on_sandbox_ready(const char *title_id) {
   if (!title_id || !is_supported_game_title_id(title_id))
     return true;
@@ -495,12 +602,22 @@ bool sm_pkg_backport_on_sandbox_ready(const char *title_id) {
   char app0_path[MAX_PATH];
   pkg_backport_namespace_id_t namespace_id;
   if (!resolve_pkg_app0_path(title_id, app0_path, &namespace_id)) {
-    log_debug("  [BKP][NSFS] package app0 not ready or not NSFS: %s",
-              title_id);
-    return true;
+    int resolve_errno = errno;
+    bool skipped = resolve_errno == ENOENT || resolve_errno == ENOTDIR;
+    if (!skipped)
+      log_debug("  [BKP][NSFS] package app0 lookup failed: title=%s error=%d (%s)",
+                title_id, resolve_errno, strerror(resolve_errno));
+    errno = resolve_errno;
+    return skipped;
   }
 
   pthread_mutex_lock(&g_pkg_backport_mutex);
+  // The request can have waited behind suspend or shutdown cleanup.
+  if (runtime_sleep_mode_active() || should_stop_requested()) {
+    pthread_mutex_unlock(&g_pkg_backport_mutex);
+    errno = EBUSY;
+    return false;
+  }
   bool already_ready = false;
   pkg_backport_session_t *session = prepare_session_locked(
       title_id, source, app0_path, &namespace_id, &already_ready);
@@ -514,19 +631,32 @@ bool sm_pkg_backport_on_sandbox_ready(const char *title_id) {
   }
 
   int fd = open(NSFS_CONTROL_DEVICE, O_RDWR);
+  if (fd >= 0) {
+    // Resolution happened before taking the session lock and opening nsfsctl.
+    // Do not create redirects if that namespace was replaced in the meantime.
+    int status = session_namespace_status(session);
+    if (status != 0) {
+      int namespace_errno = status > 0 ? ENOENT : (errno != 0 ? errno : EIO);
+      (void)close(fd);
+      reset_session_locked(session);
+      pthread_mutex_unlock(&g_pkg_backport_mutex);
+      errno = namespace_errno;
+      return status > 0;
+    }
+  }
   bool redirects_created =
       fd >= 0 && create_child_redirects_locked(fd, session, source, app0_path,
                                                true, 0u);
-  int redirect_errno = redirects_created ? 0 : errno;
+  int redirect_errno = redirects_created ? 0 : (errno != 0 ? errno : EIO);
 
   if (redirect_errno != 0) {
-    if (fd < 0 || rollback_redirects_locked(fd, session)) {
-      reset_session_locked(session);
-    } else {
-      session->installed = true;
-    }
     if (fd >= 0)
       (void)close(fd);
+    session->installed = session->redirect_count != 0;
+    if (!cleanup_session_locked(session, "rollback"))
+      schedule_pkg_cleanup(session);
+    else
+      reset_session_locked(session);
     pthread_mutex_unlock(&g_pkg_backport_mutex);
     log_debug("  [BKP][NSFS] file redirect failed: title=%s src=%s dst=%s "
               "error=%d (%s)",
@@ -560,9 +690,13 @@ void sm_pkg_backport_on_launch_failed(const char *title_id) {
   if (!title_id)
     return;
   pthread_mutex_lock(&g_pkg_backport_mutex);
-  pkg_backport_session_t *session = find_session_by_title_locked(title_id);
-  if (session && session->pid <= 0)
-    (void)cleanup_session_locked(session, "launch failed");
+  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
+    pkg_backport_session_t *session = &g_pkg_backport_sessions[i];
+    if (session->installed && session->pid <= 0 &&
+        strcmp(session->title_id, title_id) == 0 &&
+        !cleanup_session_locked(session, "launch failed"))
+      schedule_pkg_cleanup(session);
+  }
   pthread_mutex_unlock(&g_pkg_backport_mutex);
 }
 
@@ -571,9 +705,14 @@ void sm_pkg_backport_on_exec(pid_t pid, const char *title_id) {
     return;
 
   pthread_mutex_lock(&g_pkg_backport_mutex);
-  pkg_backport_session_t *session = find_session_by_title_locked(title_id);
-  if (session)
-    session->pid = pid;
+  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
+    pkg_backport_session_t *session = &g_pkg_backport_sessions[i];
+    if (session->installed && strcmp(session->title_id, title_id) == 0) {
+      session->pid = pid;
+      session->cleanup_next_us = 0;
+      session->cleanup_deadline_us = 0;
+    }
+  }
   pthread_mutex_unlock(&g_pkg_backport_mutex);
 }
 
@@ -583,15 +722,22 @@ void sm_pkg_backport_on_exit(pid_t pid) {
   pthread_mutex_lock(&g_pkg_backport_mutex);
   for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
     pkg_backport_session_t *session = &g_pkg_backport_sessions[i];
-    if (session->installed && session->pid == pid)
-      (void)cleanup_session_locked(session, "game exit");
+    if (session->installed && session->pid == pid &&
+        !cleanup_session_locked(session, "game exit"))
+      schedule_pkg_cleanup(session);
   }
   pthread_mutex_unlock(&g_pkg_backport_mutex);
 }
 
 void sm_pkg_backport_shutdown(void) {
   pthread_mutex_lock(&g_pkg_backport_mutex);
-  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i)
-    (void)cleanup_session_locked(&g_pkg_backport_sessions[i], "shutdown");
+  for (size_t i = 0; i < PKG_BACKPORT_MAX_SESSIONS; ++i) {
+    pkg_backport_session_t *session = &g_pkg_backport_sessions[i];
+    if (!cleanup_session_locked(session, "shutdown"))
+      log_debug("  [BKP][NSFS] shutdown retained redirects: title=%s error=%d",
+                session->title_id, errno);
+    session->cleanup_next_us = 0;
+    session->cleanup_deadline_us = 0;
+  }
   pthread_mutex_unlock(&g_pkg_backport_mutex);
 }

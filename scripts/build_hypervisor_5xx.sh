@@ -18,7 +18,7 @@ fi
 
 mkdir -p "$(dirname "$output_elf")"
 make -C "$source_dir" clean
-make -C "$source_dir" EXTRA_CFLAGS="-DHV5XX_KROP_THEFLOW_0506_NPT0 -DHV5XX_THEFLOW_POST_WRITE_ALL=1"
+make -C "$source_dir" EXTRA_CFLAGS="-DHV5XX_KROP_THEFLOW_0506_NPT0 -DHV5XX_THEFLOW_DO_RELOAD=0 -DHV5XX_THEFLOW_POST_VERIFY_ALL=1"
 
 built_elf="$source_dir/bypervisor5XX.elf"
 if [[ ! -s "$built_elf" ]]; then

@@ -55,12 +55,23 @@ jobs:
             lld-18 \
             makepkg \
             meson \
+            nasm \
             pacman-package-manager \
             pkg-config \
             python3 \
             python3-yaml \
             xxd \
             zip
+
+      - name: Configure pacman for locally built packages
+        run: |
+          sudo install -d -m 755 /var/lib/pacman/local /var/cache/pacman/pkg
+          sudo tee /etc/pacman.conf > /dev/null <<'EOF'
+          [options]
+          Architecture = auto
+          SigLevel = Required DatabaseOptional
+          LocalFileSigLevel = Optional
+          EOF
 
       - name: Build PS5 payload SDK
         working-directory: pacbrew-repo/sdk
@@ -98,11 +109,26 @@ jobs:
           makepkg -c -f
           sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
 
+      - name: Build PS5 libjpeg-turbo package
+        working-directory: pacbrew-repo/libjpeg-turbo
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
       - name: Build PS5 sqlite package
         working-directory: pacbrew-repo/sqlite
         run: |
           makepkg -c -f
           sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+
+      - name: Build PS5 libsmb2 package
+        working-directory: pacbrew-repo/libsmb2
+        run: |
+          makepkg -c -f
+          sudo pacman --noconfirm -U ./ps5-payload-*.pkg.tar.gz
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/include/smb2/smb2.h
+          test -f /opt/ps5-payload-sdk/target/user/homebrew/include/smb2/libsmb2-raw.h
+          test -s /opt/ps5-payload-sdk/target/user/homebrew/lib/libsmb2.a
 
       - name: Check API tools and manifest
         run: |
@@ -111,7 +137,8 @@ jobs:
 
       - name: Build payload
         run: |
-          make clean all PS5_SCE_STUBS_DIR="$GITHUB_WORKSPACE/ps5-sdk/sce_stubs"
+          make clean
+          make -j4 all PS5_SCE_STUBS_DIR="$GITHUB_WORKSPACE/ps5-sdk/sce_stubs"
 
       - name: Create release archive
         id: package
@@ -122,7 +149,7 @@ jobs:
           archive_name="ShadowMountPlus_${version_tag}.zip"
           manifest_file=".github/release-files.txt"
 
-          mapfile -t release_files < <(grep -Ev '^[[:space:]]*(#|$)' "${manifest_file}")
+          mapfile -t release_files < <(tr -d '\r' < "${manifest_file}" | grep -Ev '^[[:space:]]*(#|$)')
 
           if [ "${#release_files[@]}" -eq 0 ]; then
             echo "Release manifest is empty: ${manifest_file}" >&2

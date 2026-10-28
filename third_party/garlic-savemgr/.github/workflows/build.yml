@@ -1,0 +1,38 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LLVM
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get install -y llvm clang lld
+
+      - name: Download PS5 Payload SDK
+        run: |
+          curl -fLsS -o /tmp/ps5-payload-sdk.zip \
+            https://github.com/ps5-payload-dev/sdk/releases/download/v0.44/ps5-payload-sdk.zip
+          unzip /tmp/ps5-payload-sdk.zip -d /tmp
+
+      - name: Check all 67 firmware profiles
+        run: make check-offsets
+
+      - name: Build with SDK v0.44
+        run: make PS5_PAYLOAD_SDK=/tmp/ps5-payload-sdk
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: garlic-savemgr.elf

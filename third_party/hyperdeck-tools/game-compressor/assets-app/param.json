@@ -1,0 +1,29 @@
+{
+  "applicationCategoryType": 0,
+  "titleId": "PSGC50001",
+  "deeplinkUri": "http://127.0.0.1:5910/",
+  "localizedParameters": {
+    "defaultLanguage": "en-US",
+    "en-US": {
+      "titleName": "Game Compressor"
+    },
+    "de-DE": {
+      "titleName": "Spielekompressor"
+    },
+    "fr-FR": {
+      "titleName": "Compresseur de jeux"
+    },
+    "ar-AE": {
+      "titleName": "ضاغط الألعاب"
+    },
+    "it-IT": {
+      "titleName": "Compressore giochi"
+    },
+    "es-ES": {
+      "titleName": "Compresor de juegos"
+    },
+    "zh-Hans": {
+      "titleName": "游戏压缩器"
+    }
+  }
+}

@@ -37,6 +37,12 @@ ports are recorded in
 | `klogsrv-ps5.elf` | [ps5-payload-dev/klogsrv](https://github.com/ps5-payload-dev/klogsrv), John Törnblom; current port/quiet argument contribution by Al-Azif | Embedded unchanged |
 | `ftpsrv-ps5.elf` | [ps5-payload-dev/ftpsrv](https://github.com/ps5-payload-dev/ftpsrv), John Törnblom; current-tree contributions from EchoStretch, Al-Azif, Matthew Vanek, and Gezine | Embedded unchanged |
 
+The additional user-supplied debug prebuilts (`ps5-fw-spoof`,
+`np-fake-signin`, NanoDNS, Chukei DNS, and zFTPd/zHTTP)
+are embedded unchanged and byte-locked in the same vendor record. Their full
+upstream license and redistribution provenance must be confirmed before a
+public binary release.
+
 The external first-hop [elfldr](https://github.com/ps5-payload-dev/elfldr) is
 also developed by John Törnblom and distributed upstream under GPL-3.0-or-later.
 HyperHEN does not embed its current upstream release ELF; it builds its private
@@ -50,6 +56,8 @@ include a standalone license file at their vendored root:
 - `third_party/byepervisor-reborn/`
 - `third_party/bypervisor-5xx/`
 - `third_party/ps5-hen-dev/`
+- `third_party/hyperlinux-1360/1360linux.elf`
+- `third_party/byepervisor-940/byepervisor-940.elf`
 - the prebuilt Keystone archive under `third_party/keystone/`
 
 Their upstream redistribution terms and the exact Keystone build provenance
@@ -64,6 +72,21 @@ dependencies and are not copied into the HyperHEN release. GoldHEN and
 a53-code-exec are design or research references and are not embedded. The
 optional onionHEN FTP plugin is installed separately by the user. Their
 respective upstream terms apply.
+
+HyperDeck revision 10 builds and embeds the supplied PS5 Game Compressor 1.0.4,
+PS5 Web File Manager 1.11, CheatRunner 0.18, and PS5Upload 7.1.5 source trees.
+Their original frontends, backend functions and native API
+layouts are retained. HyperDeck
+starts each complete service on demand on its own native port; only the code
+path that creates that project's separate Media title is excluded. The source,
+license and README material is retained under `third_party/hyperdeck-tools/`.
+LiveShell 1.4 source and its GPL-3.0 notice remain vendored for research, but
+its renderer, daemon, and web interface are not compiled or embedded in this
+release after hardware compatibility testing failed.
+The supplied Game Compressor snapshot did not include a standalone license
+file, so public redistribution permission must be confirmed with its author
+before shipping an ELF that embeds that component. LiveShell retains its
+GPL-3.0 notice; PS5Upload retains its supplied license and license exceptions.
 
 ## Preservation rule
 

@@ -829,7 +829,7 @@ static sm_scan_tree_dir_visit_t register_watch_directory_visit(
     if (is_under_image_mount_base(dir_path))
       return SM_SCAN_TREE_DIR_SKIP_DESCEND;
     if (depth_from_root >= ctx->scan_depth ||
-        directory_has_param_json(dir_path, NULL)) {
+        directory_has_game_param(dir_path, NULL)) {
       return SM_SCAN_TREE_DIR_SKIP_DESCEND;
     }
   }
@@ -1357,8 +1357,21 @@ static bool apply_runtime_config_reload_effects(int kq,
   return true;
 }
 
+static void update_scan_work_blocked(bool blocked, bool *was_blocked,
+                                      uint64_t now_us,
+                                      uint64_t *next_full_resync_us) {
+  if (blocked) {
+    *was_blocked = true;
+    *next_full_resync_us = 0;
+  } else if (*was_blocked) {
+    *was_blocked = false;
+    *next_full_resync_us = now_us;
+  }
+}
+
 static bool should_abort_scan_cycle(void) {
-  return should_stop_requested() || runtime_sleep_mode_active();
+  return should_stop_requested() || runtime_sleep_mode_active() ||
+         !sm_game_lifecycle_background_title(NULL);
 }
 
 static bool run_full_scan_cycle_impl(bool startup_sync, const char *reason,
@@ -1423,8 +1436,23 @@ static bool run_full_scan_cycle_impl(bool startup_sync, const char *reason,
 static bool run_full_scan_cycle(bool startup_sync, const char *reason,
                                 bool *unstable_found_out) {
   pthread_mutex_lock(&g_scanner_cycle_mutex);
-  bool completed =
-      run_full_scan_cycle_impl(startup_sync, reason, unstable_found_out);
+  bool guard = sm_game_lifecycle_has_active_game();
+  bool claimed = !guard || sm_shellcore_try_begin_external_mutation();
+  bool completed = true;
+  if (!claimed || (guard && sm_shellcore_background_work_blocked())) {
+    if (unstable_found_out)
+      *unstable_found_out = true;
+  } else {
+    completed = run_full_scan_cycle_impl(startup_sync, reason,
+                                         unstable_found_out);
+  }
+  if (guard && claimed)
+    sm_shellcore_end_external_mutation();
+  if (!completed && !should_stop_requested() && !runtime_sleep_mode_active()) {
+    if (unstable_found_out)
+      *unstable_found_out = true;
+    completed = true;
+  }
   pthread_mutex_unlock(&g_scanner_cycle_mutex);
   return completed;
 }
@@ -1481,8 +1509,23 @@ static bool run_targeted_scan_cycle_impl(int scan_root_index,
 static bool run_targeted_scan_cycle(int scan_root_index,
                                     bool *unstable_found_out) {
   pthread_mutex_lock(&g_scanner_cycle_mutex);
-  bool completed =
-      run_targeted_scan_cycle_impl(scan_root_index, unstable_found_out);
+  bool guard = sm_game_lifecycle_has_active_game();
+  bool claimed = !guard || sm_shellcore_try_begin_external_mutation();
+  bool completed = true;
+  if (!claimed || (guard && sm_shellcore_background_work_blocked())) {
+    if (unstable_found_out)
+      *unstable_found_out = true;
+  } else {
+    completed = run_targeted_scan_cycle_impl(scan_root_index,
+                                             unstable_found_out);
+  }
+  if (guard && claimed)
+    sm_shellcore_end_external_mutation();
+  if (!completed && !should_stop_requested() && !runtime_sleep_mode_active()) {
+    if (unstable_found_out)
+      *unstable_found_out = true;
+    completed = true;
+  }
   pthread_mutex_unlock(&g_scanner_cycle_mutex);
   return completed;
 }
@@ -2096,8 +2139,9 @@ void sm_scanner_run_loop(void) {
       (void)sm_shellcore_hooks_refresh();
     }
 
-    bool game_mount_busy = sm_game_lifecycle_has_active_game() ||
-                           sm_shellcore_service_has_prepared_mount();
+    bool game_mount_busy = sm_shellcore_background_work_blocked();
+    update_scan_work_blocked(game_mount_busy, &scan_work_blocked,
+                             monotonic_time_us(), &next_full_resync_us);
     char scan_reason[128];
     bool reset_attempts = false;
     if (!game_mount_busy &&
@@ -2143,20 +2187,14 @@ void sm_scanner_run_loop(void) {
       request_scanner_shutdown("USB watcher refresh failed");
       return;
     }
-    game_mount_busy = sm_game_lifecycle_has_active_game() ||
-                      sm_shellcore_service_has_prepared_mount();
+    game_mount_busy = sm_shellcore_background_work_blocked();
     if (!storage_watch_active && game_mount_busy &&
         g_scanner_usb_mount_probe_due_us == 0) {
       g_scanner_usb_mount_probe_due_us =
           now_us + SCANNER_STORAGE_FALLBACK_PROBE_US;
     }
-    if (game_mount_busy) {
-      next_full_resync_us = 0;
-      scan_work_blocked = true;
-    } else if (scan_work_blocked) {
-      scan_work_blocked = false;
-      next_full_resync_us = now_us + scanner_full_resync_interval_us();
-    }
+    update_scan_work_blocked(game_mount_busy, &scan_work_blocked, now_us,
+                             &next_full_resync_us);
 
     if (config_probe_due(now_us)) {
       g_scanner_config_probe_due_us = 0;
@@ -2289,10 +2327,17 @@ void sm_scanner_run_loop(void) {
     int cleanup_root_index =
         game_mount_busy ? -1 : find_pending_cleanup_scan_root();
     if (cleanup_root_index >= 0) {
+      pthread_mutex_lock(&g_scanner_cycle_mutex);
+      if (!sm_shellcore_try_begin_external_mutation()) {
+        pthread_mutex_unlock(&g_scanner_cycle_mutex);
+        continue;
+      }
       g_scanner_root_states[cleanup_root_index].cleanup_pending = false;
       char scan_root[MAX_PATH];
       if (get_scan_path(cleanup_root_index, scan_root))
         cleanup_lost_sources_for_scan_root(scan_root);
+      sm_shellcore_end_external_mutation();
+      pthread_mutex_unlock(&g_scanner_cycle_mutex);
       continue;
     }
 

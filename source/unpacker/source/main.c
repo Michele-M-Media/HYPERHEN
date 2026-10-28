@@ -14,6 +14,7 @@
 #include <onion/conflict.h>
 #include <onion/log.h>
 #include <onion/notify.h>
+#include <onion/notify_i18n.h>
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -22,9 +23,14 @@
 
 int32_t sceKernelSendNotificationRequest(int32_t device, void *req, size_t size,
                                          int32_t blocking);
+int sceSystemServiceParamGetInt(int parameter, int *value);
 
 int main(void) {
   onion_notify_set_send(sceKernelSendNotificationRequest);
+  int system_language = 1;
+  if (sceSystemServiceParamGetInt(1, &system_language) < 0 || system_language < 0)
+    system_language = 1;
+  onion_notify_apply_ui_language(0, system_language);
 
   const char *conflict = onion_conflict_detect();
   if (conflict) {

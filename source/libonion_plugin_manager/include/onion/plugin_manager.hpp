@@ -17,7 +17,7 @@ inline constexpr size_t kIdCapacity = 32;
 inline constexpr size_t kVersionCapacity = 16;
 inline constexpr size_t kNameCapacity = 64;
 inline constexpr size_t kDescriptorV1Size = 128;
-inline constexpr size_t kDefaultMaxElfSize = 64u * 1024u * 1024u;
+inline constexpr size_t kDefaultMaxElfSize = 128u * 1024u * 1024u;
 inline constexpr uint32_t kKnownCapabilities = (1u << 6) - 1u;
 inline constexpr uint32_t kFlagLongRunning = 1u << 1;
 inline constexpr uint32_t kFlagStopSupported = 1u << 2;
@@ -95,6 +95,9 @@ class ProcessRuntime {
 public:
   virtual ~ProcessRuntime() = default;
   virtual pid_t recover(std::string_view plugin_id) = 0;
+  virtual pid_t recover_file(const PluginFile &plugin) {
+    return recover(plugin.descriptor.plugin_id);
+  }
   virtual pid_t launch(const PluginFile &plugin) = 0;
   virtual bool alive(pid_t pid) = 0;
   virtual void persist(std::string_view plugin_id, pid_t pid) = 0;
@@ -114,6 +117,7 @@ struct InventoryEntry {
   uint64_t fingerprint = 0;
   pid_t pid = -1;
   bool auto_start_marker = false;
+  bool manual_only = false;
 
   bool running() const { return pid > 1; }
   bool auto_start() const { return auto_start_marker; }

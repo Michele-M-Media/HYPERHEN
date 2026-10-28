@@ -68,10 +68,11 @@ static void note_found_indexed_title(const char *title_id, const void *ctx) {
   char linked_image[MAX_PATH];
   if (!image_path ||
       !read_mount_link(title_id, runtime_path, sizeof(runtime_path)) ||
-      !read_mount_image_link(title_id, linked_image, sizeof(linked_image)) ||
-      strcmp(linked_image, image_path) != 0) {
+      !read_mount_image_link(title_id, linked_image, sizeof(linked_image))) {
     return;
   }
+  if (strcmp(linked_image, image_path) != 0)
+    notify_duplicate_title_once(title_id, image_path, linked_image);
   cache_game_entry(runtime_path, title_id, "");
 }
 
@@ -218,9 +219,9 @@ static directory_candidate_probe_t probe_directory_candidate(
     return DIRECTORY_CANDIDATE_SKIP_DESCEND;
   }
 
-  if (!directory_has_param_json(full_path, &param_st)) {
+  if (!directory_has_game_param(full_path, &param_st)) {
     if (is_missing_param_scan_limited(full_path)) {
-      log_debug("  [SKIP] param.json retry limit reached: %s", full_path);
+      log_debug("  [SKIP] param.json/param.sfo retry limit reached: %s", full_path);
     } else {
       record_missing_param_failure(full_path);
     }
@@ -324,13 +325,8 @@ static existing_directory_result_t handle_existing_directory_candidate(
       installed ? get_appmeta_present_for_scan_cycle(info->title_id) : false;
   link_matches_source = installed && link_matches_source;
   bool source_valid = false;
-  if (link_matches_source) {
-    char eboot_path[MAX_PATH];
-    int written = snprintf(eboot_path, sizeof(eboot_path), "%s/eboot.bin",
-                           full_path);
-    source_valid = written > 0 && (size_t)written < sizeof(eboot_path) &&
-                   path_exists(eboot_path);
-  }
+  if (link_matches_source)
+    source_valid = directory_has_game_executable(full_path);
 
   if (source_valid && appmeta_present) {
     cache_game_entry(full_path, info->title_id, info->title_name);
@@ -338,11 +334,20 @@ static existing_directory_result_t handle_existing_directory_candidate(
   }
 
   if (installed && appmeta_present && has_tracked_path &&
-      strcmp(tracked_path, full_path) != 0 &&
-      is_data_mounted(info->title_id)) {
-    (void)strlcpy(preferred_existing_path_out, tracked_path, MAX_PATH);
-    cache_game_entry(tracked_path, info->title_id, info->title_name);
-    return EXISTING_DIRECTORY_PREFER_CACHED;
+      strcmp(tracked_path, full_path) != 0) {
+    char linked_image[MAX_PATH];
+    // Runtime layers are normally released between scans. Keep the selected
+    // image while its fingerprint still proves that it contains this title.
+    bool linked_source_valid =
+        is_under_image_mount_base(tracked_path) &&
+        read_mount_image_link(info->title_id, linked_image,
+                               sizeof(linked_image)) &&
+        sm_image_index_source_has_title(linked_image, info->title_id);
+    if (linked_source_valid || is_data_mounted(info->title_id)) {
+      (void)strlcpy(preferred_existing_path_out, tracked_path, MAX_PATH);
+      cache_game_entry(tracked_path, info->title_id, info->title_name);
+      return EXISTING_DIRECTORY_PREFER_CACHED;
+    }
   }
 
   if (!in_app_db && is_title_install_pending(info->title_id))
@@ -428,12 +433,14 @@ static bool try_collect_candidate_for_directory(
 
   note_found_title(info.title_id);
 
-  note_game_cache_source_seen(full_path, info.title_id, info.title_name);
-
   if (!sm_image_index_record_game(full_path, info.title_id) &&
       unstable_found_out) {
     *unstable_found_out = true;
   }
+  if (sm_shellcore_title_is_protected(info.title_id))
+    return true;
+
+  note_game_cache_source_seen(full_path, info.title_id, info.title_name);
 
   int duplicate_candidate_index = find_scan_candidate_index_by_title_id(
       candidates, *candidate_count, info.title_id);
@@ -515,6 +522,8 @@ static void collect_scan_candidates_from_manual_root(
 
 static sm_scan_tree_dir_visit_t collect_candidate_directory_visit(
     const char *dir_path, unsigned int depth_from_root, void *ctx_ptr) {
+  if (!sm_game_lifecycle_background_title(NULL))
+    return SM_SCAN_TREE_DIR_ABORT;
   if (depth_from_root == 0u)
     return SM_SCAN_TREE_DIR_DESCEND;
 
@@ -539,6 +548,8 @@ static bool collect_candidate_image_visit(const char *image_path,
                                           unsigned int depth_from_root,
                                           void *ctx_ptr) {
   (void)depth_from_root;
+  if (!sm_game_lifecycle_background_title(NULL))
+    return false;
 
   collect_candidates_walk_ctx_t *ctx = (collect_candidates_walk_ctx_t *)ctx_ptr;
   if (defer_full_candidate_batch(*ctx->candidate_count, ctx->max_candidates,
@@ -600,7 +611,7 @@ static void collect_scan_candidates_from_manual_root(
   bool try_root_candidate = !pfsc_container_root;
   if (try_root_candidate && is_under_image_mount_base(scan_path)) {
     struct stat param_st;
-    try_root_candidate = directory_has_param_json(scan_path, &param_st);
+    try_root_candidate = directory_has_game_param(scan_path, &param_st);
   }
 
   if (try_root_candidate) {
@@ -703,7 +714,7 @@ static void collect_scan_candidates_from_manual_path(
   }
 
   struct stat param_st;
-  if (!S_ISDIR(st.st_mode) || !directory_has_param_json(manual_path, &param_st)) {
+  if (!S_ISDIR(st.st_mode) || !directory_has_game_param(manual_path, &param_st)) {
     log_debug("  [MANUAL] expected game directory or image file: %s",
               manual_path);
     return;
@@ -744,9 +755,16 @@ static bool collect_manual_path_visit(const char *manual_path, void *ctx_ptr) {
   return true;
 }
 
-static bool build_backport_path_for_scan_root(const char *title_id,
+static bool backport_path_is_dir(const char *backport_path) {
+  struct stat st;
+  return backport_path && stat(backport_path, &st) == 0 &&
+         S_ISDIR(st.st_mode);
+}
+
+static bool resolve_backport_path_for_scan_root(const char *title_id,
                                               const char *scan_path,
                                               char backport_path[MAX_PATH]) {
+  backport_path[0] = '\0';
   if (!title_id || title_id[0] == '\0' || !scan_path || scan_path[0] == '\0')
     return false;
 
@@ -756,25 +774,66 @@ static bool build_backport_path_for_scan_root(const char *title_id,
 
   int written = snprintf(backport_path, MAX_PATH, "%s/%s", backport_root,
                          title_id);
-  return written > 0 && (size_t)written < MAX_PATH;
-}
+  if (written <= 0 || (size_t)written >= MAX_PATH) {
+    backport_path[0] = '\0';
+    return false;
+  }
+  if (backport_path_is_dir(backport_path))
+    return true;
 
-static bool backport_path_is_dir(const char *backport_path) {
-  struct stat st;
-  return backport_path && stat(backport_path, &st) == 0 &&
-         S_ISDIR(st.st_mode);
+  backport_path[0] = '\0';
+  DIR *directory = opendir(backport_root);
+  if (!directory)
+    return false;
+
+  size_t name_offset = strlen(backport_root) + 1u;
+  int read_error;
+  for (;;) {
+    errno = 0;
+    struct dirent *entry = readdir(directory);
+    if (!entry) {
+      read_error = errno;
+      break;
+    }
+    if (!backport_name_matches_title(title_id, entry->d_name))
+      continue;
+    if (entry->d_type != DT_DIR && entry->d_type != DT_UNKNOWN &&
+        entry->d_type != DT_LNK)
+      continue;
+    // Compare names before formatting or inspecting a less preferred path.
+    if (backport_path[0] != '\0' &&
+        strcmp(entry->d_name, backport_path + name_offset) >= 0)
+      continue;
+
+    char candidate_path[MAX_PATH];
+    written = snprintf(candidate_path, sizeof(candidate_path), "%s/%s",
+                        backport_root, entry->d_name);
+    if (written <= 0 || (size_t)written >= sizeof(candidate_path))
+      continue;
+    if (backport_path_is_dir(candidate_path))
+      (void)strlcpy(backport_path, candidate_path, MAX_PATH);
+  }
+  if (closedir(directory) != 0 && read_error == 0)
+    read_error = errno;
+  if (read_error != 0) {
+    backport_path[0] = '\0';
+    errno = read_error;
+    return false;
+  }
+  return backport_path[0] != '\0';
 }
 
 bool resolve_backport_path_for_title(const char *title_id,
                                      const char *owning_scan_path,
                                      char backport_path[MAX_PATH]) {
+  backport_path[0] = '\0';
   if (!title_id || title_id[0] == '\0')
     return false;
+  if (sm_hyperhen_lite_profile())
+    return false;
 
-  backport_path[0] = '\0';
-  if (build_backport_path_for_scan_root(title_id, owning_scan_path,
-                                        backport_path) &&
-      backport_path_is_dir(backport_path)) {
+  if (resolve_backport_path_for_scan_root(title_id, owning_scan_path,
+                                          backport_path)) {
     return true;
   }
 
@@ -785,14 +844,8 @@ bool resolve_backport_path_for_title(const char *title_id,
     if (owning_scan_path && strcmp(scan_path, owning_scan_path) == 0)
       continue;
 
-    char candidate_path[MAX_PATH];
-    if (!build_backport_path_for_scan_root(title_id, scan_path, candidate_path))
-      continue;
-    if (!backport_path_is_dir(candidate_path))
-      continue;
-
-    (void)strlcpy(backport_path, candidate_path, MAX_PATH);
-    return true;
+    if (resolve_backport_path_for_scan_root(title_id, scan_path, backport_path))
+      return true;
   }
 
   backport_path[0] = '\0';
@@ -854,13 +907,11 @@ bool mount_backport_overlay_for_title(const char *source_path,
 bool release_scan_runtime_mounts(void) {
   if (runtime_sleep_mode_active())
     return false;
-  if (sm_game_lifecycle_has_active_game() ||
-      sm_shellcore_service_has_prepared_mount()) {
+  if (sm_shellcore_background_work_blocked()) {
     return true;
   }
   runtime_mount_state_lock();
-  if (sm_game_lifecycle_has_active_game() ||
-      sm_shellcore_service_has_prepared_mount()) {
+  if (sm_shellcore_background_work_blocked()) {
     runtime_mount_state_unlock();
     return true;
   }

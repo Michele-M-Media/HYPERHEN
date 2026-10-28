@@ -40,16 +40,16 @@ release of mount resources, and new management features.
 
 - The built-in library interface offers search, filters, game cards, source
   management, scanning, settings, and log viewing.
-- A Shadow Mount+ launcher is installed in the PS5 menu and opens the local
+- A ShadowMount+ launcher is installed in the PS5 menu and opens the local
   web interface.
 - HTTP/JSON API v1 provides access to images, games, and storage devices, as
   well as game mounting, source management, settings, and scanning.
 - Background jobs can copy, move, unpack an image, or delete a source. Their
   progress is available, and they can be cancelled before an irreversible stage.
-- The default address is `127.0.0.1:10101`, so the API is accessible only to
-  applications running on the PS5.
-- Configure `api_bind_address` and `api_port` to allow access from the local
-  network.
+- The default listener is `0.0.0.0:10101`, allowing access from the local
+  network through the PS5's IPv4 address.
+- Set `api_bind_address=127.0.0.1` to restrict access to applications running
+  on the PS5, or configure a specific address and port.
 - The release includes the [API documentation](docs/api.md),
   [OpenAPI schema](docs/openapi.yaml), [web page](web/index.html), and
   `tools/api_test.py` test client.
@@ -116,7 +116,7 @@ language=auto
 
 # HTTP/JSON API
 api_enabled=1
-api_bind_address=127.0.0.1
+api_bind_address=0.0.0.0
 api_port=10101
 
 # Runtime and library maintenance
@@ -151,8 +151,8 @@ See `config.ini.example` for the full list of options and valid values.
 - The default `md_ufs_sector_size` is `4096`.
 - For the exFAT fast path, do not set `image_sector=...:65536`: 64 KiB is the
   cluster/secondary-unit size, while the logical sector must remain 512 bytes.
-- `auto_remove_missing_games`, `persistent_image_mounts`, `auto_update_ampr`,
-  and network access to the API are disabled by default.
+- `auto_remove_missing_games`, `persistent_image_mounts`, and `auto_update_ampr`
+  are disabled by default. Network access to the API is enabled by default.
 
 ## Compatibility
 

@@ -27,6 +27,7 @@ typedef struct __scefunctions
 
     void* payload_args;
     int (*pthread_create_ptr)(pthread_t *, const pthread_addr_t*, void*(*)(void*), void*);
+    int thread_result;
     // int (*sceKernelLoadStartModule)(const char *module_file_name, int args, const void *argp, int flags, void *opt, int *pRes);    
 
 } SCEFunctions;
@@ -41,6 +42,7 @@ uint32_t get_shellcode_size();
 // Loader specifics
 //
 int inject_elf(struct proc* proc, void* elf);
+int inject_elf_guarded(struct proc* proc, void* elf, bool (*pre_attach)(int));
 int create_remote_thread(pid_t pid, uintptr_t target_address, uintptr_t parameters);
 module_info_t* load_remote_library(pid_t pid, const char* library_path, const char* library_name);
 void init_remote_function_pointers(pid_t pid);

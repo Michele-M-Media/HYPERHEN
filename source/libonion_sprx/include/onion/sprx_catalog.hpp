@@ -20,6 +20,7 @@ struct SprxManifestEntry {
   bool auto_start = false;
   int32_t priority = 0;
   std::vector<std::string> dependencies;
+  std::string game_version;
 };
 
 struct SprxCatalogIssue {
@@ -72,6 +73,7 @@ public:
   const SprxManifestEntry *find(std::string_view id) const noexcept;
 
   bool set_enabled(std::string_view id, bool enabled) noexcept;
+  bool bind_game(std::string_view id, std::string_view title, std::string_view version);
   bool remove(std::string_view id) noexcept;
   std::string serialize() const;
 
@@ -86,6 +88,10 @@ public:
   std::vector<const SprxManifestEntry *>
   startup_order(std::string_view title_id,
                 std::vector<SprxCatalogIssue> *issues = nullptr) const;
+
+  std::vector<const SprxManifestEntry *>
+  manual_order(std::string_view id, std::string_view title_id,
+               std::vector<SprxCatalogIssue> *issues = nullptr) const;
 
 private:
   std::vector<SprxManifestEntry> entries_;
@@ -102,6 +108,7 @@ public:
   /** Returns a consistent copy; callers never observe mutable store state. */
   SprxCatalog snapshot() const;
   SprxOperationResult set_enabled(std::string_view id, bool enabled);
+  SprxOperationResult bind_game(std::string_view id, std::string_view title, std::string_view version);
   SprxOperationResult remove(std::string_view id);
 
   std::string path() const;

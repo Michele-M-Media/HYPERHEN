@@ -1,4 +1,5 @@
 #include "sm_platform.h"
+#include "sm_shellcore_service.h"
 #include "sm_runtime.h"
 #include "sm_image.h"
 #include "sm_hash.h"
@@ -1373,6 +1374,11 @@ static unmount_result_t unmount_image_impl(const char *file_path, int unit_id,
                                            bool cleanup_source_state,
                                            uint64_t expected_generation) {
   unmount_result_t result = {0};
+  if (sm_shellcore_source_is_protected(file_path)) {
+    result.error = EBUSY;
+    errno = EBUSY;
+    return result;
+  }
 
   char mount_point[MAX_PATH];
   image_fs_type_t fs_type = detect_image_fs_type_for_path(file_path, NULL);
@@ -1564,6 +1570,8 @@ bool release_runtime_image_mounts(void) {
       }
       if (entry.backend == ATTACH_BACKEND_NONE || entry.unit_id < 0)
         continue;
+      if (sm_shellcore_source_is_protected(entry.path))
+        continue;
       unmount_result_t result =
           unmount_runtime_image(entry.path, entry.unit_id, entry.backend);
       if (unmount_completed(result)) {
@@ -1622,6 +1630,8 @@ void cleanup_stale_image_mounts(void) {
       continue;
     }
 
+    if (sm_shellcore_source_is_protected(cached_entry.path))
+      continue;
     log_debug("  [IMG][%s] stale cleanup check: slot=%d source=%s mount=%s",
               attach_backend_name(cached_entry.backend), k, cached_entry.path,
               cached_entry.mount_point);
@@ -1684,6 +1694,8 @@ void cleanup_stale_image_mounts_for_root(const char *root) {
         !path_matches_root_or_child(cached_entry.mount_point, root)) {
       continue;
     }
+    if (sm_shellcore_source_is_protected(cached_entry.path))
+      continue;
 
     if (service_pending_image_detach(k, &cached_entry))
       continue;

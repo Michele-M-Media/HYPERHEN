@@ -5,6 +5,7 @@
 #include <onion/log.h>
 #include <onion/proc_query.h>
 #include <onion/sprx_plugin_manager.hpp>
+#include <onion/plugin_staging.hpp>
 
 #include <ps5/kernel.h>
 
@@ -27,17 +28,20 @@ public:
       return false;
     out->pid = static_cast<pid_t>(pid);
     out->title_id = std::move(title_id);
-    return true;
+    onion::sprx::GameIdentity identity;std::string hash;
+    return onion::sprx::capture_game(out->pid,identity) && identity.title==out->title_id &&
+           onion::sprx::game_version(identity,out->version,hash);
   }
 };
 
 class PreparedTargetAccess final : public onion::sprx::ITargetAccessPolicy {
 public:
   onion::sprx::AccessResult prepare(pid_t pid,
-                                     std::string_view) noexcept override {
+                                     std::string_view title) noexcept override {
     if (pid <= 1 || !onion_proc_is_alive(pid) || kernel_get_proc(pid) == 0)
       return {onion::sprx::AccessStatus::PrepareFailed};
-    return kernel_get_ucred_uid(pid) == 0
+    onion::sprx::GameIdentity identity;
+    return onion::sprx::capture_game(pid, identity) && identity.title == title
                ? onion::sprx::AccessResult{onion::sprx::AccessStatus::Allowed}
                : onion::sprx::AccessResult{onion::sprx::AccessStatus::Denied};
   }
@@ -129,6 +133,9 @@ void reconcile() { run("reconcile", false); }
 std::vector<onion::sprx::SprxInventoryEntry> inventory() {
   Runtime &current = runtime();
   std::lock_guard<std::mutex> lock(current.mutex);
+  // A catalog copied after startup must become visible without restarting the
+  // game or daemon. Loading a catalog no longer dispatches any module.
+  if(!current.manager.load_catalog(kCatalogPath)) return {};
   return current.manager.inventory();
 }
 
@@ -136,6 +143,7 @@ onion::sprx::SprxOperationResult set_enabled(std::string_view id,
                                              bool enabled) {
   Runtime &current = runtime();
   std::lock_guard<std::mutex> lock(current.mutex);
+  if(!current.manager.load_catalog(kCatalogPath)) return {false, "plugin catalog could not be loaded"};
   return current.manager.set_enabled(id, enabled);
 }
 

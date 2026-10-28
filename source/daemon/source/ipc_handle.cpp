@@ -51,6 +51,7 @@ std::string plugin_inventory_page(size_t offset) {
     cJSON_AddStringToObject(item, "name", entry.descriptor.name.c_str());
     cJSON_AddBoolToObject(item, "running", entry.running());
     cJSON_AddBoolToObject(item, "auto_start", entry.auto_start());
+    cJSON_AddBoolToObject(item, "manual_only", entry.manual_only);
     cJSON_AddItemToArray(items, item);
   }
   cJSON_AddNumberToObject(root, "next",
