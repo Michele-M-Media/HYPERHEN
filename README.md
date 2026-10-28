@@ -168,7 +168,15 @@ certification of those profiles.
 1. Run the kernel exploit and start the external `elfldr` service.
 2. After a full reboot when changing versions, send the downloaded `HyperHEN-v0.9.3.elf` or locally built `HyperHEN.elf` through the loader your exploit host provides.
 3. HyperHEN uses the exact firmware route and opens the legacy/5.xx engine selector where supported. On FW 13.00, 13.20, or 13.60, follow the HyperHEN Hypervisor notification: enter Rest Mode once and resume. Follow the component-specific notification on dedicated 9.40/12.70 routes; on exact 11.60–12.60 profiles, wait for the compatibility-mode notification and runtime check.
-4. Close WebKit manually if it is open, allow the two-second quiet interval, then open PS5 Settings and enter the HyperHEN Toolbox. FW 13.40 and 13.42 now use the restricted lite route rather than utility-only mode.
+4. If the engine selector appears, confirm your choice, then **close the WebKit/browser window manually when prompted**. On other routes, manually close the payload-host browser after launching HyperHEN.
+5. Keep the browser closed, allow the two-second quiet interval and let initialization finish before opening PS5 Settings and entering the HyperHEN Toolbox. FW 13.40 and 13.42 use the restricted lite route rather than utility-only mode.
+
+> **Important: close WebKit manually to finish startup.** HyperHEN does not
+> automatically close the browser after engine selection. Toolbox activation
+> waits for WebKit to exit and remain closed for **two seconds**. Keep the
+> browser closed while the remaining initialization finishes. This startup
+> handoff applies across the declared firmware profiles, including legacy and
+> 5.xx selectors.
 
 Startup is sequential. After the first hop, HyperHEN uses its own
 `hyperhen_elfldr.elf` on port **9020** and keeps **9021** only as a fallback.
