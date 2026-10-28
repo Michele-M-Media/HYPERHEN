@@ -545,17 +545,17 @@ engineering, and project maintenance: **MICHELE MEDIA**.
 - [ftpsrv](https://github.com/ps5-payload-dev/ftpsrv) — John Törnblom, with current-tree contributions from EchoStretch, Al-Azif, Matthew Vanek, and Gezine; the verified upstream PS5 ELF is embedded for the Toolbox FTP switch
 - [kstuff-a53](https://github.com/Soonniicc/kstuff-a53) — integrated source snapshot combining the kstuff-lite base with A53/PPR and BackPork
 - [Byepervisor Reborn](https://github.com/PS5Dev/Byepervisor-Reborn) — supplied hypervisor-stage source integrated for its exact 13.00, 13.20, and 13.60 offsets
-- Byepervisor 5.xx — supplied source integrated for its exact 5.00, 5.02, 5.10, and 5.50 profiles
-- ps5-hen — supplied source integrated for its exact 1.00–4.51 profile set
+- [Byepervisor 5.xx](https://github.com/jordyidk/5XX-Bypervisor) — **Jordy (jordyidk) and contributors**; supplied source integrated for its exact 5.00, 5.02, 5.10, and 5.50 profiles
+- [ps5-hen](https://github.com/cragson/ps5-hen) — **cragson and contributors**; supplied source integrated for its exact 1.00–4.51 profile set
 - [kstuff-lite](https://github.com/EchoStretch/kstuff-lite) — EchoStretch, sleirsgoevy, and contributors; HyperCore base
 - [ppr-patch](https://github.com/drakmor/ppr-patch) — drakmor; A53/PPR integration base
 - [BackPork](https://github.com/BestPig/BackPork) — BestPig; process monitor and `fakelib` mount base
 - [a53-code-exec](https://github.com/cragson/a53-code-exec) — A53 technical reference; its ELF is not embedded
 - [onionHEN-ftpsrv-plugin](https://github.com/OnionBuddies/onionHEN-ftpsrv-plugin) — optional external FTP server plugin based on drakmor/ftpsrv
-- ShadowMountPlus — Drakmor and contributors; source-built and embedded as the exclusive HyperHEN Automount engine
+- [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus) — Drakmor and contributors; source-built and embedded as the exclusive HyperHEN Automount engine
 - [onionHEN DPI v2 plugin](https://github.com/OnionBuddies/onionHEN-dpiv2-plugin) — GPL source base for the embedded, HyperHEN-branded HyperDPI service
 - [onionHEN Plugin SDK](https://github.com/OnionBuddies/onionHEN-plugin-sdk) — pinned compatibility ABI used by the embedded HyperDPI client
-- pLinux5-NG and [ps5-linux-loader](https://github.com/ps5-linux/ps5-linux-loader) — embedded HyperLinux boot engine and penguin artwork; exact firmware profiles are gated at runtime
+- [pLinux5-NG](https://github.com/pLabs5/pLinux5-NG) — **niko86c / pLabs5 and contributors**; embedded HyperLinux source base, derived from [ps5-linux-loader](https://github.com/ps5-linux/ps5-linux-loader) by **theflow, c0w and contributors**. The retained loader artwork supplies the penguin menu icon; exact firmware profiles are gated at runtime.
 - [libhijacker](https://github.com/astrelsky/libhijacker) — astrelsky; process hijack and kernel R/W
 - [NineS](https://github.com/buzzer-re/NineS) — buzzer-re; ShellUI injection
 - [cJSON](https://github.com/DaveGamble/cJSON) — JSON parsing
@@ -591,6 +591,7 @@ per-component `HYPERHEN_VENDOR_LOCK.md` files under `third_party/`.
 ### Testers
 
 - [**@oG_LuckyXmods**](https://x.com/oG_LuckyXmods) — special thanks for the extensive help testing HyperHEN.
+- [**PizzaClub**](https://t.me/+6SY-QLIzDkI1Mzg0) — special thanks to the group's testers for their time, support and feedback while testing HyperHEN.
 
 Thanks as well to everyone else who tested, researched, or sent usable feedback.
 
