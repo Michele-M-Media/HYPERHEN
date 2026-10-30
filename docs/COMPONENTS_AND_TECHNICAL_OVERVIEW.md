@@ -1,8 +1,8 @@
 # HyperHEN components and technical overview
 
 > Historical 0.9.2 inventory. The firmware routing table and integration
-> summary below describe the previous public release. For the current 0.9.3
-> selectors, startup behavior and support boundaries, read the
+> summary below describe the previous public release. The [0.9.4 appendix](#v094-appendix-hyper-and-runtime-continuity) records the current additions.
+> For current selectors, startup behavior and support boundaries, read the
 > [current README](../README.md), [release notes](../RELEASE_NOTES.md) and
 > [release build instructions](../BUILD_RELEASE.md).
 
@@ -296,3 +296,85 @@ See [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 The project is unofficial, is not affiliated with Sony Interactive
 Entertainment, and is intended for research and homebrew use on hardware owned
 by the user. There is no warranty.
+
+
+## v0.9.4 appendix: Hyper and runtime continuity
+
+This appendix updates the historical inventory above; it does not change the
+meaning of the v0.9.2 snapshot. The current router has **67 exact firmware
+entries**, grouped in the [current README](../README.md#exact-firmware-profiles):
+25 legacy-selector entries, four 5.xx-selector entries, 25 A53/PPR entries,
+the dedicated 9.40 entry, six no-PPR entries, four 12.70/13.xx hypervisor
+entries and two 13.40/13.42 lite entries. A table entry is compatibility data,
+not proof of hardware validation for every console.
+
+### Hyper integration
+
+Hyper is an integrated background voice worker. Its independent Toolbox entry
+is on the main page below **Content Install & Management**, separate from
+Advanced Debug. Holding **L1 + R1 + Square** activates a turn; the DualSense
+microphone supplies speech and its speaker plays the response. The saved
+`hyper.enabled` setting defaults to true. The worker is started only after
+the existing Toolbox/runtime and asset-readiness requirements are satisfied.
+
+The assistant combines local Whisper speech recognition, Qwen2.5 GGUF
+conversation through llama.cpp, built-in short replies, and eSpeak NG voice
+synthesis. Model files stay in `/data/Hyper/models`; installed voice data
+stays in `/data/Hyper/espeak-ng-data`. The installer uses checksum-pinned
+model downloads and separately installs the bundled voice data. It exposes
+eight AI model choices and automatic voice selection plus 85 variants.
+Downloading a model and selecting the active model are independent actions.
+The interface and speech language follow the console language.
+
+The smallest model, **Qwen2.5 0.5B Q4_K_M**, is the recorded working voice
+configuration. All other catalog models remain **experimental / beta**.
+The latest R45 7B Q5_K_M console test loaded the model and generated five
+tokens, but reached the 90-second reply deadline without audio playback.
+R45 uses a reusable 512 MiB weight arena and a persistent four-thread CPU
+pool for its 7B path. The arena cap is not a total-process memory limit, and
+these changes are not a claim of usable 7B dialogue performance. No GPU
+inference backend is enabled. The documented functionality is local voice
+conversation; log-reading, service-control and payload-launching AI tools
+are not advertised as implemented features.
+
+See [Hyper usage](../README.md#hyper--local-voice-assistant-beta),
+[worker source and dependency notes](../source/hyper/README.md), and
+[the release build recipe](../BUILD_RELEASE.md). The release-compatible
+build preserves the exact R45 worker as a verified input; the worker source
+and an optional independent rebuild recipe are also included.
+
+### 13.xx HyperCore and native runtime
+
+The **13.00, 13.20 and 13.60** Bypervisor routes retain the restored public
+0.9.2 HyperCore component. The selection is restricted by
+[`hypercore_13xx_rollback.h`](../source/bootstrapper/include/hypercore_13xx_rollback.h);
+it does not select the rollback for 12.70 or the 13.40/13.42 lite routes.
+**ShadowMountPlus 1.7 beta9 remains a separate Automount stage.**
+
+Native release links explicitly use the isolated CRT containing the corrected
+13.60 initializer. It is linked after application objects and libraries with
+`-nostartfiles`; the build does not silently use the installed SDK default or
+modify that SDK. The pinned CRT SHA-256 is
+`817750baf8ff32deb2b480f5c4640978372fe06a952697befa21bc7788edd09b`.
+The [build instructions](../BUILD_RELEASE.md) record the required input,
+adaptation recipe and scope.
+The 13.60 runtime correction was confirmed on the R42 test build; retaining
+it and passing local checks do not certify every 0.9.4 firmware combination.
+
+### Bypervisor attachments and WebKit handoff
+
+The separate release attachments are the original **Byepervisor Reborn** for
+13.00/13.20/13.60, the **12.70** variant, and **AUTO 9.40**. The original
+Reborn attachment is distinct from the adapted component embedded in
+HyperHEN; its provenance is recorded in the
+[vendor lock](../third_party/byepervisor-reborn/HYPERHEN_VENDOR_LOCK.md).
+The download links and exact sequence are in the
+[current startup guide](../README.md#bypervisor-downloads-and-startup-procedure):
+
+**WebKit → matching Bypervisor → Rest Mode → resume → WebKit again → HyperHEN.**
+
+After launching HyperHEN in the second WebKit session, close the browser
+manually and allow the existing two-second quiet interval while Automount
+and the Toolbox finish initializing. The 5.xx selector retains its own
+integrated choice; no separate 5.xx attachment is added for this procedure.
+The 13.40/13.42 lite route remains separate.

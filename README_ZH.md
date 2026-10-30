@@ -1,7 +1,7 @@
-> Historical translation of the public 0.9.2 documentation. For the current
-> 0.9.3 features, exact firmware profiles and release build instructions, read
-> [README.md](README.md), [RELEASE_NOTES.md](RELEASE_NOTES.md) and
-> [BUILD_RELEASE.md](BUILD_RELEASE.md).
+> 本页保留公开版 0.9.2 文档的历史中文译文，并补充 **0.9.4** 的 Hyper、
+> Bypervisor 启动流程和下载说明。完整的当前功能、精确固件列表及发布版构建要求请查阅
+> [README.md](README.md)、[RELEASE_NOTES.md](RELEASE_NOTES.md) 和
+> [BUILD_RELEASE.md](BUILD_RELEASE.md)。旧版基础说明不代表所有当前固件采用同一路径。
 
 <p align="center">
   <img src="assets/logo.png" alt="HyperHEN" height="128" width="128"/>
@@ -47,6 +47,65 @@
 
 <br>
 
+# 0.9.4 更新
+
+[下载 HyperHEN v0.9.4 ELF](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/HyperHEN-v0.9.4.elf)
+· [查看 0.9.4 发布页](https://github.com/Michele-M-Media/HYPERHEN/releases/tag/HYPERHEN_V0_9_4)
+
+- **Hyper 本地语音助手（Beta）**：通过 DualSense 麦克风提问，从手柄扬声器听取回答。
+  助手集成于 HyperHEN，无需另外启动 P14 ELF；模型单独安装，不打包进主 ELF。
+- **主工具箱独立入口**：**Hyper — 语音助手** 位于 **内容安装与管理** 下方，
+  提供启用开关、模型下载、当前模型选择和回复声音选择。
+- **保留已有修复**：13.00、13.20、13.60 的 Bypervisor 路径恢复公开版 0.9.2 的
+  HyperCore 组件，并保留 13.60 运行时初始化修复。Automount 仍是独立的
+  **ShadowMountPlus 1.7 beta9** 阶段；继续保留 HyperDeck、Advanced Debug、
+  固件选择器、多语言通知和手动关闭 WebKit 的启动交接。
+- **当前模型状态**：最小模型 **Qwen2.5 0.5B Q4_K_M** 已在主机上完成语音对话验证。
+  其余所有目录内模型仍为 **实验性 Beta**；更大的模型可能明显变慢或超时。
+  最近一次 7B Q5_K_M 测试虽然成功加载并生成了少量 token，但未在超时前输出语音。
+
+### Hyper：安装与使用
+
+Hyper 在后台运行，默认启用。安装完成后，语音识别、对话推理和语音合成均在
+PS5 本地完成，**不需要 PC，也不把声音发送到在线语音服务**。下载模型时需要联网。
+菜单、通知与语音语言跟随主机系统语言；不同语言和模型的效果仍需分别验证。
+
+1. 打开 **HyperHEN 工具箱 → Hyper — 语音助手**，选择 **下载并安装模型**。
+   首次安装包含默认的 Qwen2.5 0.5B Q4_K_M、多语言 Whisper 语音识别模型及声音数据，
+   保存于 `/data/Hyper`。初次模型下载约 **569 MB**，安装后的基础数据约 **600 MB**，
+   请另留安装所需空间。
+2. 使用 **查看状态** 查看进度，等所选模型加载完成并出现 **Hyper 已就绪** 提示后再使用。
+3. 返回主界面，确保麦克风没有静音，先松开手柄按键，再按住 **L1 + R1 + □**
+   约 **0.6 秒**。听到/看到录音提示后说话；停顿会结束录音，最长录制十二秒。
+   **○（圆圈）** 取消当前会话；下一轮对话再次使用同一组合键。
+4. 如需测试其他模型，在 **要下载的模型** 中选择，再按 **下载所选模型**。
+   下载本身不会改变当前模型。安装完成后在 **当前 AI 模型** 中切换；切换会重启
+   Hyper，需再次等待就绪。
+5. **回复声音** 提供 **自动（系统声音）** 和 85 种已安装的声音变体，修改从下一轮生效。
+   声音数据由首次安装程序统一安装，不需要分别下载每个变体。
+6. **启用 Hyper** 可关闭助手并保存该设置；**取消安装** 可停止正在进行的模型下载或安装。
+
+模型目录为 `/data/Hyper/models`，声音目录为 `/data/Hyper/espeak-ng-data`。
+请使用 `/data/Hyper`，不要放在 `/data/HyperHEN/Hyper`。更新 HyperHEN 时可保留已有模型；
+安装程序会校验文件大小和哈希。
+
+| 对话模型 | 模型文件大小 | 当前状态 |
+| --- | ---: | --- |
+| Qwen2.5 0.5B Q4_K_M | 491 MB | **已验证可用，建议从此模型开始** |
+| Qwen2.5 0.5B Q5_K_M | 522 MB | 实验性 Beta |
+| Qwen2.5 1.5B Q4_K_M | 1.12 GB | 实验性 Beta |
+| Qwen2.5 1.5B Q5_K_M | 1.29 GB | 实验性 Beta |
+| Qwen2.5 3B Q4_K_M | 2.10 GB | 实验性 Beta |
+| Qwen2.5 3B Q5_K_M | 2.44 GB | 实验性 Beta |
+| Qwen2.5 7B Q4_K_M | 4.68 GB | 实验性 Beta；延迟较高 |
+| Qwen2.5 7B Q5_K_M | 5.44 GB | 实验性 Beta；最近测试未在超时前输出语音 |
+
+大小使用十进制 MB/GB，表示模型文件存储空间，**不是内存需求**。共享的 Whisper
+模型另占约 78 MB；7B 模型分为两个文件下载。已确认的最小模型结果来自工作配置中的
+完整意大利语对话，不表示每种固件、语言或对话场景都已通过验证。当前推理使用 CPU。
+
+<br>
+
 # 功能
 
 HyperHEN 面向已越狱的 PS5，提供一套能日常使用、也方便维护的自制环境。
@@ -79,12 +138,43 @@ HyperHEN 不内置内核漏洞。第一次引导仍需要外部 **9021** 上的 
 1. 一台已越狱的 PS5
 2. 一个监听 **9021**、用于第一次引导的外部 [PS5 `elfldr`](https://github.com/ps5-payload-dev/elfldr)
 
+### Bypervisor 下载及启动顺序
+
+请下载与固件精确对应的文件：
+
+| 固件 | 独立 ELF |
+| --- | --- |
+| 13.00、13.20、13.60 | [Byepervisor Reborn](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn.elf) |
+| 12.70 | [Byepervisor Reborn 12.70](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-12.70.elf) |
+| 9.40 | [Byepervisor Reborn AUTO 9.40](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-AUTO-9.40.elf) |
+
+上述 Bypervisor 固件按以下顺序启动：
+
+1. 打开 **WebKit**，启动对应的 **Bypervisor ELF**。
+2. 让 PS5 进入 **待机模式（Rest Mode）**。
+3. **唤醒主机**，返回主界面。
+4. **再次打开 WebKit**，按加载端要求启动漏洞/ELF 加载器。
+5. 启动 **HyperHEN v0.9.4**。
+6. 按提示 **手动关闭 WebKit**，保持浏览器关闭，等待两秒安静间隔以及
+   Automount 和工具箱初始化完成。
+
+第一次 WebKit 会话用于 Bypervisor；唤醒后的第二次会话用于启动 HyperHEN。
+不要跳过待机/唤醒步骤，也不要混用不同固件的 ELF。5.xx 仍使用其选择器内集成的
+Bypervisor，不需要在此另行下载 5.xx 文件。13.40/13.42 的 lite 路径不属于上述流程。
+
 ### 加载 HyperHEN
 
-1. 运行内核漏洞利用，并启动外部 `elfldr` 服务。
-2. 用漏洞加载端提供的加载器发送 `HyperHEN.elf`。
-3. 按顺序等待工具守护进程、HyperCore 和主守护进程启动。
-4. 打开 PS5 设置，进入 HyperHEN 工具箱。
+1. 更换版本后先完全重启。9.40、12.70、13.00、13.20、13.60 先按上面的
+   Bypervisor 流程操作；其他路径运行内核漏洞利用并启动外部 `elfldr` 服务。
+2. 通过加载端发送下载的 `HyperHEN-v0.9.4.elf` 或自行构建的 `HyperHEN.elf`。
+   Bypervisor 路径应在唤醒后的第二次 WebKit 会话中执行此步骤。
+3. 出现旧固件/5.xx 引擎选择器时，确认选择后按提示 **手动关闭 WebKit**。
+   其他路径启动 HyperHEN 后也应手动关闭仍打开的加载端浏览器。
+4. 保持浏览器关闭，等待连续 **两秒** 的安静间隔及后续初始化完成，再打开
+   PS5 设置中的 HyperHEN 工具箱。HyperHEN 不会自动关闭选择器所在的浏览器。
+
+当前精确固件范围及各路由差异以 [英文 README](README.md#exact-firmware-profiles)
+为准；不要将下面保留的历史基础说明当作所有固件的统一启动顺序。
 
 启动是按固定顺序进行的。第一次引导之后，HyperHEN 使用自己的
 `hyperhen_elfldr.elf`（端口 **9020**），**9021** 只作为兼容回退。
@@ -179,16 +269,33 @@ HyperHEN 插件属于独立类别，应放在 `/data/HyperHEN/plugins/`。
 | `lzma` 或 `xz` | 压缩 bootstrapper |
 | GNU Make、GCC、NASM/Yasm | 构建 vendored HyperCore 源码 |
 
-### 完整构建
+### 0.9.4 发布版构建
+
+先将同一版本的
+[HyperHEN-v0.9.4-build-inputs.zip](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/HyperHEN-v0.9.4-build-inputs.zip)
+解压到 Git 检出根目录；完整源码 ZIP 已包含这些经过校验的输入。
+使用 Linux 或 WSL2，并在 Linux 文件系统内构建：
+
+```shell
+export PS5_PAYLOAD_SDK=/path/to/ps5-payload-sdk
+bash scripts/build_release.sh --jobs 6
+```
+
+输出为 `build-release/bin/HyperHEN.elf`。发布版流程重新构建第一方界面，保留 R45
+引擎输入、Hyper worker 和 Automount beta9，并显式链接含 13.60 修复的独立 CRT。
+它不会修改已安装的 SDK。完整依赖、输入边界和可选的 Hyper worker 重编译流程见
+[BUILD_RELEASE.md](BUILD_RELEASE.md)。这不表示每个依赖都已从头重编译，也不承诺逐字节复现。
+
+### 历史开发者构建方式
+
+下面保留的旧开发流程会验证 vendored 依赖并构建更多组件，**不是上面的 0.9.4 发布版流程**：
 
 ```shell
 export PS5_PAYLOAD_SDK=/path/to/ps5-payload-sdk
 ./scripts/build.sh --jobs 8
 ```
 
-脚本会验证 vendored 依赖、从源码构建 HyperCore，并按所需顺序构建整条嵌入链。
-
-使用 Docker 进行可复现构建：
+原有 Docker 开发流程也单独保留：
 
 ```shell
 docker compose build hyperhen-build
@@ -380,9 +487,22 @@ HyperHEN 离不开 PS5 自制软件与逆向工程社区。
 - [7-Zip LZMA SDK](https://www.7-zip.org/sdk.html) — unpacker 解压
 - [miniz](https://github.com/richgel999/miniz) — 金手指文件解压
 
+### Hyper 语音助手组件
+
+- [Whisper](https://github.com/openai/whisper) — **OpenAI 与贡献者**；多语言语音识别模型。
+- [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — **Georgi Gerganov 与 ggml 社区**；本地语音识别运行时。
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) — **Georgi Gerganov 与 ggml 社区**；GGUF 模型推理及 CPU 后端。
+- [Qwen2.5](https://github.com/QwenLM/Qwen2.5) / [官方模型仓库](https://huggingface.co/Qwen) — **Qwen 团队与贡献者**；可下载的指令对话模型，各模型保留各自许可证。
+- [eSpeak NG](https://github.com/espeak-ng/espeak-ng) — **eSpeak NG 贡献者**；本地语音合成、语言数据和声音变体。
+
+完整的当前组件及开发者致谢见 [英文 README 致谢部分](README.md#credits)。
+
 ### 测试人员
 
 即食面、雨之声、大饼电玩、安定区、随风、麒麟、尼克库尔曼、云、啊烦、小小蔡、B站谢锡榆、荆枫、苏打先森、噢、天天向上
+
+特别感谢 [**@oG_LuckyXmods**](https://x.com/oG_LuckyXmods) 对 HyperHEN 测试的持续支持，
+以及 [**PizzaClub 测试组**](https://t.me/+6SY-QLIzDkI1Mzg0) 的时间、反馈和固件测试帮助。
 
 也感谢其他参与测试、研究和给出有效反馈的人。
 

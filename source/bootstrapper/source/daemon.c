@@ -428,4 +428,17 @@ __asm__(".intel_syntax noprefix\n"
         "zftpd_size:\n"
         ".int    zftpd_end - zftpd_start\n"
 
+
+        ".global kstuff_13xx_v092_start\n"
+        ".type   kstuff_13xx_v092_start, @object\n"
+        ".align  16\n"
+        "kstuff_13xx_v092_start:\n"
+        ".incbin \"" HYPERHEN_CORE_13XX_V092_ELF "\"\n"
+        "kstuff_13xx_v092_end:\n"
+        ".global kstuff_13xx_v092_size\n"
+        ".type   kstuff_13xx_v092_size, @object\n"
+        ".align  4\n"
+        "kstuff_13xx_v092_size:\n"
+        ".int    kstuff_13xx_v092_end - kstuff_13xx_v092_start\n"
+
 );

@@ -50,6 +50,7 @@ along with this program; see the file COPYING. If not, see
 #include "app_lifecycle_runtime.hpp"
 #include "sprx_plugin_manager_runtime.hpp"
 #include "startup_navigation.hpp"
+#include "hyper_runtime.hpp"
 #include "welcome_toast.hpp"
 #include <onion/debug_settings_route_policy.hpp>
 #include <onion/fault_frame.h>
@@ -150,6 +151,8 @@ void install_crash_handlers() {
 }
 
 void start_worker_threads(pthread_t* app_jailbreak_thr, pthread_t* msg_thr) {
+  if (!onion::daemon::hyper::start())
+    LOG_ERROR("Hyper assistant runtime thread failed to start");
   if (app_jailbreak_runtime_start(app_jailbreak_thr)) {
     pthread_t lifecycle_thr = nullptr;
     if (pthread_create(&lifecycle_thr, nullptr, app_lifecycle_listener_thread,

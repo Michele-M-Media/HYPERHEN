@@ -3,6 +3,7 @@
 #include "cheats/sync/types.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 
 namespace onion::cheats::sync {
@@ -26,6 +27,10 @@ struct HttpRequest {
   void *progress_user = nullptr;
   SyncCancelFn should_cancel = nullptr;
   void *cancel_user = nullptr;
+  // Opt-in for large pinned assets. Defaults preserve existing callers.
+  bool https_only = false;
+  uint64_t resume_from_bytes = 0;
+  bool *range_ignored = nullptr;
 };
 
 /**

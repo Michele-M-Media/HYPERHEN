@@ -28,6 +28,19 @@ set(HYPERHEN_RELEASE_COMPONENT_DIR "" CACHE PATH
 	"Optional directory of byte-exact stable release ELFs for existing firmware routes")
 option(HYPERHEN_SOURCE_PLUGIN_RUNTIME
   "Embed source-built daemon/private loader with the updated plugin runtime" OFF)
+option(HYPERHEN_INTEGRATED_HYPER
+  "Embed the local Hyper assistant worker and native data installer" OFF)
+set(HYPER_ASSISTANT_ELF "" CACHE FILEPATH
+  "Compiled background Hyper assistant ELF; models remain external in /data/Hyper")
+set(HYPER_VOICES_ZIP "" CACHE FILEPATH
+  "Deterministic eSpeak voice-data archive for the native installer")
+if(HYPERHEN_INTEGRATED_HYPER)
+  foreach(_hyper_asset IN ITEMS HYPER_ASSISTANT_ELF HYPER_VOICES_ZIP)
+    if(NOT EXISTS "${${_hyper_asset}}")
+      message(FATAL_ERROR "Missing integrated Hyper build asset: ${_hyper_asset}")
+    endif()
+  endforeach()
+endif()
 set(HYPERHEN_STABLE_HYPERDECK_ELF "" CACHE FILEPATH
   "Optional byte-exact HyperDeck ELF retained while updating the plugin runtime")
 set(HYPERHEN_HYPERVISOR_SOURCE_DIR
@@ -277,7 +290,13 @@ if(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
 		EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(shellui)
-add_subdirectory(util)
+if(HYPERHEN_RELEASE_COMPONENT_DIR)
+  # Retain an explicit util target for development, but never build or embed
+  # its replacement as a side effect of the integrated assistant build.
+  add_subdirectory(util EXCLUDE_FROM_ALL)
+else()
+  add_subdirectory(util)
+endif()
 add_subdirectory(daemon)
 add_subdirectory(hyperdeck)
 add_subdirectory(bootstrapper)

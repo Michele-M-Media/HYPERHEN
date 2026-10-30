@@ -286,6 +286,15 @@ struct Settings {
   // Play the embedded HyperHEN voice when the core is ready.
   bool hype_voice = true;
 
+  // [hyper]
+  // Start the Hyper voice assistant automatically; changes apply at runtime.
+  bool hyper_assistant_enabled = true;
+  // Stable catalog IDs: active model and download target are independent.
+  int hyper_model_id = 0;
+  int hyper_download_model_id = 0;
+  // 0 uses the base eSpeak voice for the current system language.
+  int hyper_voice_id = 0;
+
   // [rest_mode]
   // Extra seconds after Rest Mode trophy SPRX are ready, before Toolbox inject.
   uint64_t rest_mode_delay_seconds = kRestModeDelayDefaultSeconds;

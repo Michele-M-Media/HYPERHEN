@@ -24,6 +24,11 @@ extern "C" {
 #include "cheats/cheat_service.hpp"
 #include "cheats/runtime.h"
 #include "cheats/sync/cheat_sync_service.hpp"
+#if defined(HYPERHEN_INTEGRATED_HYPER)
+#include "hyper_installer.hpp"
+#include "hyper_model_request.hpp"
+#include <onion/hyper_model_catalog.hpp>
+#endif
 #include <cstdio>
 #include <cerrno>
 #include <cstdlib>
@@ -48,6 +53,10 @@ int launchApp(const char *titleId);
 namespace {
 
 std::atomic<uint64_t> g_cheat_request_id{1};
+
+#if defined(HYPERHEN_INTEGRATED_HYPER)
+const char *const kHyperRejected = "{\"state\":\"error\",\"progress\":0,\"received\":0,\"total\":0,\"error_code\":-7,\"model_id\":-1}";
+#endif
 
 bool is_payload_path_identity(const std::string &id) {
   if (id.size() != ONION_PAYLOAD_IDENTITY_SIZE - 1 || id[0] != 'p')
@@ -114,6 +123,37 @@ void handleIPC(clientArgs *client, std::string &inputStr,
   }
 
   switch (command) {
+#if defined(HYPERHEN_INTEGRATED_HYPER)
+  case BREW_UTIL_HYPER_INSTALL:
+  case BREW_UTIL_HYPER_MODEL_DOWNLOAD: {
+    int model_id;
+    if (!onion::hyper::parse_model_request(my_json.get(), command == BREW_UTIL_HYPER_MODEL_DOWNLOAD, &model_id)) {
+      reply(sender_app, true, kHyperRejected); return;
+    }
+    (void)onion::hyper::start_install(model_id);
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+  }
+  case BREW_UTIL_HYPER_CATALOG_STATUS:
+    reply(sender_app, false, onion::hyper::catalog_status_json());
+    return;
+  case BREW_UTIL_HYPER_INSTALL_STATUS:
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+  case BREW_UTIL_HYPER_VERIFY_EXISTING: {
+    int model_id;
+    if (!onion::hyper::parse_model_request(my_json.get(), false, &model_id)) {
+      reply(sender_app, true, kHyperRejected); return;
+    }
+    (void)onion::hyper::start_verify_existing(model_id);
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+  }
+  case BREW_UTIL_HYPER_INSTALL_CANCEL:
+    (void)onion::hyper::cancel_install();
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+#endif
   case BREW_UTIL_TEST_CONNECTION: {
     reply(sender_app, false, out_var);
     break;

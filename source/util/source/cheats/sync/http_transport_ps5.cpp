@@ -5,7 +5,12 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
+#include <limits>
+#include <mutex>
 #include <string>
+#include <strings.h>
 
 #if !defined(ONION_HOST_TEST)
 #include <curl/curl.h>
@@ -88,7 +93,35 @@ struct CurlXfer {
   size_t max_body_bytes = 0;
   size_t last_progress_bytes = 0;
   int last_progress_percent = -2;
+  uint64_t resume_offset = 0;
+  bool *range_ignored = nullptr;
+  long response_code = 0;
+  bool content_range_ok = false;
 };
+
+extern "C" size_t onion_curl_header(char *ptr, size_t size, size_t nmemb,
+                                    void *userdata) {
+  if (size && nmemb > std::numeric_limits<size_t>::max() / size) return 0;
+  const size_t n = size * nmemb;
+  auto *xfer = static_cast<CurlXfer *>(userdata);
+  if (!xfer || !n) return n;
+  const std::string line(ptr, n);
+  if (line.rfind("HTTP/", 0) == 0) {
+    const size_t space = line.find(' ');
+    xfer->response_code = space == std::string::npos ? 0 :
+        std::strtol(line.c_str() + space + 1, nullptr, 10);
+    xfer->content_range_ok = false;
+  } else if (xfer->resume_offset &&
+             strncasecmp(line.c_str(), "Content-Range:", 14) == 0) {
+    unsigned long long start = 0, end = 0, total = 0;
+    char extra = 0;
+    const int fields = std::sscanf(line.c_str() + 14, " bytes %llu-%llu/%llu %c",
+                                   &start, &end, &total, &extra);
+    xfer->content_range_ok = fields == 3 && start == xfer->resume_offset &&
+                             end >= start && total > end;
+  }
+  return n;
+}
 
 size_t curl_size(curl_off_t value) {
   if (value <= 0) {
@@ -134,9 +167,19 @@ extern "C" int onion_curl_xferinfo(void *userdata, curl_off_t download_total,
 extern "C" size_t onion_curl_write(char *ptr, size_t size, size_t nmemb,
                                    void *userdata) {
   auto *xfer = static_cast<CurlXfer *>(userdata);
+  if (size && nmemb > std::numeric_limits<size_t>::max() / size) return 0;
   const size_t n = size * nmemb;
   if (!xfer) {
     return n;
+  }
+  // Redirect/error response bodies must never become model bytes.
+  if (xfer->response_code < 200 || xfer->response_code > 299) return n;
+  if (xfer->resume_offset &&
+      (xfer->response_code != 206 || !xfer->content_range_ok)) {
+    if (xfer->response_code == 200 && xfer->range_ignored)
+      *xfer->range_ignored = true;
+    xfer->st = SyncStatus::Protocol;
+    return 0;
   }
   if (xfer->max_body_bytes != 0 &&
       (xfer->bytes > xfer->max_body_bytes ||
@@ -184,11 +227,9 @@ extern "C" int onion_curl_debug(CURL *, curl_infotype type, char *data,
 }
 
 bool ensure_curl() {
-  static int state = 0;
-  if (state != 0) {
-    return state > 0;
-  }
-
+  static std::once_flag once;
+  static bool ready = false;
+  std::call_once(once, [] {
   const int net = sceNetInit();
   LOG_DEBUG("http curl sceNetInit rc=%d", net);
 
@@ -196,8 +237,7 @@ bool ensure_curl() {
   if (rc != CURLE_OK) {
     LOG_ERROR("http curl_global_init failed: %s (%d)", curl_easy_strerror(rc),
               static_cast<int>(rc));
-    state = -1;
-    return false;
+    return;
   }
   LOG_DEBUG("http curl ready version=%s", curl_version());
   const size_t ca_bundle_size = static_cast<size_t>(
@@ -205,8 +245,9 @@ bool ensure_curl() {
       reinterpret_cast<uintptr_t>(onion_curl_ca_bundle_start));
   LOG_DEBUG("http curl ca bundle embedded bytes=%zu verify=peer+host",
             ca_bundle_size);
-  state = 1;
-  return true;
+    ready = true;
+  });
+  return ready;
 }
 #endif
 
@@ -218,12 +259,14 @@ SyncStatus Ps5HttpTransport::perform(
   const char *url = req.url ? req.url : "";
   const char *method = req.method ? req.method : "GET";
   const char *allow = req.host_allow ? req.host_allow : "";
+  if (req.range_ignored) *req.range_ignored = false;
   LOG_DEBUG("http perform method=%s url=%s host_allow=%s timeout_ms=%d "
             "status=%d-%d",
             method, url, allow, req.timeout_ms, req.status_min,
             req.status_max);
 
-  if (!host_allowed(req.url, req.host_allow)) {
+  if ((req.https_only && std::strncmp(url, "https://", 8) != 0) ||
+      !host_allowed(req.url, req.host_allow)) {
     LOG_ERROR("http url rejected url=%s host_allow=%s", url, allow);
     return SyncStatus::Rejected;
   }
@@ -248,6 +291,8 @@ SyncStatus Ps5HttpTransport::perform(
   xfer.should_cancel = req.should_cancel;
   xfer.cancel_user = req.cancel_user;
   xfer.max_body_bytes = req.max_body_bytes;
+  xfer.resume_offset = req.resume_from_bytes;
+  xfer.range_ignored = req.range_ignored;
 
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_USERAGENT,
@@ -255,6 +300,13 @@ SyncStatus Ps5HttpTransport::perform(
                                                        : "HyperHEN");
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 3L);
+  if (req.https_only) {
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "https");
+    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "https");
+  }
+  if (req.resume_from_bytes)
+    curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE,
+                     static_cast<curl_off_t>(req.resume_from_bytes));
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
   const size_t ca_bundle_size = static_cast<size_t>(
       reinterpret_cast<uintptr_t>(onion_curl_ca_bundle_end) -
@@ -268,6 +320,8 @@ SyncStatus Ps5HttpTransport::perform(
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, onion_curl_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &xfer);
+  curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, onion_curl_header);
+  curl_easy_setopt(curl, CURLOPT_HEADERDATA, &xfer);
   if (req.on_progress || req.should_cancel) {
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, onion_curl_xferinfo);
@@ -313,6 +367,8 @@ SyncStatus Ps5HttpTransport::perform(
   double total = 0;
   long ssl_verify = 0;
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+  if (req.resume_from_bytes && http_code == 200 && req.range_ignored)
+    *req.range_ignored = true;
   curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP, &primary_ip);
   curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &namelookup);
   curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connect);

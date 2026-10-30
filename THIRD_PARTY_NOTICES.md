@@ -94,3 +94,22 @@ Do not remove or rewrite upstream copyright headers, license files, commit
 locks, or source-level provenance notes. When updating a vendored component,
 update its `HYPERHEN_VENDOR_LOCK.md`, this notice, and the public technical
 inventory in the same change.
+
+
+## Hyper local voice assistant (0.9.4)
+
+Hyper uses [llama.cpp](https://github.com/ggml-org/llama.cpp) and its GGML CPU
+runtime for local dialogue, [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
+for local speech recognition, and [eSpeak NG](https://github.com/espeak-ng/espeak-ng)
+for speech synthesis and voice data. Their original license files are included
+under `third_party/hyper-ai/`; exact source revisions and archive checksums are
+recorded in `source/hyper/upstream-lock.json`. The complete corresponding source
+snapshot is included in the release build-input asset at
+`release-inputs/hyper-ai/upstream-source.tar.gz`; adapted loader/CPU translation
+units are published in `source/hyper/patches/`.
+
+Model weights are separate downloads and retain their respective upstream
+licenses. In particular, the catalogue includes Qwen2.5-family models;
+a catalogue entry does not imply a hardware validation
+or a change to the model author's terms. No model weights are embedded in the
+HyperHEN ELF.

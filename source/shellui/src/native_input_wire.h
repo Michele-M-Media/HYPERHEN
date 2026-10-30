@@ -15,6 +15,7 @@
 #define HYPER_P5_AUDIO_CAPTURE_ECHO UINT32_C(4)
 #define HYPER_P5_AUDIO_PROBE_ROUTE UINT32_C(5)
 #define HYPER_P5_AUDIO_PLAY_TONES UINT32_C(6)
+#define HYPER_P13_AUDIO_CAPTURE_ECHO UINT32_C(7)
 
 /* Local datagram: no audio payload, handle value or memory address. */
 struct hyper_p5_input_frame {

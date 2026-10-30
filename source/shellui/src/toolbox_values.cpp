@@ -90,6 +90,14 @@ const ExactValueEntry kExactValues[] = {
      +[]() -> std::string { return bool_str(g_settings.show_boot_thanks); }},
     {"id_hype_voice",
      +[]() -> std::string { return bool_str(g_settings.hype_voice); }},
+    {"id_hyper_assistant_enabled",
+     +[]() -> std::string { return bool_str(g_settings.hyper_assistant_enabled); }},
+    {"id_hyper_assistant_model",
+     +[]() -> std::string { return int_str(g_settings.hyper_model_id); }},
+    {"id_hyper_assistant_download_model",
+     +[]() -> std::string { return int_str(g_settings.hyper_download_model_id); }},
+    {"id_hyper_assistant_voice",
+     +[]() -> std::string { return int_str(g_settings.hyper_voice_id); }},
     {"id_log_max_bytes",
      +[]() -> std::string {
        return int_str(onion::clamp_log_max_bytes(g_settings.log_max_bytes));

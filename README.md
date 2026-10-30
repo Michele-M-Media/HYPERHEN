@@ -10,6 +10,8 @@
 <p align="center">
   <b><a href="#features">Features</a></b>
   ·
+  <b><a href="#hyper--local-voice-assistant-beta">Hyper</a></b>
+  ·
   <b><a href="#run">Run</a></b>
   ·
   <b><a href="#build">Build</a></b>
@@ -37,12 +39,38 @@
   payloads, and background services.
 </p>
 
-HyperHEN v0.9.3 combines exact firmware routing, the source-built HyperCore,
+HyperHEN v0.9.4 combines exact firmware routing, the source-built HyperCore,
 one common automount owner, firmware-gated Toolbox services, and a fully
 HyperHEN-branded native Settings interface. The visual system uses a unified
 64 px icon family and a progressive APNG HyperCore emblem. Firmware image
 decoders that do not play APNG display its complete first frame, so animation
 never gates the UI.
+
+### What's new in 0.9.4
+
+- **Hyper, the local voice assistant:** activate it with **L1 + R1 + □**,
+  speak through the DualSense microphone and hear the reply from its speaker.
+  Hyper has its own entry on the main Toolbox page, directly below the package-management section, with an enable switch, model downloads, model selection and
+  voice selection. A separate assistant ELF is no longer required.
+- **Models stay on the console:** the built-in installer downloads the AI
+  models into `/data/Hyper`; the main ELF does not bundle the large models.
+  Speech recognition, conversation and speech synthesis run locally after
+  installation. Menus, notifications and the voice language follow the PS5
+  system language.
+- **Honest beta status:** the smallest model, **Qwen2.5 0.5B Q4_K_M**, is the
+  working, console-confirmed configuration. Every other catalog model is
+  **experimental / beta**. The 7B path has memory and inference improvements,
+  but the latest console test still timed out before producing a spoken reply.
+- **13.xx continuity:** restores the previous public HyperCore path for the
+  Bypervisor routes on 13.00, 13.20 and 13.60, and retains the corrected 13.60
+  startup runtime. ShadowMountPlus 1.7 beta9 remains a separate Automount stage.
+- **Existing services and startup behavior retained:** HyperDeck, Advanced
+  Debug payloads, firmware selectors, multilingual notifications and the
+  manual WebKit-close handoff remain part of the stack. The standalone
+  Bypervisor downloads and their two-stage startup procedure are listed below.
+
+Download [HyperHEN v0.9.4](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/HyperHEN-v0.9.4.elf)
+or see the [0.9.4 release](https://github.com/Michele-M-Media/HYPERHEN/releases/tag/HYPERHEN_V0_9_4).
 
 ### What's new in 0.9.3
 
@@ -62,9 +90,8 @@ never gates the UI.
 - **Consistent v0.9.3 branding**, including Console Information, and a
   dedicated experimental 13.60 Linux-loader input.
 
-See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the complete comparison with the
-previous public 0.9.2 release, including the dashboard/tool work completed
-before the final stabilization update.
+See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the 0.9.4 changes and the retained
+0.9.3 history, including the dashboard/tool work since public 0.9.2.
 
 <br>
 
@@ -82,8 +109,8 @@ inputs. Unsupported or non-exact profiles fail closed.
 ### Exact firmware profiles
 
 These are the **67 exact entries** declared by the router. The profile count
-already existed in 0.9.2; 0.9.3 updates several routes and their continuation
-services. Versions between listed entries are not implicit aliases.
+already existed in 0.9.2; 0.9.4 retains those exact entries and the prior
+route-specific service boundaries. Versions between listed entries are not implicit aliases.
 
 <!-- PROFILE_TABLE_BEGIN -->
 | Route | Count | Exact firmware versions | Startup behavior |
@@ -103,8 +130,9 @@ The legacy selector keeps HyperCore unavailable below 3.00. These source
 profiles do not establish hardware testing on every console revision.
 
 The [technical overview](docs/COMPONENTS_AND_TECHNICAL_OVERVIEW.md#firmware-routing)
-retains the earlier component inventory; the table above is the current 0.9.3
-profile description.
+retains the earlier component inventory; the table above is the current 0.9.4
+profile description. The 13.00/13.20/13.60 Bypervisor routes retain the restored
+0.9.2 HyperCore component and the corrected 13.60 runtime.
 
 - **ShellUI Toolbox** — a settings page injected into the PS5 ShellUI
 - **System preparation** — raise privileges, remount filesystems, and block the update partition
@@ -132,11 +160,71 @@ profile description.
 - **Expanded Advanced Debug** — Firmware Spoof, NP Fake Sign-in, NanoDNS, Chukei DNS, zFTPd/zHTTP and firmware-gated Garlic Save Manager controls
 - **System-language selectors and notifications** — additional startup/status messages follow the console language while existing Toolbox translations and project credits are retained
 - **Startup/recovery checks** — manual WebKit closure, a two-second quiet interval and replacement-instance handling improve Toolbox handoff after payload launches
-- **Product version** — welcome, Toolbox/About, HyperDeck and Console Information report HyperHEN v0.9.3 while retaining the firmware information
+- **Product version** — welcome, Toolbox/About, HyperDeck and Console Information report HyperHEN v0.9.4 while retaining the firmware information
+- **Hyper voice assistant (beta)** — local DualSense microphone-to-speaker interaction, downloadable Qwen models and selectable voices, managed from its own main Toolbox entry
 
 HyperHEN does not include a kernel exploit. The first hop still needs an
 external `elfldr` on **9021**. After that, HyperHEN starts its own private
 loader on **9020** for later ELF and user-payload launches.
+
+### Hyper — local voice assistant (beta)
+
+Hyper runs in the background and is called with **L1 + R1 + □ (Square)**.
+It uses the DualSense microphone for your question and the DualSense speaker
+for the answer. Short built-in responses and model-backed conversation run
+on the PS5: **no PC and no online voice service are needed** once the files
+are installed. Internet access is needed to download models.
+
+Open **HyperHEN Toolbox → Hyper — Voice assistant** on the main page,
+directly below **Content Install & Management** (the package-management
+section in English). Hyper is enabled by default; the
+**Enable Hyper** switch lets you disable it and save that preference.
+
+1. For the first installation, choose **Download and install models**. This
+   installs the default Qwen2.5 0.5B Q4_K_M model, the multilingual Whisper
+   speech-recognition model and the required voice data in `/data/Hyper`.
+   The first model download is about **569 MB**; installed base data occupies
+   about **600 MB**. Keep additional free space for installation.
+2. Use **Check status** to follow installation. Wait for the model to load
+   and for the **Hyper ready** notification before using the shortcut.
+3. Return to the dashboard, leave the microphone unmuted, release the
+   controller buttons, then hold **L1 + R1 + □** for about **0.6 seconds**.
+   Speak when prompted; a pause ends the recording, which is limited to
+   twelve seconds. **Circle** cancels the active session. Call Hyper again
+   with the same shortcut for the next turn.
+4. To try another model, choose it under **Model to download**, then press
+   **Download selected model**. Downloading does not change the active model.
+   After installation, choose it under **Active AI model**; switching models
+   restarts Hyper and requires waiting for readiness again.
+5. Choose **Speaking voice** to change the reply voice. **Automatic** follows
+   the system language; the installed voice pack also offers 85 voice
+   variants. Voice changes apply from the next turn. The initial installer
+   installs the voice data; individual variants do not need separate downloads.
+
+Models are stored in `/data/Hyper/models`, and voice data in
+`/data/Hyper/espeak-ng-data`. Use `/data/Hyper`, **not**
+`/data/HyperHEN/Hyper`. Existing models can be kept when updating HyperHEN.
+The installer verifies file sizes and hashes. **Cancel installation** stops
+an active download/install, and **Check status** reports its state.
+
+| AI model | Model download size | Current status |
+| --- | ---: | --- |
+| Qwen2.5 0.5B Q4_K_M | 491 MB | **Working configuration confirmed on console; recommended starting point** |
+| Qwen2.5 0.5B Q5_K_M | 522 MB | Experimental / beta |
+| Qwen2.5 1.5B Q4_K_M | 1.12 GB | Experimental / beta |
+| Qwen2.5 1.5B Q5_K_M | 1.29 GB | Experimental / beta |
+| Qwen2.5 3B Q4_K_M | 2.10 GB | Experimental / beta |
+| Qwen2.5 3B Q5_K_M | 2.44 GB | Experimental / beta |
+| Qwen2.5 7B Q4_K_M | 4.68 GB | Experimental / beta; high latency |
+| Qwen2.5 7B Q5_K_M | 5.44 GB | Experimental / beta; latest test timed out without a voice reply |
+
+Sizes use decimal MB/GB and describe model files, not RAM requirements. The
+shared speech-recognition model is about 78 MB, in addition to the AI model;
+the 7B models are downloaded as two parts. The smallest-model confirmation
+covers a complete Italian voice turn in the recorded working configuration,
+not certification of every firmware, language or conversation. Other
+languages follow the console setting; recognition, voice quality and answer
+quality vary by language and model. Current inference uses the CPU.
 
 ### HyperLinux clean-boot mode
 
@@ -163,11 +251,38 @@ certification of those profiles.
 1. A jailbroken PS5
 2. An external [PS5 `elfldr`](https://github.com/ps5-payload-dev/elfldr) listening on port **9021** for the first hop
 
+### Bypervisor downloads and startup procedure
+
+Use the file for your exact Bypervisor profile:
+
+| Profile | Standalone ELF |
+| --- | --- |
+| 13.00, 13.20, 13.60 | [Byepervisor Reborn](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn.elf) |
+| 12.70 | [Byepervisor Reborn 12.70](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-12.70.elf) |
+| 9.40 | [Byepervisor Reborn AUTO 9.40](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-AUTO-9.40.elf) |
+
+For these profiles, perform the steps in this order:
+
+1. Open **WebKit** and launch the matching **Bypervisor ELF**.
+2. Put the PS5 into **Rest Mode**.
+3. **Resume** the console and return to the dashboard.
+4. Open **WebKit again** and start the exploit host/loader as required.
+5. Launch **HyperHEN v0.9.4**.
+6. **Close WebKit manually** when prompted, then leave it closed for the
+   two-second quiet interval while HyperHEN finishes loading Automount and
+   the Toolbox.
+
+The first WebKit session prepares Bypervisor; the second launches HyperHEN
+after resume. Do not skip the Rest Mode/resume step or substitute an ELF for
+a different firmware. The 5.xx selector keeps its integrated Bypervisor
+choice and does not require an additional 5.xx download here. The
+13.40/13.42 lite routes are separate from this procedure.
+
 ### Load HyperHEN
 
-1. Run the kernel exploit and start the external `elfldr` service.
-2. After a full reboot when changing versions, send the downloaded `HyperHEN-v0.9.3.elf` or locally built `HyperHEN.elf` through the loader your exploit host provides.
-3. HyperHEN uses the exact firmware route and opens the legacy/5.xx engine selector where supported. On FW 13.00, 13.20, or 13.60, follow the HyperHEN Hypervisor notification: enter Rest Mode once and resume. Follow the component-specific notification on dedicated 9.40/12.70 routes; on exact 11.60–12.60 profiles, wait for the compatibility-mode notification and runtime check.
+1. After a full reboot when changing versions, follow the Bypervisor procedure above on 9.40, 12.70, 13.00, 13.20 or 13.60. On other routes, run the kernel exploit and start the external `elfldr` service.
+2. Send the downloaded `HyperHEN-v0.9.4.elf` or locally built `HyperHEN.elf` through the loader your exploit host provides; on Bypervisor profiles, this is the second WebKit session after resume.
+3. HyperHEN uses the exact firmware route and opens the legacy/5.xx engine selector where supported. On exact 11.60–12.60 profiles, wait for the compatibility-mode notification and runtime check.
 4. If the engine selector appears, confirm your choice, then **close the WebKit/browser window manually when prompted**. On other routes, manually close the payload-host browser after launching HyperHEN.
 5. Keep the browser closed, allow the two-second quiet interval and let initialization finish before opening PS5 Settings and entering the HyperHEN Toolbox. FW 13.40 and 13.42 use the restricted lite route rather than utility-only mode.
 
@@ -325,7 +440,7 @@ Cheats load from disk. If a file changes, HyperHEN reloads it without restarting
 
 ### Full build
 
-For the tagged 0.9.3 release-compatible build, use the new helper:
+For the tagged 0.9.4 release-compatible build, use the new helper:
 
 ```shell
 export PS5_PAYLOAD_SDK=/path/to/ps5-payload-sdk
@@ -333,12 +448,13 @@ bash scripts/build_release.sh --jobs 6
 ```
 
 A Git checkout also needs
-[HyperHEN-v0.9.3-build-inputs.zip](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_3/HyperHEN-v0.9.3-build-inputs.zip)
+[HyperHEN-v0.9.4-build-inputs.zip](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/HyperHEN-v0.9.4-build-inputs.zip)
 extracted at the repository root. The complete source ZIP already includes
 these checksum-verified inputs. This recipe rebuilds the first-party interfaces
-and uses the retained engine inputs from the tested R29 build; output is
-`build-release/bin/HyperHEN.elf`. See [BUILD_RELEASE.md](BUILD_RELEASE.md) for
-the complete SDK/runtime requirements and input boundaries.
+and uses the retained R45 engines, Hyper worker, Automount beta9 and the
+isolated CRT with the 13.60 fix. Output is `build-release/bin/HyperHEN.elf`.
+See [BUILD_RELEASE.md](BUILD_RELEASE.md) for the complete SDK/runtime
+requirements, input boundaries and optional Hyper worker rebuild.
 
 The existing broader developer source-build recipe remains:
 
@@ -349,7 +465,7 @@ export PS5_PAYLOAD_SDK=/path/to/ps5-payload-sdk
 
 That script validates the vendored dependencies, builds HyperCore and HyperHEN
 Automount locally, and then builds the embed chain in the required order. Its
-source outputs are separate from the retained inputs used by the 0.9.3
+source outputs are separate from the retained inputs used by the 0.9.4
 release-compatible helper above.
 
 The existing Docker developer recipe is:
@@ -425,6 +541,10 @@ default from [`config.ini.example`](config.ini.example).
 | `toolbox.language` | `system` | `system`, `zh-Hans`, `zh-Hant`, `en`, `ja`, `ko`, `fr`, `de`, `it`, `es`, `pt-BR`, `pt-PT`, `pl`, `ru`, `ar`, `th`, `nl`, `fi`, `sv`, `da`, `no`, `tr`, `cs`, `hu`, `el`, `ro`, `vi`, `id`, `uk` |
 | `startup.open_after_load` | `none` | `none`, `home_menu` |
 | `startup.hype_voice` | `true` | `true`, `false` |
+| `hyper.enabled` | `true` | `true`, `false` |
+| `hyper.model_id` | `0` | Installed model ID `0` through `7` |
+| `hyper.download_model_id` | `0` | Download target ID `0` through `7`; independent of the active model |
+| `hyper.voice_id` | `0` | `0` automatic; installed voice variants `1` through `85` |
 | `home_screen.show_title_ids` | `false` | `true`, `false` |
 | `game_menu.show_hyperhen_options` | `true` | `true`, `false` |
 | `rest_mode.resume_reinject_delay_seconds` | `10` | `0` through `255` seconds |
@@ -596,6 +716,14 @@ boundary for every major component are recorded in the
 [technical overview](docs/COMPONENTS_AND_TECHNICAL_OVERVIEW.md) and the
 per-component `HYPERHEN_VENDOR_LOCK.md` files under `third_party/`.
 
+#### Hyper voice assistant components
+
+- [Whisper](https://github.com/openai/whisper) — **OpenAI and contributors**; multilingual speech-recognition model.
+- [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — **Georgi Gerganov and the ggml community**; local speech-recognition runtime.
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) — **Georgi Gerganov and the ggml community**; local GGUF model inference and CPU backend.
+- [Qwen2.5](https://github.com/QwenLM/Qwen2.5) and the [official Qwen model repositories](https://huggingface.co/Qwen) — **Qwen team and contributors**; downloadable instruction-tuned conversation models, distributed under their respective model licenses.
+- [eSpeak NG](https://github.com/espeak-ng/espeak-ng) — **eSpeak NG contributors**; local speech synthesis, language data and voice variants.
+
 ### Testers
 
 - [**@oG_LuckyXmods**](https://x.com/oG_LuckyXmods) — special thanks for the extensive help testing HyperHEN.
@@ -614,3 +742,4 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before redistribution.
 
 > HyperHEN is an unofficial homebrew project and is not affiliated with Sony Interactive Entertainment.
 > Use it only on hardware you own and at your own risk. No warranty is provided.
+

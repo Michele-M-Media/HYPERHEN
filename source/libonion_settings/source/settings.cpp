@@ -15,8 +15,12 @@ along with this program; see the file COPYING. If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include <onion/settings.hpp>
+#include <onion/hyper_voice_catalog.hpp>
+#include <onion/hyper_model_catalog.hpp>
 
 #include <cctype>
+#include <cerrno>
+#include <climits>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -87,6 +91,19 @@ bool parse_bool(const char *s, bool def) {
 int parse_int_range(const char *s, int def, int min, int max) {
   const int v = atoi_def(s, def);
   return v < min || v > max ? def : v;
+}
+
+// Catalog IDs are exact decimal integers. Malformed or unknown values retain
+// the default so old and hand-edited configurations remain usable.
+int parse_hyper_id(const char *s, int def, int maximum) {
+  if (!s || !*s) return def;
+  for (const char *p = s; *p; ++p)
+    if (*p < '0' || *p > '9') return def;
+  char *end = nullptr;
+  errno = 0;
+  const long value = std::strtol(s, &end, 10);
+  return errno == 0 && end && *end == '\0' && value >= 0 && value <= maximum
+             ? static_cast<int>(value) : def;
 }
 
 int parse_language(const char *s, int def) {
@@ -739,6 +756,15 @@ bool apply_parser(IniParser *parser, Settings *out) {
                                      out->show_boot_thanks);
   out->hype_voice =
       parse_bool(ini_get(parser, "startup.hype_voice"), out->hype_voice);
+  out->hyper_assistant_enabled = parse_bool(
+      ini_get(parser, "hyper.enabled"), out->hyper_assistant_enabled);
+  out->hyper_model_id = parse_hyper_id(
+      ini_get(parser, "hyper.model_id"), out->hyper_model_id, static_cast<int>(onion::hyper::kModelCatalogCount) - 1);
+  out->hyper_download_model_id = parse_hyper_id(
+      ini_get(parser, "hyper.download_model_id"), out->hyper_download_model_id, static_cast<int>(onion::hyper::kModelCatalogCount) - 1);
+  out->hyper_voice_id = parse_hyper_id(
+      ini_get(parser, "hyper.voice_id"), out->hyper_voice_id,
+      static_cast<int>(onion::hyper::kVoiceCatalogCount) - 1);
   out->log_level =
       parse_log_level(ini_get(parser, "logging.level"), out->log_level);
   out->log_max_bytes =
@@ -886,6 +912,17 @@ std::string settings_serialize(const Settings &in) {
   b += "# hype_voice plays the embedded startup voice after HyperCore is ready.\n";
   b += "# Available values: true, false\n";
   b += "hype_voice=" + bool_text(in.hype_voice) + "\n";
+  b += "\n";
+  b += "[hyper]\n";
+  b += "# enabled starts the Hyper voice assistant automatically.\n";
+  b += "# Changes apply immediately; models are installed separately in /data/Hyper.\n";
+  b += "# Available values: true, false\n";
+  b += "enabled=" + bool_text(in.hyper_assistant_enabled) + "\n";
+  b += "# Stable catalog IDs; download_model_id does not change the active model.\n";
+  b += "model_id=" + std::to_string(in.hyper_model_id) + "\n";
+  b += "download_model_id=" + std::to_string(in.hyper_download_model_id) + "\n";
+  b += "# voice_id=0 follows the current system language.\n";
+  b += "voice_id=" + std::to_string(in.hyper_voice_id) + "\n";
   b += "\n";
   b += "[logging]\n";
   b += "# level controls how much HyperHEN records to its log files.\n";

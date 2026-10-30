@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Release-compatible 0.9.3 build. Keeps the established engine inputs frozen.
+# Release-compatible 0.9.4 build. Keeps the established engine inputs frozen.
 # No dependency downloads, SDK changes, or automatic build-tree deletion.
 set -euo pipefail
 
@@ -46,10 +46,11 @@ done
 [[ -d "${PS5_PAYLOAD_SDK}/target/include/c++/v1" ]] || die 'SDK C++ headers are missing'
 [[ -f "${release_root}/source/CMakeLists.txt" ]] || die 'source/CMakeLists.txt is missing'
 [[ -d "${release_root}/third_party" ]] || die 'third_party is missing'
-[[ "$(tr -d '\r\n' < "${release_root}/VERSION")" == '0.9.3' ]] || die 'this helper expects VERSION=0.9.3'
+[[ "$(tr -d '\r\n' < "${release_root}/VERSION")" == '0.9.4' ]] || die 'this helper expects VERSION=0.9.4'
 
 components="${release_root}/release-components"
 inputs="${release_root}/release-inputs"
+crt="${inputs}/sdk/crt1-r42-1360.o"
 for checked_dir in "$components" "$inputs"; do
   [[ -f "${checked_dir}/SHA256SUMS" ]] || die "checksum manifest missing: ${checked_dir}/SHA256SUMS"
   (
@@ -100,8 +101,15 @@ cmake -S "${release_root}/source" -B "$build_dir" -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="${PS5_PAYLOAD_SDK}/toolchain/prospero.cmake" \
   -DPS5_PAYLOAD_SDK="$PS5_PAYLOAD_SDK" \
   -DCMAKE_BUILD_TYPE=Release \
+  "-DCMAKE_EXE_LINKER_FLAGS=--start-no-unused-arguments -nostartfiles --end-no-unused-arguments" \
+  "-DCMAKE_C_STANDARD_LIBRARIES=${crt}" \
+  "-DCMAKE_CXX_STANDARD_LIBRARIES=${crt}" \
   -DHYPERHEN_RELEASE_COMPONENT_DIR="$components" \
   -DHYPERHEN_SOURCE_PLUGIN_RUNTIME=ON \
+  -DHYPERHEN_STABLE_SHELLUI_ELF= \
+  -DHYPERHEN_INTEGRATED_HYPER=ON \
+  -DHYPER_ASSISTANT_ELF="${components}/hyper_assistant_r45.elf" \
+  -DHYPER_VOICES_ZIP="${inputs}/hyper/hyper-voices.zip" \
   -DHYPERHEN_P5_STABLE_COMPONENT_DIR="$components" \
   -DHYPERHEN_STABLE_INNER_LOADER_ELF="${components}/hyperhen_elfldr_inner.elf" \
   -DHYPERHEN_EXPERIMENTAL_HYPERSHELL=ON \
@@ -113,7 +121,8 @@ cmake -S "${release_root}/source" -B "$build_dir" -G Ninja \
   -DHYPERHEN_CORE_1270_ELF="${components}/hypercore_1270.elf" \
   -DHYPERHEN_HYPERVISOR_1270_ELF="${components}/hypervisor_1270.elf" \
   -DHYPERHEN_HYPERVISOR_940_ELF="${components}/hypervisor_940.elf" \
-  -DHYPERHEN_LINUX_1360_ELF="${components}/hyperlinux_1360.elf"
+  -DHYPERHEN_LINUX_1360_ELF="${components}/hyperlinux_1360.elf" \
+  -DHYPERHEN_CORE_13XX_V092_ELF="${components}/hypercore_13xx_v092.elf"
 
 if [[ "$configure_only" -eq 0 ]]; then
   cmake --build "$build_dir" --target HyperHEN --parallel "$jobs"

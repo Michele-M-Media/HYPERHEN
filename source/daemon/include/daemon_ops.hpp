@@ -34,6 +34,9 @@ bool LoadSettings(bool force = false);
 
 /** After settings_save from this process, refresh mtime gate so we don't thrash. */
 void SettingsNoteDiskWritten();
+/** Persist only fan fields after merging the latest disk schema, serialized
+ * with reload/apply so unrelated settings (especially Hyper OFF) are retained. */
+bool SettingsSetFanControl(bool enabled, int threshold);
 
 void reply(int sender_socket, bool error, std::string out_var = "Nothing");
 /** Last reply error for BREW_LAST_RET (0 = success, -1 = error). */

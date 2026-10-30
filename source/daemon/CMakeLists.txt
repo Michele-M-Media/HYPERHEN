@@ -38,10 +38,15 @@ else()
 	set(_hyperhen_util_elf "${PROJECT_ROOT}/bin/util.elf")
 	set(_hyperhen_elfldr_elf "${PROJECT_ROOT}/bin/hyperhen_elfldr.elf")
 endif()
-if(HYPERHEN_RELEASE_COMPONENT_DIR AND HYPERHEN_SOURCE_PLUGIN_RUNTIME)
-  # Preserve the tested util while replacing ONLY the plugin-aware daemon,
-  # Toolbox module and private loader. The old util is not part of this fix.
+set(_hyperhen_uses_stable_util FALSE)
+if(HYPERHEN_RELEASE_COMPONENT_DIR)
+  # Hyper's installer belongs to the daemon. Keep the hardware-tested util
+  # byte-exact even when the assistant and its catalog are integrated.
   set(_hyperhen_util_elf "${HYPERHEN_RELEASE_COMPONENT_DIR}/util.elf")
+  if(NOT EXISTS "${_hyperhen_util_elf}")
+    message(FATAL_ERROR "Missing pinned util ELF: ${_hyperhen_util_elf}")
+  endif()
+  set(_hyperhen_uses_stable_util TRUE)
 endif()
 set(HYPERHEN_STABLE_INNER_LOADER_ELF "" CACHE FILEPATH
   "Byte-exact private recovery loader retained inside the daemon")
@@ -51,18 +56,76 @@ if(HYPERHEN_STABLE_INNER_LOADER_ELF)
     message(FATAL_ERROR "Missing pinned private loader: ${_hyperhen_elfldr_elf}")
   endif()
 endif()
+# R39: pin the tested ShellUI while rebuilding only the daemon.
+set(_hyperhen_shellui_elf "${HYPERHEN_OUT_BIN}/shellui.elf")
+set(HYPERHEN_STABLE_SHELLUI_ELF "" CACHE FILEPATH
+  "Byte-exact ShellUI retained inside the daemon")
+if(HYPERHEN_STABLE_SHELLUI_ELF)
+  set(_hyperhen_shellui_elf "${HYPERHEN_STABLE_SHELLUI_ELF}")
+  if(NOT EXISTS "${_hyperhen_shellui_elf}")
+    message(FATAL_ERROR "Missing pinned ShellUI ELF: ${_hyperhen_shellui_elf}")
+  endif()
+endif()
 set_source_files_properties(
 	${D_SRC}/embedded_payloads.c
 	PROPERTIES OBJECT_DEPENDS
-		"${HYPERHEN_OUT_BIN}/shellui.elf;${_hyperhen_util_elf};${_hyperhen_elfldr_elf}"
+		"${_hyperhen_shellui_elf};${_hyperhen_util_elf};${_hyperhen_elfldr_elf}"
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-		HYPERHEN_SHELLUI_ELF="${HYPERHEN_OUT_BIN}/shellui.elf"
+		HYPERHEN_SHELLUI_ELF="${_hyperhen_shellui_elf}"
 		HYPERHEN_UTIL_ELF="${_hyperhen_util_elf}"
 		HYPERHEN_ELFLDR_ELF="${_hyperhen_elfldr_elf}"
 )
+if(HYPERHEN_INTEGRATED_HYPER)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    HYPERHEN_INTEGRATED_HYPER=1 HYPER_ASSISTANT_ELF="${HYPER_ASSISTANT_ELF}"
+    HYPER_VOICES_ZIP="${HYPER_VOICES_ZIP}")
+  set_property(SOURCE ${D_SRC}/embedded_payloads.c APPEND PROPERTY
+    OBJECT_DEPENDS "${HYPER_ASSISTANT_ELF}")
+
+  # Compile only Hyper's installer/transport into this process. Advanced and
+  # HyperDeck continue to use the untouched release util and private loader.
+  set(_hyper_installer_source "${PROJECT_ROOT}/util/source/hyper_installer.cpp")
+  set(_hyper_installer_engine "${PROJECT_ROOT}/util/source/hyper_installer_engine.cpp")
+  set(_hyper_http_source "${PROJECT_ROOT}/util/source/cheats/sync/http_transport_ps5.cpp")
+  set(_hyper_miniz_source "${HYPERHEN_THIRD_PARTY_DIR}/cheat_support/miniz.c")
+  set(_hyper_sha256_source "${HYPERHEN_THIRD_PARTY_DIR}/cheat_support/sha256.c")
+  target_sources(${PROJECT_NAME} PRIVATE
+    "${_hyper_installer_source}" "${_hyper_installer_engine}"
+    "${_hyper_http_source}" "${_hyper_miniz_source}" "${_hyper_sha256_source}")
+  set(_hyper_curl_root "${PS5_PAYLOAD_SDK}/target/user/homebrew")
+  set(_hyper_curl_ca "${_hyper_curl_root}/etc/ca-bundle.crt")
+  if(NOT EXISTS "${_hyper_curl_root}/include/curl/curl.h" OR
+     NOT EXISTS "${_hyper_curl_root}/lib/libcurl.a" OR
+     NOT EXISTS "${_hyper_curl_ca}")
+    message(FATAL_ERROR "Hyper installer requires the local SDK libcurl and CA bundle")
+  endif()
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    CURL_STATICLIB ONION_CURL_CA_BUNDLE="${_hyper_curl_ca}")
+  target_include_directories(${PROJECT_NAME} PRIVATE
+    "${PROJECT_ROOT}/util/include"
+    "${HYPERHEN_THIRD_PARTY_DIR}/cheat_support")
+  target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+    "${_hyper_curl_root}/include")
+  target_link_directories(${PROJECT_NAME} PRIVATE
+    "${HYPERHEN_PS5_STUB_DIR}" "${_hyper_curl_root}/lib"
+    "${PS5_PAYLOAD_SDK}/target/lib")
+  target_link_libraries(${PROJECT_NAME} PRIVATE
+    SceNet curl psl ssl crypto zstd z)
+  set_source_files_properties("${_hyper_installer_source}" PROPERTIES
+    OBJECT_DEPENDS "${HYPER_VOICES_ZIP}")
+  set_source_files_properties("${_hyper_http_source}" PROPERTIES
+    OBJECT_DEPENDS "${_hyper_curl_ca}")
+  set_source_files_properties("${_hyper_installer_engine}" PROPERTIES
+    COMPILE_FLAGS "-Wno-unused-function -Wno-sign-compare -Wno-unused-parameter")
+  set_source_files_properties("${_hyper_miniz_source}" "${_hyper_sha256_source}"
+    PROPERTIES COMPILE_FLAGS
+      "-Wno-error -Wno-unused-function -Wno-sign-compare -Wno-unused-parameter")
+endif()
 onion_target_debug_define(${PROJECT_NAME})
-target_include_directories(${PROJECT_NAME} PRIVATE
+# Keep process-local daemon headers (notably ipc.hpp) ahead of
+# the installer's util headers, which are shared only by the added sources.
+target_include_directories(${PROJECT_NAME} BEFORE PRIVATE
 	"${D_CWD}/include"
 	"${HYPERHEN_THIRD_PARTY_DIR}/cjson"
 	"${PROJECT_ROOT}/libonion_settings/include"
@@ -86,14 +149,17 @@ target_link_directories	(${PROJECT_NAME} PUBLIC "${HYPERHEN_PS5_STUB_DIR}")
 # can make a focused ShellUI/runtime rebuild depend on optional HTTP catalog
 # toolchain assets.
 set(_daemon_dependencies
-  hyperhen_version NineS shellui hijacker
+  hyperhen_version NineS hijacker
   onion_settings onion_ipc onion_proc onion_fps onion_platform onion_ready
   onion_lifecycle onion_plugin_session onion_plugin_bridge onion_plugin_manager
   onion_elfldr onion_sprx)
+if(NOT HYPERHEN_STABLE_SHELLUI_ELF)
+  list(APPEND _daemon_dependencies shellui)
+endif()
 if(NOT HYPERHEN_STABLE_INNER_LOADER_ELF)
   list(APPEND _daemon_dependencies hyperhen_elfldr_server)
 endif()
-if(NOT (HYPERHEN_RELEASE_COMPONENT_DIR AND HYPERHEN_SOURCE_PLUGIN_RUNTIME))
+if(NOT _hyperhen_uses_stable_util)
   list(APPEND _daemon_dependencies util)
 endif()
 add_dependencies(${PROJECT_NAME} ${_daemon_dependencies})

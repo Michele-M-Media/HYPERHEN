@@ -7,6 +7,9 @@
 #ifndef HYPERHEN_ELFLDR_ELF
 #define HYPERHEN_ELFLDR_ELF "../../bin/hyperhen_elfldr.elf"
 #endif
+#ifndef HYPER_ASSISTANT_ELF
+#error "The integrated Hyper assistant ELF must be supplied by the build"
+#endif
 
  __asm__(
 
@@ -48,5 +51,17 @@
 		".align  4\n"
 	"hyperhen_elfldr_elf_size:\n"
 		".int    hyperhen_elfldr_elf_end - hyperhen_elfldr_elf_start\n"
+
+	".global hyper_assistant_elf_start\n"
+	".type hyper_assistant_elf_start, @object\n"
+	".align 16\n"
+	"hyper_assistant_elf_start:\n"
+		".incbin \"" HYPER_ASSISTANT_ELF "\"\n"
+	"hyper_assistant_elf_end:\n"
+	".global hyper_assistant_elf_size\n"
+	".type hyper_assistant_elf_size, @object\n"
+	".align 4\n"
+	"hyper_assistant_elf_size:\n"
+		".int hyper_assistant_elf_end - hyper_assistant_elf_start\n"
 
 );

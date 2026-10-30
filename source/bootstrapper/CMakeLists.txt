@@ -8,6 +8,15 @@ onion_module_prologue(C_STANDARD 11 CXX_STANDARD 20)
 set(D_CWD "${CMAKE_CURRENT_SOURCE_DIR}")
 onion_output_dirs()
 set(D_SRC ${D_CWD}/source)
+set(HYPERHEN_CORE_13XX_V092_ELF "" CACHE FILEPATH
+  "Byte-exact public 0.9.2 HyperCore for the isolated 13.xx test")
+if(NOT EXISTS "${HYPERHEN_CORE_13XX_V092_ELF}")
+  message(FATAL_ERROR "Missing public 0.9.2 test HyperCore")
+endif()
+file(SHA256 "${HYPERHEN_CORE_13XX_V092_ELF}" _core_13xx_v092_sha)
+if(NOT _core_13xx_v092_sha STREQUAL "31ecd6cbb47b80d9e1ab26dc85b0f77f53ec84a15625bce8efefb099f2722d85")
+  message(FATAL_ERROR "The 13.xx test requires the exact public 0.9.2 HyperCore")
+endif()
 set(_hype_voice_pcm "${D_CWD}/assets/hyperhen_start.pcm")
 if(NOT EXISTS "${_hype_voice_pcm}")
 	message(FATAL_ERROR "Missing startup voice asset: ${_hype_voice_pcm}")
@@ -301,7 +310,7 @@ set(_payload_inputs
 	"${_hyperhen_fw_spoof_elf}" "${_hyperhen_np_fake_signin_elf}"
 	"${_hyperhen_nanodns_elf}" "${_hyperhen_chukei_elf}"
 	"${_hyperhen_zftpd_elf}"
-	"${_hyperdeck_server_elf}")
+	"${_hyperdeck_server_elf}" "${HYPERHEN_CORE_13XX_V092_ELF}")
 if(HYPERHEN_EXPERIMENTAL_HYPERSHELL)
 	list(APPEND _payload_inputs "${_hypershell_engine_elf}")
 	set_property(SOURCE ${D_SRC}/daemon.c APPEND PROPERTY OBJECT_DEPENDS
@@ -461,3 +470,8 @@ add_custom_command(
 add_custom_target(${PROJECT_NAME}_packed
 	DEPENDS "${_bootstrapper_lzma}" "${_bootstrapper_lzma_size}" "${_bootstrapper_sha1}")
 add_dependencies(${PROJECT_NAME}_packed ${PROJECT_NAME})
+
+set_property(SOURCE ${D_SRC}/daemon.c APPEND PROPERTY OBJECT_DEPENDS
+  "${HYPERHEN_CORE_13XX_V092_ELF}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  HYPERHEN_CORE_13XX_V092_ELF="${HYPERHEN_CORE_13XX_V092_ELF}")

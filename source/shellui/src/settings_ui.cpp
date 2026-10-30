@@ -5,6 +5,7 @@
 
 #include "hooked_funcs.hpp"
 #include "toolbox_i18n.hpp"
+#include "hyper_p5_bridge.hpp"
 #include <onion/platform.h>
 #include <onion/ready.h>
 #include <onion/log_settings.hpp>
@@ -56,6 +57,7 @@ bool LoadSettings()
 
   // Process-local store (UI thread); twin disk paths via settings_load/save.
   g_settings = s;
+  hyper_p5_bridge_set_enabled(s.hyper_assistant_enabled);
   toolbox_i18n::apply_system_or_ui_lang(s.ui_lang);
   /* Clear stale fps_overlay marker left by older shellui builds. */
   onion_ready_clear(ONION_FLAG_FPS_OVERLAY);

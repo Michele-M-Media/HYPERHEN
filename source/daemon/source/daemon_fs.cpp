@@ -5,6 +5,7 @@
 #include "plugin_manager_runtime.hpp"
 #include "app_lifecycle_runtime.hpp"
 #include "sprx_plugin_manager_runtime.hpp"
+#include "hyper_runtime.hpp"
 #include <onion/platform.h>
 #include <onion/proc_query.h>
 #include <onion/ready.h>
@@ -327,6 +328,7 @@ static void shutdown_restart_shellui(void) {
    * relaunch :9020 or util after teardown begins. Then stop IPC and kill util.
    */
   g_stack_shutting_down.store(true, std::memory_order_release);
+  onion::daemon::hyper::stop();
   is_handler_enabled = false;
   onion::daemon::plugins::stop();
   onion::daemon::app_lifecycle::stop();

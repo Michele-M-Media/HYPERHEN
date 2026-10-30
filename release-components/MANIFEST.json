@@ -1,11 +1,12 @@
 {
   "product": "HyperHEN",
-  "version": "0.9.3",
+  "version": "0.9.4",
+  "base_revision": "R45",
   "files": [
     {
       "path": "automount.elf",
       "size_bytes": 3510032,
-      "sha256": "3edbb09e8c31d3fbdc9313a6e54ba4356c7ed0876e04cdbaed7fd1464ac18fa6",
+      "sha256": "956b6a70829306f97058df6c68dca1b061794eb2ddf386a3855d0cdce4d2c8d8",
       "executable": false
     },
     {
@@ -16,8 +17,8 @@
     },
     {
       "path": "daemon.elf",
-      "size_bytes": 14847680,
-      "sha256": "71971e68813f573ae56612f0fa7927e61f81b2e64fea5982ce357571769a65b1",
+      "size_bytes": 43987856,
+      "sha256": "91713987a3a416cfa0b7229f411b973ccff1e98027d06076a17bc78f32ee47fe",
       "executable": false
     },
     {
@@ -39,6 +40,12 @@
       "executable": false
     },
     {
+      "path": "hyper_assistant_r45.elf",
+      "size_bytes": 7297960,
+      "sha256": "c954b1960829e5b02096f6ad087bf44e144f541e8b2a22462d2bed60c22ec230",
+      "executable": false
+    },
+    {
       "path": "hypercore.elf",
       "size_bytes": 1802256,
       "sha256": "9df52a5bafa173994357e0dfea86e286aaa03c6277b1f41025ac3edc11eb0349",
@@ -48,6 +55,12 @@
       "path": "hypercore_1270.elf",
       "size_bytes": 1783568,
       "sha256": "07b8f1db78955332299873feaaa1c751b6b4af71cbb0b104bbc07442fb92cd2e",
+      "executable": false
+    },
+    {
+      "path": "hypercore_13xx_v092.elf",
+      "size_bytes": 1802224,
+      "sha256": "31ecd6cbb47b80d9e1ab26dc85b0f77f53ec84a15625bce8efefb099f2722d85",
       "executable": false
     },
     {
@@ -63,9 +76,9 @@
       "executable": false
     },
     {
-      "path": "hyperdeck.elf",
-      "size_bytes": 14453176,
-      "sha256": "6bf34152588bdc2052df8475dfa6a07005927b5810828f668e8a6eb20faccc6a",
+      "path": "hyperdeck-websrv.elf",
+      "size_bytes": 14502320,
+      "sha256": "49064708a97a38da2fb60cf4a2dfe44fec566e73fa47605ad1b98da03d4b7822",
       "executable": false
     },
     {
@@ -83,7 +96,7 @@
     {
       "path": "hyperhen_elfldr_inner.elf",
       "size_bytes": 148992,
-      "sha256": "cd807e8a24c1b592c4a2ee36eb634342d18ffe8964116a364c4261ea111c8660",
+      "sha256": "fcee0286600a33b53c35a546604ce564501cb762f386e2ebcd35590e79fb94fd",
       "executable": false
     },
     {
@@ -168,6 +181,12 @@
       "path": "ps5-fw-spoof.elf",
       "size_bytes": 115296,
       "sha256": "f1754521caa92a6a1ac313a1b6c969ec49d67750e290ba99870958290a0961f0",
+      "executable": false
+    },
+    {
+      "path": "shellui.elf",
+      "size_bytes": 3249152,
+      "sha256": "d20019b0f54562ea6700a3a8edfa90e70bc07ca13c161d3bc55a3fa2f9779fff",
       "executable": false
     },
     {

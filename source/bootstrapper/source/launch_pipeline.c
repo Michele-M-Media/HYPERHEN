@@ -4,6 +4,7 @@
 
 #include "bootstrap_notify.h"
 #include "kstuff_probe.h"
+#include "hypercore_13xx_rollback.h"
 #include "automount_preflight.h"
 #include "automount_route_proof.h"
 
@@ -37,6 +38,8 @@ extern uint8_t hyperhen_elfldr_start[];
 extern const unsigned int hyperhen_elfldr_size;
 extern uint8_t kstuff_start[];
 extern const unsigned int kstuff_size;
+extern uint8_t kstuff_13xx_v092_start[];
+extern const unsigned int kstuff_13xx_v092_size;
 extern uint8_t kstuff_lite_start[];
 extern const unsigned int kstuff_lite_size;
 extern uint8_t kstuff_940_start[];
@@ -1136,12 +1139,17 @@ static bool launch_hypercore(LaunchContext *context,
                            : (dedicated_1270
                                   ? kstuff_1270_start
                                   : (lite ? kstuff_lite_start : kstuff_start));
-  const size_t size = dedicated_940
+  size_t size = dedicated_940
                           ? (size_t)kstuff_940_size
                           : (dedicated_1270
                                  ? (size_t)kstuff_1270_size
                                  : (lite ? (size_t)kstuff_lite_size
                                          : (size_t)kstuff_size));
+  if (hypercore_13xx_uses_public_v092(firmware_version)) {
+    elf = kstuff_13xx_v092_start;
+    size = (size_t)kstuff_13xx_v092_size;
+    LOG_INFO("R38 / R37 Hyper retained: selecting public v0.9.2 HyperCore on 13.xx; Automount beta9 retained");
+  }
   const bool sent = launch_blob(context, elf, size,
                                 lite ? "HyperCore lite"
                                      : (dedicated_940 ? "HyperCore 9.40"

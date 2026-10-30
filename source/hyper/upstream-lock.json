@@ -1,0 +1,26 @@
+[
+  {
+    "name": "llama",
+    "repository": "ggml-org/llama.cpp",
+    "revision": "8642541b255bfb5dc39cd351a178be09013a55d6",
+    "url": "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/8642541b255bfb5dc39cd351a178be09013a55d6",
+    "archive_sha256": "1688a167a8edd9499cdd0c19b8bd044f0fa184b466981977bbf2222d884953a4",
+    "archive_bytes": 38685236
+  },
+  {
+    "name": "whisper",
+    "repository": "ggml-org/whisper.cpp",
+    "revision": "284029c07012d2000941a08d38a31ffb71f4734e",
+    "url": "https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/284029c07012d2000941a08d38a31ffb71f4734e",
+    "archive_sha256": "dc8707c4b0dc770a8779e668c6ef8f342543b1dc41b51675139bb57b106de8f6",
+    "archive_bytes": 9717546
+  },
+  {
+    "name": "espeak",
+    "repository": "espeak-ng/espeak-ng",
+    "revision": "ba90c8e9f440ad544f674a790bb5f53878b6ffc5",
+    "url": "https://codeload.github.com/espeak-ng/espeak-ng/tar.gz/ba90c8e9f440ad544f674a790bb5f53878b6ffc5",
+    "archive_sha256": "1d5bd9d3325a0a1164d145a88d497e2047f3b7e9d1491eebdf8a732463fe478f",
+    "archive_bytes": 20562351
+  }
+]

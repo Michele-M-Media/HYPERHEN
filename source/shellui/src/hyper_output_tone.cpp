@@ -1,10 +1,10 @@
 #include "hyper_output_tone.hpp"
+#include "hyper_audio_module.hpp"
 
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <dlfcn.h>
 #include <new>
 #include <sys/mman.h>
 #include <time.h>
@@ -98,17 +98,16 @@ uint64_t monotonic_ms() {
 }
 
 template <typename Function>
-Function resolve(void *module, const char *name) {
+Function resolve(uint32_t module, const char *name) {
   static_assert(sizeof(Function) == sizeof(void *));
   Function function = nullptr;
-  void *symbol = dlsym(module, name);
+  void *symbol = hyper_audio_module_symbol(module, name);
   if (symbol) std::memcpy(&function, &symbol, sizeof(function));
   return function;
 }
 
 struct RetainedResources {
   bool restart_required = false;
-  void *module = nullptr;
   void *context_memory = nullptr;
   size_t context_bytes = 0;
   WaveStorage *wave = nullptr;
@@ -122,7 +121,7 @@ struct Session {
   int user;
   bool (*active)(int);
   uint64_t started = UINT64_MAX;
-  void *module = nullptr;
+  uint32_t module = 0;
   void *context_memory = nullptr;
   size_t context_bytes = 0;
   WaveStorage *wave = nullptr;
@@ -228,8 +227,12 @@ struct Session {
   int prepare() {
     int result = guard();
     if (result < 0) return result;
-    module = dlopen("libSceAudioOut.sprx", RTLD_LAZY | RTLD_LOCAL);
-    if (!module) return -ENOSYS;
+    result = hyper_audio_module_handle("libSceAudioOut.sprx", &module);
+    if (result != 0) {
+      LOG_WARN("Hyper P12 OUT2 resident module unavailable code=0x%08x",
+               static_cast<unsigned>(result));
+      return result;
+    }
     initialize = resolve<initialize_fn>(module, "sceAudioOut2Initialize");
     reset = resolve<reset_fn>(module, "sceAudioOut2ContextResetParam");
     query = resolve<query_fn>(module, "sceAudioOut2ContextQueryMemory");
@@ -294,7 +297,7 @@ struct Session {
     result = create_user(static_cast<uint32_t>(user), &user_handle);
     LOG_INFO("Hyper P12 OUT2 user create code=0x%08x handle=0x%016llx",
              static_cast<unsigned>(result), static_cast<unsigned long long>(user_handle));
-    user_created = result >= 0 && user_handle != 0;
+    user_created = user_handle != 0;
     if (result < 0) return result;
     if (!user_handle) return -EIO;
     if ((result = guard()) < 0) return result;
@@ -352,7 +355,7 @@ struct Session {
   }
 
   bool retain(const char *reason) {
-    retained = {true, module, context_memory, context_bytes, wave,
+    retained = {true, context_memory, context_bytes, wave,
                 context, port, user_handle};
     LOG_WARN("Hyper P12 OUT2 cleanup retained reason=%s; reboot required", reason);
     return false;
@@ -390,10 +393,8 @@ struct Session {
       user_created = false;
       user_handle = 0;
     }
-    if (module) {
-      if (dlclose(module) != 0) return retain("module release");
-      module = nullptr;
-    }
+    // AudioOut is borrowed from ShellUI. Release only our owned audio resources;
+    // unloading a process-resident system library is never part of this session.
     return true;
   }
 };

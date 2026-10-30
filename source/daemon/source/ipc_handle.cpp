@@ -8,6 +8,11 @@
 #include <onion/settings.hpp>
 #include "onion_cjson.hpp"
 #include "globalconf.hpp"
+#include "hyper_runtime.hpp"
+#if defined(HYPERHEN_INTEGRATED_HYPER)
+#include "hyper_installer.hpp"
+#include "hyper_model_request.hpp"
+#endif
 #include "plugin_manager_runtime.hpp"
 #include "sprx_plugin_manager_runtime.hpp"
 #include <msg.hpp>
@@ -32,6 +37,10 @@ uint64_t calculateTotalSize(const char *path);
 extern "C" int unmount(const char *path, int flags);
 
 namespace {
+
+#if defined(HYPERHEN_INTEGRATED_HYPER)
+const char *const kHyperRejected = "{\"state\":\"error\",\"progress\":0,\"received\":0,\"total\":0,\"error_code\":-7,\"model_id\":-1}";
+#endif
 
 std::string plugin_inventory_page(size_t offset) {
   constexpr size_t kPageSize = 8;
@@ -133,6 +142,42 @@ void handleIPC(clientArgs *client, std::string &inputStr,
   }
 
   switch (command) {
+#if defined(HYPERHEN_INTEGRATED_HYPER)
+  // Retain the established Hyper command IDs while serving them from the
+  // main daemon; the stable Utilities payload keeps its released interface.
+  case BREW_UTIL_HYPER_INSTALL:
+  case BREW_UTIL_HYPER_MODEL_DOWNLOAD: {
+    int model_id;
+    if (!onion::hyper::parse_model_request(
+            my_json.get(), command == BREW_UTIL_HYPER_MODEL_DOWNLOAD, &model_id)) {
+      reply(sender_app, true, kHyperRejected);
+      return;
+    }
+    (void)onion::hyper::start_install(model_id);
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+  }
+  case BREW_UTIL_HYPER_CATALOG_STATUS:
+    reply(sender_app, false, onion::hyper::catalog_status_json());
+    return;
+  case BREW_UTIL_HYPER_INSTALL_STATUS:
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+  case BREW_UTIL_HYPER_VERIFY_EXISTING: {
+    int model_id;
+    if (!onion::hyper::parse_model_request(my_json.get(), false, &model_id)) {
+      reply(sender_app, true, kHyperRejected);
+      return;
+    }
+    (void)onion::hyper::start_verify_existing(model_id);
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+  }
+  case BREW_UTIL_HYPER_INSTALL_CANCEL:
+    (void)onion::hyper::cancel_install();
+    reply(sender_app, false, onion::hyper::install_status_json());
+    return;
+#endif
   case BREW_TEST_CONNECTION: {
     reply(sender_app, false, out_var);
     break;
@@ -408,12 +453,7 @@ void handleIPC(clientArgs *client, std::string &inputStr,
     if (!enabled) {
       onion_notify(true, "notify.fan.disabled");
       restore_automatic_fan();
-      const onion::Settings saved = g_settings.update([](onion::Settings &s) {
-        s.enable_fan_speed = false;
-      });
-      if (onion::settings_save(saved)) {
-        SettingsNoteDiskWritten();
-      } else {
+      if (!SettingsSetFanControl(false, speed)) {
         LOG_ERROR("Fan disable: failed to persist settings");
       }
       reply(sender_app, false);
@@ -422,14 +462,8 @@ void handleIPC(clientArgs *client, std::string &inputStr,
 
     if (set_fan_threshold(speed)) {
       onion_notify(true, "notify.fan.adjusted", speed);
-      const onion::Settings saved = g_settings.update([speed](onion::Settings &s) {
-        s.enable_fan_speed = true;
-        s.fan_threshold = speed;
-      });
-      if (onion::settings_save(saved)) {
-        SettingsNoteDiskWritten();
-      } else {
-        LOG_ERROR("Fan enable: memory updated but disk twin save failed");
+      if (!SettingsSetFanControl(true, speed)) {
+        LOG_ERROR("Fan enable: failed to persist settings");
       }
       reply(sender_app, false);
     } else {
@@ -467,10 +501,14 @@ void handleIPC(clientArgs *client, std::string &inputStr,
     reply(sender_app, false);
     break;
   }
+  case BREW_HYPER_STATUS: {
+    reply(sender_app, false, onion::daemon::hyper::status_json());
+    break;
+  }
   case BREW_RELOAD_SETTINGS: {
-    LoadSettings(/*force=*/true);
-    onion_notify(true, "notify.settings.reloaded");
-    reply(sender_app, false);
+    const bool loaded = LoadSettings(/*force=*/true);
+    if (loaded) onion_notify(true, "notify.settings.reloaded");
+    reply(sender_app, !loaded);
     break;
   }
   case BREW_CHMOD_DIR: {

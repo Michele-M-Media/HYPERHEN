@@ -73,6 +73,12 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 	CURL_STATICLIB
 	ONION_CURL_CA_BUNDLE="${ONION_CURL_CA_BUNDLE}"
 )
+if(HYPERHEN_INTEGRATED_HYPER)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    HYPERHEN_INTEGRATED_HYPER=1 HYPER_VOICES_ZIP="${HYPER_VOICES_ZIP}")
+  set_source_files_properties("${D_SRC}/hyper_installer.cpp"
+    PROPERTIES OBJECT_DEPENDS "${HYPER_VOICES_ZIP}")
+endif()
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
 	"${ONION_CURL_ROOT}/include")
 # The CA bundle is embedded with .incbin, which is invisible to the compiler's
@@ -124,6 +130,10 @@ set_source_files_properties(
 set_source_files_properties(
   ${D_SRC}/cheats/sync/zip_archive.cpp
   PROPERTIES COMPILE_FLAGS "-Wno-error -Wno-unused-function -Wno-sign-compare -Wno-unused-parameter"
+)
+set_source_files_properties(
+  ${D_SRC}/hyper_installer_engine.cpp
+  PROPERTIES COMPILE_FLAGS "-Wno-unused-function -Wno-sign-compare -Wno-unused-parameter"
 )
 file(GLOB CHEAT_ENGINE_SRCS CONFIGURE_DEPENDS ${D_SRC}/cheats/*.c)
 set_source_files_properties(${CHEAT_ENGINE_SRCS} PROPERTIES

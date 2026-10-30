@@ -40,6 +40,8 @@
 #include "debug_tools.hpp"
 
 #include <onion/payload_identity.h>
+#include <onion/hyper_model_catalog.hpp>
+#include <onion/hyper_voice_catalog.hpp>
 
 void escapeXML(std::string& input);
 bool Get_Running_App_TID(std::string& title_id, int& BigAppid);
@@ -880,6 +882,66 @@ void append_toolbox_preferences_group(ps5ui::Group& g) {
             toolbox_val("id_cheats_mirror"));
 }
 
+void append_toolbox_hyper_group(ps5ui::Group& h) {
+  // The catalog is ordered by parameter count, then Q4/Q5 precision.
+  // Building this page performs no IPC, model reads or hash validation.
+  const auto models = [](ps5ui::ListBuilder& L, const char* prefix) {
+    for (const auto& model : onion::hyper::kModelCatalog) {
+      char size[32] {};
+      if (model.size_bytes >= 1024ull * 1024 * 1024)
+        std::snprintf(size, sizeof(size), "%.2f GiB",
+                      static_cast<double>(model.size_bytes) / (1024 * 1024 * 1024));
+      else
+        std::snprintf(size, sizeof(size), "%.0f MiB",
+                      static_cast<double>(model.size_bytes) / (1024 * 1024));
+      std::string title = std::string(model.label) + " · " + size;
+      if (model.experimental)
+        title += std::string(" · ") + toolbox_i18n::tr("hyper.model.experimental");
+      L.item(std::string(prefix) + std::to_string(model.id), title,
+             std::to_string(model.id));
+    }
+  };
+  h.toggle("id_hyper_assistant_enabled",
+           toolbox_i18n::tr("hyper.enabled"),
+           toolbox_on("id_hyper_assistant_enabled"),
+           toolbox_i18n::tr("hyper.enabled.sub"))
+      .list("id_hyper_assistant_download_model",
+            toolbox_i18n::tr("hyper.model.download_choice"),
+            [&](ps5ui::ListBuilder& L) { models(L, "id_hyper_download_model_"); },
+            toolbox_i18n::tr("hyper.model.download_choice.sub"),
+            toolbox_val("id_hyper_assistant_download_model", "0"))
+      .button("id_hyper_assistant_download",
+              toolbox_i18n::tr("hyper.model.download_selected"),
+              toolbox_i18n::tr("hyper.model.download_selected.sub"))
+      .list("id_hyper_assistant_model",
+            toolbox_i18n::tr("hyper.model.active"),
+            [&](ps5ui::ListBuilder& L) { models(L, "id_hyper_active_model_"); },
+            toolbox_i18n::tr("hyper.model.active.sub"),
+            toolbox_val("id_hyper_assistant_model", "0"))
+      .list("id_hyper_assistant_voice", toolbox_i18n::tr("hyper.voice"),
+            [](ps5ui::ListBuilder& L) {
+              for (const auto& voice : onion::hyper::kVoiceCatalog) {
+                const std::string title = voice.id == 0
+                    ? toolbox_i18n::tr("hyper.voice.auto") : voice.name;
+                L.item("id_hyper_voice_" + std::to_string(voice.id), title,
+                       std::to_string(voice.id));
+              }
+            },
+            toolbox_i18n::tr("hyper.voice.sub"),
+            toolbox_val("id_hyper_assistant_voice", "0"))
+      .button("id_hyper_assistant_models",
+              toolbox_i18n::tr("hyper.models.download"),
+              toolbox_i18n::tr("hyper.models.download.sub"))
+      .button("id_hyper_assistant_cancel",
+              toolbox_i18n::tr("hyper.models.cancel"),
+              toolbox_i18n::tr("hyper.models.cancel.sub"))
+      .button("id_hyper_assistant_status",
+              toolbox_i18n::tr("hyper.status"),
+              toolbox_i18n::tr("hyper.status.sub"))
+      .label("id_hyper_assistant_shortcut",
+             toolbox_i18n::tr("hyper.shortcut"));
+}
+
 void append_toolbox_debug_group(ps5ui::Group& g) {
   g.label("id_debug_services_header", toolbox_i18n::tr("debug.services"),
           ps5ui::Style::Center);
@@ -1036,6 +1098,11 @@ void generate_toolbox_xml(std::string& new_xml) {
           [](ps5ui::Group& g) { append_toolbox_pkg_group(g); },
           toolbox_i18n::tr("group.pkg.sub"), kIconPkg,
           "id_game_package_installer")
+      .group(
+          "id_hyper_assistant", toolbox_i18n::tr("hyper.title"),
+          [](ps5ui::Group& g) { append_toolbox_hyper_group(g); },
+          toolbox_i18n::tr("hyper.sub"), kIconDebug,
+          "id_hyper_assistant_enabled")
       .group(
           "id_group_payloads", toolbox_i18n::tr("group.payloads"),
           [](ps5ui::Group& g) { append_toolbox_payloads_group(g); },

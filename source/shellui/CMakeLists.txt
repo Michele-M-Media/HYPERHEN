@@ -15,6 +15,8 @@ if(NOT EXISTS "${_shellui_hype_voice_pcm}")
 endif()
 
 add_executable(${PROJECT_NAME})
+# ShellUI resolves this API through its resident function-pointer table.
+target_compile_definitions(${PROJECT_NAME} PRIVATE HYPER_LOCALE_SHELLUI=1)
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PROJECT_NAME}.elf")
 
 # Finalize main target sources

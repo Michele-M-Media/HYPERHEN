@@ -49,6 +49,7 @@ third_party/kstuff-a53/ps5-kstuff/isa-l_crypto/bin/
 
 # Frozen binary inputs are distributed as checksum-pinned release assets.
 /build-release/
+/build-hyper-worker/
 /release-components/*
 !/release-components/SHA256SUMS
 !/release-components/MANIFEST.json

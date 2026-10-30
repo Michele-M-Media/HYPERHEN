@@ -88,5 +88,5 @@ public_docs = [readme.parent / name for name in
 public_docs.extend((readme.parent / "docs").rglob("*.md"))
 for path in public_docs:
     if path.exists():
-        assert not re.search(r"\bHyper\b|HyperShell|HyperAI", path.read_text(encoding="utf-8")), f"Unwanted project description in {path}"
+        assert not re.search(r"HyperShell|HyperAI", path.read_text(encoding="utf-8")), f"Unwanted project description in {path}"
 print("Firmware documentation: all 67 exact source routes, selector availability, five limited profiles and public-description naming PASS")

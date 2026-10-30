@@ -76,6 +76,17 @@ enum DaemonCommands : unsigned int {
   // needing a SystemService query (util is under PTRACE_AUTHID after launch).
   BREW_UTIL_SET_SYSTEM_LANG = 0x8000019u,
 
+  // Hyper assistant: asynchronous installation in the daemon's Hyper service.
+  // Keep the existing explicit command IDs; the stable util is left unchanged.
+  // No caller-supplied URLs or filesystem paths cross this interface.
+  BREW_UTIL_HYPER_INSTALL = 0x8000120u,
+  BREW_UTIL_HYPER_INSTALL_STATUS = 0x8000121u,
+  BREW_UTIL_HYPER_INSTALL_CANCEL = 0x8000122u,
+  // Adopt already-copied R33 assets with full hashes and zero network I/O.
+  BREW_UTIL_HYPER_VERIFY_EXISTING = 0x8000123u,
+  BREW_UTIL_HYPER_MODEL_DOWNLOAD = 0x8000124u,
+  BREW_UTIL_HYPER_CATALOG_STATUS = 0x8000125u,
+
   // Crit daemon plugin management. Payloads contain only validated plugin IDs;
   // filesystem paths never cross the IPC boundary.
   BREW_PLUGIN_LIST = 0x9000100u,
@@ -90,6 +101,9 @@ enum DaemonCommands : unsigned int {
   BREW_SPRX_LIST = 0x9000110u,
   BREW_SPRX_SET_ENABLED = 0x9000111u,
   BREW_SPRX_DELETE = 0x9000112u,
+
+  // Cached assistant lifecycle status, independent of model inference.
+  BREW_HYPER_STATUS = 0x9000120u,
 
   // Legacy: manual elfldr launch removed (embedded 9020 is bootstrapper-managed)
   BREW_UTIL_LAUNCH_ELFLDR = 0xE1F1D8u,

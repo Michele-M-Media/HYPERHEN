@@ -7,7 +7,11 @@
 #include "hyper_audio_echo.hpp"
 #include "hyper_output_route_probe.hpp"
 #include "hyper_output_tone.hpp"
+#include "hyper_voice_echo_p13.hpp"
+#include "hyper_voice_assistant_p14.hpp"
+#include "hyper_voice_wire.h"
 #include "hyper_input_mailbox.hpp"
+#include "hyper_voice_session_policy.hpp"
 
 #include <atomic>
 #include <cerrno>
@@ -24,6 +28,7 @@
 #include <unistd.h>
 
 #include <onion/log.h>
+#include <onion/hyper_lifecycle.hpp>
 
 namespace {
 std::atomic<int> socket_fd{-1};
@@ -31,6 +36,7 @@ std::atomic<bool> reported_error{false};
 std::atomic<bool> audio_listener_started{false};
 std::atomic<bool> input_worker_started{false};
 std::atomic<bool> input_worker_active{false};
+std::atomic<bool> assistant_enabled{true};
 HyperInputMailbox input_mailbox;
 std::atomic<bool> mic_probe_attempted{false};
 pthread_mutex_t input_state_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -39,6 +45,7 @@ uint64_t observed_ms = 0;
 uint32_t observed_buttons = 0x80000000u;
 uint64_t monitor_start_generation = 0;
 bool monitor_latch_active = false;
+std::atomic<bool> session_guard_reported{false};
 HyperVoiceConsent voice_consent;
 uint64_t consent_observed_generation = 0;
 uint64_t voice_consent_generation = 0;
@@ -76,23 +83,64 @@ void observe_input_state(const hyper_p5_input_frame &frame) {
   (void)pthread_mutex_unlock(&input_state_mutex);
 }
 
-bool monitor_session_active(int user) {
-  if (!input_worker_active.load(std::memory_order_acquire)) return false;
+void report_session_guard(HyperVoiceGuardReason reason, uint64_t age,
+                          uint64_t generation, uint64_t expected, bool processing) {
+  if (reason == HyperVoiceGuardReason::active ||
+      session_guard_reported.exchange(true, std::memory_order_acq_rel)) return;
+  LOG_INFO("Hyper R44 session_cancel reason=%u age_ms=%llu generation=%llu expected=%llu processing=%u",
+      static_cast<unsigned>(reason), static_cast<unsigned long long>(age),
+      static_cast<unsigned long long>(generation), static_cast<unsigned long long>(expected),
+      processing ? 1u : 0u);
+}
+
+bool monitor_session_valid(int user, uint64_t max_age, bool report) {
+  auto reject = [&](HyperVoiceGuardReason reason) {
+    if (report) report_session_guard(reason, UINT64_MAX, 0, 0,
+                                     max_age == kHyperVoiceProcessingFreshMs);
+    return false;
+  };
+  if (!assistant_enabled.load(std::memory_order_acquire) ||
+      access(onion::hyper::kDisabledMarker, F_OK) == 0)
+    return reject(HyperVoiceGuardReason::disabled);
+  if (!input_worker_active.load(std::memory_order_acquire))
+    return reject(HyperVoiceGuardReason::provider);
   int foreground = -1;
   if (sceUserServiceGetForegroundUser(&foreground) < 0 || foreground != user)
-    return false;
+    return reject(HyperVoiceGuardReason::foreground);
+  if (pthread_mutex_lock(&input_state_mutex) != 0)
+    return reject(HyperVoiceGuardReason::clock_or_lock);
+  // Read time after acquiring the snapshot lock: an observer may publish a
+  // newer timestamp while this thread waits for the mutex.
   const uint64_t now = monotonic_ms();
-  if (now == UINT64_MAX || pthread_mutex_lock(&input_state_mutex) != 0)
-    return false;
-  const bool active = observed_sequence != 0 && now >= observed_ms &&
-      now - observed_ms < 350u &&
-      (observed_buttons & (0x2000u | 0x80000000u)) == 0 &&
-      input_mailbox.cancellation() == consent_observed_generation &&
-      (!monitor_latch_active ||
-       input_mailbox.cancellation() ==
-           monitor_start_generation);
+  if (now == UINT64_MAX) {
+    (void)pthread_mutex_unlock(&input_state_mutex);
+    return reject(HyperVoiceGuardReason::clock_or_lock);
+  }
+  const HyperVoiceSessionInput input{now, observed_ms, observed_sequence,
+      observed_buttons, input_mailbox.cancellation(), consent_observed_generation,
+      monitor_start_generation, monitor_latch_active};
+  const auto reason = hyper_voice_session_reason(input, max_age);
   (void)pthread_mutex_unlock(&input_state_mutex);
-  return active;
+  if (report && reason != HyperVoiceGuardReason::active)
+    report_session_guard(reason, now >= input.observed_ms ? now - input.observed_ms : UINT64_MAX,
+        input.cancellation, input.start_generation, max_age == kHyperVoiceProcessingFreshMs);
+  return reason == HyperVoiceGuardReason::active;
+}
+
+bool monitor_session_active(int user) {
+  return monitor_session_valid(user, kHyperVoiceInputFreshMs, true);
+}
+bool monitor_processing_active(int user) {
+  return monitor_session_valid(user, kHyperVoiceProcessingFreshMs, true);
+}
+bool monitor_fresh_input(int user) {
+  return monitor_session_valid(user, kHyperVoiceInputFreshMs, false);
+}
+bool monitor_notice_allowed(int user) {
+  int foreground = -1;
+  if (sceUserServiceGetForegroundUser(&foreground) < 0) return false;
+  return hyper_voice_terminal_notice_allowed(assistant_enabled.load(std::memory_order_acquire),
+      access(onion::hyper::kDisabledMarker, F_OK) == 0, user, foreground);
 }
 
 bool monitor_request_is_fresh(uint64_t sequence) {
@@ -107,20 +155,25 @@ bool begin_monitor_session() {
   if (pthread_mutex_lock(&input_state_mutex) != 0) return false;
   monitor_start_generation = input_mailbox.cancellation();
   monitor_latch_active = true;
+  session_guard_reported.store(false, std::memory_order_release);
   (void)pthread_mutex_unlock(&input_state_mutex);
   return true;
 }
 
 bool begin_voice_session(int user, uint64_t sequence) {
+  if (pthread_mutex_lock(&input_state_mutex) != 0) return false;
   const uint64_t now = monotonic_ms();
-  if (now == UINT64_MAX || pthread_mutex_lock(&input_state_mutex) != 0)
+  if (now == UINT64_MAX) {
+    (void)pthread_mutex_unlock(&input_state_mutex);
     return false;
+  }
   const uint64_t generation = input_mailbox.cancellation();
   const bool gesture = voice_consent.consume(user, sequence, now);
   const bool allowed = gesture && generation == voice_consent_generation;
   if (allowed) {
     monitor_start_generation = generation;
     monitor_latch_active = true;
+    session_guard_reported.store(false, std::memory_order_release);
   }
   (void)pthread_mutex_unlock(&input_state_mutex);
   return allowed;
@@ -189,7 +242,8 @@ void probe_shellui_input(int user) {
 
 bool audio_sender_is_trusted(const msghdr &message,
                              const hyper_p5_audio_command &command) {
-  if (!input_worker_active.load(std::memory_order_acquire) ||
+  if (!assistant_enabled.load(std::memory_order_acquire) ||
+      !input_worker_active.load(std::memory_order_acquire) ||
       message.msg_flags & (MSG_CTRUNC | MSG_TRUNC) || !sceKernelGetProcessName ||
       command.magic != HYPER_P5_AUDIO_MAGIC ||
       command.version != HYPER_P5_AUDIO_VERSION ||
@@ -198,7 +252,9 @@ bool audio_sender_is_trusted(const msghdr &message,
        command.action != HYPER_P5_AUDIO_MONITOR_MUTE &&
        command.action != HYPER_P5_AUDIO_CAPTURE_ECHO &&
        command.action != HYPER_P5_AUDIO_PROBE_ROUTE &&
-       command.action != HYPER_P5_AUDIO_PLAY_TONES) ||
+       command.action != HYPER_P5_AUDIO_PLAY_TONES &&
+       command.action != HYPER_P13_AUDIO_CAPTURE_ECHO &&
+       command.action != HYPER_P14_AUDIO_REQUEST) ||
       command.user <= 0 || command.sequence == 0)
     return false;
   int foreground = -1;
@@ -268,7 +324,7 @@ void *audio_listener(void *) {
     (void)unlink(HYPER_P5_AUDIO_SOCKET);
     return nullptr;
   }
-  LOG_INFO("Hyper P12 ShellUI audio listener ready (dedicated output tone test available)");
+  LOG_INFO("Hyper P14 ShellUI audio listener ready (local assistant bridge)");
   while (input_worker_active.load(std::memory_order_acquire)) {
     hyper_p5_audio_command command{};
     iovec payload{&command, sizeof(command)};
@@ -308,19 +364,30 @@ void *audio_listener(void *) {
     const bool voice_request = command.action == HYPER_P5_AUDIO_CAPTURE_ECHO;
     const bool route_request = command.action == HYPER_P5_AUDIO_PROBE_ROUTE;
     const bool tone_request = command.action == HYPER_P5_AUDIO_PLAY_TONES;
-    const bool local_gesture_request = voice_request || route_request || tone_request;
+    const bool p13_request = command.action == HYPER_P13_AUDIO_CAPTURE_ECHO;
+    const bool assistant_request = command.action == HYPER_P14_AUDIO_REQUEST;
+    const bool local_gesture_request = voice_request || route_request || tone_request || p13_request || assistant_request;
     if (local_gesture_request && !begin_voice_session(command.user, command.sequence)) {
       LOG_WARN("Hyper P12 ShellUI request rejected: no fresh local combo consent");
       continue;
     }
     bool expected = false;
-    if (!mic_probe_attempted.compare_exchange_strong(expected, true,
+    if (!assistant_request && !mic_probe_attempted.compare_exchange_strong(expected, true,
                                                      std::memory_order_acq_rel)) {
       if (local_gesture_request) end_monitor_session();
       LOG_WARN("Hyper P8 ShellUI MIC repeated request ignored");
       continue;
     }
-    if (tone_request) {
+    if (assistant_request) {
+      LOG_INFO("Hyper P14 assistant request accepted with fresh local combo");
+      hyper_p14_voice_assistant(command.user, command.sequence, monitor_session_active, send_mic_notice,
+          monitor_processing_active, monitor_fresh_input, monitor_notice_allowed);
+      end_monitor_session();
+    } else if (p13_request) {
+      LOG_INFO("Hyper P13 ShellUI voice request accepted with local combo consent");
+      hyper_p13_voice_echo(command.user, monitor_session_active, send_mic_notice);
+      end_monitor_session();
+    } else if (tone_request) {
       LOG_INFO("Hyper P12 ShellUI tone request accepted with local combo consent");
       hyper_p12_output_tone(command.user, monitor_session_active, send_mic_notice);
       end_monitor_session();
@@ -450,9 +517,10 @@ void *input_worker(void *) {
   bool active = false;
   unsigned presence_polls = 0;
   for (;;) {
-    if (!active || presence_polls++ >= 125) {
+    const bool allowed = assistant_enabled.load(std::memory_order_acquire);
+    if (!allowed || !active || presence_polls++ >= 125) {
       presence_polls = 0;
-      const bool present = worker_socket_present();
+      const bool present = allowed && worker_socket_present();
       if (present != active) {
         input_worker_active.store(false, std::memory_order_release);
         cancel_input_session();
@@ -491,6 +559,11 @@ void *input_worker(void *) {
   }
 }
 } // namespace
+
+void hyper_p5_bridge_set_enabled(bool value) {
+  assistant_enabled.store(value, std::memory_order_release);
+  if (!value) cancel_input_session();
+}
 
 void hyper_p5_bridge_observe(int device_index, bool skipped, uint32_t buttons) {
   if (device_index != 0) return;

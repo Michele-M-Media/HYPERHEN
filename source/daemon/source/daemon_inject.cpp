@@ -6,6 +6,7 @@
 #include "daemon_ops.hpp"
 #include "daemon_power_state.hpp"
 #include "globalconf.hpp"
+#include "hyper_runtime.hpp"
 #include "toolbox_injection.hpp"
 #include "toolbox_webkit_gate.hpp"
 #include "toolbox_webkit_snapshot.hpp"
@@ -399,6 +400,7 @@ bool toolbox_inject_immediate(pid_t expected_pid = 0) {
     toolbox_remember_pid(observed_pid);
     toolbox_notify_outcome({onion::ToolboxInjectionResult::AlreadyReady,
                             observed_pid});
+    onion::daemon::hyper::toolbox_ready(observed_pid);
     return true;
   }
 
@@ -417,6 +419,7 @@ bool toolbox_inject_immediate(pid_t expected_pid = 0) {
     toolbox_remember_pid(target_pid);
     toolbox_notify_outcome({onion::ToolboxInjectionResult::AlreadyReady,
                             target_pid});
+    onion::daemon::hyper::toolbox_ready(target_pid);
     return true;
   }
   const uint32_t generation = g_rest_gen.load(std::memory_order_acquire);
@@ -436,6 +439,7 @@ bool toolbox_inject_immediate(pid_t expected_pid = 0) {
 
   toolbox_remember_pid(outcome.pid);
   toolbox_notify_outcome(outcome);
+  if (outcome.ready()) onion::daemon::hyper::toolbox_ready(outcome.pid);
   return outcome.ready();
 }
 
@@ -540,6 +544,7 @@ void start_rest_inject(pid_t exec_pid) {
 } // namespace
 
 void toolbox_on_new_shellui(pid_t pid) {
+  onion::daemon::hyper::toolbox_lost();
   /* NOTE_EXEC denotes a new image, even when the kernel reuses the PID. */
   onion_ready_clear(ONION_READY_TOOLBOX);
   if (daemon_power_state_is_sleeping()) {
@@ -563,6 +568,7 @@ void toolbox_on_resume() {
   }
   if (toolbox_already_ready(pid)) {
     toolbox_remember_pid(pid);
+    onion::daemon::hyper::toolbox_ready(pid);
     LOG_DEBUG("rest: resume compensation sees ready toolbox pid=%d",
               static_cast<int>(pid));
     return;

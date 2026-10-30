@@ -38,8 +38,16 @@ new embedded component slots relative to the trusted prior layout;
 
 ## Binary-reference audit
 
-The user-supplied `byepervisor_reborn.elf` was inspected as a reference only;
-it is not embedded or shipped by HyperHEN.
+The user-supplied `byepervisor_reborn.elf` was originally inspected as a
+binary reference and is not the HyperHEN-adapted payload embedded in the
+bootstrapper. Starting with v0.9.4, an unchanged copy is also distributed as
+the separate release attachment `Byepervisor-Reborn.elf` for the manual
+WebKit -> Bypervisor -> Rest Mode -> resume -> WebKit -> HyperHEN procedure.
+The separate file retains its upstream identity and attribution to
+[PS5Dev / Byepervisor Reborn](https://github.com/PS5Dev/Byepervisor-Reborn)
+and its contributors. Renaming the attachment does not change its bytes.
+The hash and 13.xx offset-map evidence below identify that exact original;
+it must not be confused with the dedicated 12.70 or AUTO 9.40 attachments.
 
 - ELF SHA-256:
   `a8fa2970f55cd29454211f618aa3145341da7959b4d15a60b8f665cd4a8b112d`
