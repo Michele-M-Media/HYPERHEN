@@ -144,9 +144,9 @@ HyperHEN 不内置内核漏洞。第一次引导仍需要外部 **9021** 上的 
 
 | 固件 | 独立 ELF |
 | --- | --- |
-| 13.00、13.20、13.60 | [Byepervisor Reborn](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn.elf) |
-| 12.70 | [Byepervisor Reborn 12.70](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-12.70.elf) |
-| 9.40 | [Byepervisor Reborn AUTO 9.40](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-AUTO-9.40.elf) |
+| 13.00、13.20、13.60 | [Byepervisor Reborn](https://raw.githubusercontent.com/Michele-M-Media/HYPERHEN/main/downloads/bypervisor/Byepervisor-Reborn.elf) |
+| 12.70 | [Byepervisor Reborn 12.70](https://raw.githubusercontent.com/Michele-M-Media/HYPERHEN/main/downloads/bypervisor/Byepervisor-Reborn-12.70.elf) |
+| 9.40 | [Byepervisor Reborn AUTO 9.40](https://raw.githubusercontent.com/Michele-M-Media/HYPERHEN/main/downloads/bypervisor/Byepervisor-Reborn-AUTO-9.40.elf) |
 
 上述 Bypervisor 固件按以下顺序启动：
 

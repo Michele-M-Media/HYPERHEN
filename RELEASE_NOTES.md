@@ -65,14 +65,11 @@ For **9.40**, **12.70**, **13.00**, **13.20** and **13.60**:
 6. Close WebKit manually and leave it closed while Automount and the Toolbox
    complete startup, including the two-second quiet interval.
 
-Downloads:
+Bypervisor downloads and the full startup procedure are available in the
+[README](https://github.com/Michele-M-Media/HYPERHEN#bypervisor-downloads-and-startup-procedure).
 
-- [Byepervisor Reborn — 13.00 / 13.20 / 13.60](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn.elf)
-- [Byepervisor Reborn — 12.70](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-12.70.elf)
-- [Byepervisor Reborn AUTO — 9.40](https://github.com/Michele-M-Media/HYPERHEN/releases/download/HYPERHEN_V0_9_4/Byepervisor-Reborn-AUTO-9.40.elf)
-
-The 5.xx selector keeps its integrated Bypervisor option; no separate 5.xx ELF
-is added to these release attachments. The 13.40/13.42 lite routes remain separate.
+The 5.xx selector keeps its integrated Bypervisor option; no additional 5.xx
+file is needed. The 13.40/13.42 lite routes remain separate.
 
 ## Thanks
 

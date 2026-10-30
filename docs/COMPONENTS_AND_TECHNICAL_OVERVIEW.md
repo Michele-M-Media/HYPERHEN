@@ -361,11 +361,11 @@ adaptation recipe and scope.
 The 13.60 runtime correction was confirmed on the R42 test build; retaining
 it and passing local checks do not certify every 0.9.4 firmware combination.
 
-### Bypervisor attachments and WebKit handoff
+### Bypervisor downloads and WebKit handoff
 
-The separate release attachments are the original **Byepervisor Reborn** for
+The separate files linked from the README are the original **Byepervisor Reborn** for
 13.00/13.20/13.60, the **12.70** variant, and **AUTO 9.40**. The original
-Reborn attachment is distinct from the adapted component embedded in
+Reborn file is distinct from the adapted component embedded in
 HyperHEN; its provenance is recorded in the
 [vendor lock](../third_party/byepervisor-reborn/HYPERHEN_VENDOR_LOCK.md).
 The download links and exact sequence are in the
@@ -376,5 +376,5 @@ The download links and exact sequence are in the
 After launching HyperHEN in the second WebKit session, close the browser
 manually and allow the existing two-second quiet interval while Automount
 and the Toolbox finish initializing. The 5.xx selector retains its own
-integrated choice; no separate 5.xx attachment is added for this procedure.
+integrated choice; no separate 5.xx download is added for this procedure.
 The 13.40/13.42 lite route remains separate.

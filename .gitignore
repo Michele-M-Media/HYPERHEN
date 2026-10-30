@@ -78,3 +78,8 @@ docs/release*.md
 docs/release*.css
 docs/release*.md
 docs/发行说明*.pdf
+
+# Standalone Bypervisor downloads linked from the README.
+!/downloads/bypervisor/Byepervisor-Reborn.elf
+!/downloads/bypervisor/Byepervisor-Reborn-12.70.elf
+!/downloads/bypervisor/Byepervisor-Reborn-AUTO-9.40.elf
