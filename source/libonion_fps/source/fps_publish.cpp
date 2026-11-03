@@ -68,9 +68,12 @@ void publish(const OnionFpsSample &sample) {
     return;
   const uint32_t seq = g_map->seq;
   __atomic_store_n(&g_map->seq, seq + 1u, __ATOMIC_RELEASE);
+  // Keep the record's stores from being hoisted above the odd marker.
+  __atomic_thread_fence(__ATOMIC_RELEASE);
   OnionFpsSample tmp = sample;
   tmp.magic = ONION_FPS_MAGIC;
-  tmp.seq = seq + 2u;
+  // Stay odd while copying; only the final store below publishes seq + 2.
+  tmp.seq = seq + 1u;
   std::memcpy(static_cast<void *>(g_map), &tmp, sizeof(tmp));
   __atomic_store_n(&g_map->seq, seq + 2u, __ATOMIC_RELEASE);
 }
